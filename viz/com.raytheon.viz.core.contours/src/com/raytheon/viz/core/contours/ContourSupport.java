@@ -133,6 +133,7 @@ import com.vividsolutions.jts.geom.Geometry;
  * Jul 31, 2019  66719    ksunil       Make sure the lat is within the +/-90 range
  * Sep 17, 2019  68196    ksunil       added fixContourWorldPoints
  * Oct 28, 2019  68196    ksunil       code tweak to apply world wrapping correction to streamLines.
+ * Jun 09, 2020  79241    pbutler      Removed unnecessary loop to speed up contour processing/loading 
  * </pre>
  *
  * @author chammack
@@ -1624,9 +1625,9 @@ public class ContourSupport {
         }
 
         float out[] = new float[in.length];
-        for (int i = 0; i < size; i++) {
-            transformToApply.transform(in, 0, out, 0, size);
-        }
+        
+        transformToApply.transform(in, 0, out, 0, size);
+        
         double[][] rval = new double[size][2];
         index = 0;
         for (int i = 0; i < rval.length; i += 1) {
