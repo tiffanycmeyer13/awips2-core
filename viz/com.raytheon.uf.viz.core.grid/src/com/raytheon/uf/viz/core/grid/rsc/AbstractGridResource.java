@@ -31,12 +31,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import javax.measure.Measure;
-import javax.measure.unit.Unit;
-import javax.measure.unit.UnitFormat;
+import javax.measure.IncommensurableException;
+import javax.measure.Quantity;
+import javax.measure.UnconvertibleException;
+import javax.measure.Unit;
 
 import org.geotools.coverage.grid.GridEnvelope2D;
 import org.geotools.coverage.grid.GridGeometry2D;
+import org.locationtech.jts.geom.Coordinate;
 import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
@@ -120,7 +122,10 @@ import com.raytheon.viz.core.contours.ContourRenderable;
 import com.raytheon.viz.core.contours.ContourSupport;
 import com.raytheon.viz.core.contours.rsc.displays.GriddedContourDisplay;
 import com.raytheon.viz.core.contours.rsc.displays.GriddedStreamlineDisplay;
-import com.vividsolutions.jts.geom.Coordinate;
+
+import tec.uom.se.AbstractUnit;
+import tec.uom.se.format.SimpleUnitFormat;
+import tec.uom.se.quantity.Quantities;
 
 /**
  *
@@ -134,41 +139,39 @@ import com.vividsolutions.jts.geom.Coordinate;
  *
  * Date          Ticket#  Engineer  Description
  * ------------- -------- --------- --------------------------------------------
- * Mar 09, 2011  7738     bsteffen  Initial creation
- * May 08, 2013  1980     bsteffen  Set paint status in GridResources for KML.
- * Jul 15, 2013  2107     bsteffen  Fix sampling of grid vector arrows.
- * Aug 27, 2013  2287     randerso  Added new parameters required by
- *                                  GriddedVectorDisplay and GriddedIconDisplay
- * Sep 24, 2013  2404     bclement  colormap params now created using match
- *                                  criteria
- * Sep 23, 2013  2363     bsteffen  Add more vector configuration options.
- * Jan 14, 2014  2594     bsteffen  Switch vector mag/dir to use data source
- *                                  instead of raw float data.
- * Feb 28, 2014  2791     bsteffen  Switch all data to use data source.
- * Aug 21, 2014  17313    jgerth    Implements ImageProvider
- * Oct 07, 2014  3668     bclement  Renamed requestJob to requestRunner
- * Dec 09, 2014  5056     jing      Added data access interfaces
- * May 11, 2015  4384     dgilling  Add arrow style preference for minimum
- *                                  magnitude.
- * May 14, 2015  4079     bsteffen  Move to core.grid, add getDisplayUnit
- * Aug 30, 2016  3240     bsteffen  Implement Interrogatable
- * Apr 26, 2017  6247     bsteffen  Provide getter/setter for style preferences.
- * Nov 28, 2017  5863     bsteffen  Change dataTimes to a NavigableSet
- * Feb 15, 2018  6902     njensen   Added interrogate support for Direction To
- * Mar 21, 0208  7157     njensen   Improved if statement in
- *                                  createColorMapParameters()
- * Apr 04, 2018  6889     njensen   Use brightness from ImagePreferences if
- *                                  present but missing in ImagingCapability
- * Nov 15, 2018  57905    edebebe   Enabled configurable 'Wind Barb' properties
- * Feb 28, 2019  7713     tjensen   Fix wind barb config
- * Jun 27, 2019  65510    ksunil    Support color fill through XML entries,
- *                                  support smoothData
- * Jul 30, 2019  66477    mapeters  Don't set minimumMagnitude based off
- *                                  arrowHeadSizeRatio
- * Aug 29, 2019  67949    tjensen   Refactor to support additional GFE products
- * Dec 02, 2019  71870    tjensen   Make disposeRenderable visible to be
- *                                  overridden
- * Apr 16, 2020  8145     randerso  Updated to allow new sample formatting
+ * Mar 09, 2011  7738     bsteffen    Initial creation
+ * May 08, 2013  1980     bsteffen    Set paint status in GridResources for KML.
+ * Jul 15, 2013  2107     bsteffen    Fix sampling of grid vector arrows.
+ * Aug 27, 2013  2287     randerso    Added new parameters required by
+ *                                    GriddedVectorDisplay and GriddedIconDisplay
+ * Sep 24, 2013  2404     bclement    colormap params now created using match
+ *                                    criteria
+ * Sep 23, 2013  2363     bsteffen    Add more vector configuration options.
+ * Jan 14, 2014  2594     bsteffen    Switch vector mag/dir to use data source
+ *                                    instead of raw float data.
+ * Feb 28, 2014  2791     bsteffen    Switch all data to use data source.
+ * Aug 21, 2014  17313    jgerth      Implements ImageProvider
+ * Oct 07, 2014  3668     bclement    Renamed requestJob to requestRunner
+ * Dec 09, 2014  5056     jing        Added data access interfaces
+ * May 11, 2015  4384     dgilling    Add arrow style preference for minimum
+ *                                    magnitude.
+ * May 14, 2015  4079     bsteffen    Move to core.grid, add getDisplayUnit
+ * Aug 30, 2016  3240     bsteffen    Implement Interrogatable
+ * Apr 26, 2017  6247     bsteffen    Provide getter/setter for style preferences.
+ * Nov 28, 2017  5863     bsteffen    Change dataTimes to a NavigableSet
+ * Feb 15, 2018  6902     njensen     Added interrogate support for Direction To
+ * Mar 21, 2018  7157     njensen     Improved if statement in createColorMapParameters()
+ * Apr 04, 2018  6889     njensen     Use brightness from ImagePreferences if
+ *                                    present but missing in ImagingCapability
+ * Nov 15, 2018  57905    edebebe     Enabled configurable 'Wind Barb' properties
+ * Feb 28, 2019  7713     tjensen     Fix wind barb config
+ * Apr 15, 2019  7596     lsingh      Updated units framework to JSR-363
+ * Jun 27, 2019  65510    ksunil      Support color fill through XML entries, support smoothData
+ * Jul 30, 2019  66477    mapeters    Don't set minimumMagnitude based off arrowHeadSizeRatio
+ * Aug 29, 2019  67949    tjensen     Refactor to support additional GFE products
+ * Nov 11, 2019  7596     mrichardson Fix unit conversion for sampling
+ * Dec 02, 2019  71870    tjensen     Make disposeRenderable visible to be overridden
+ * Apr 16, 2020  8145     randerso    Updated to allow new sample formatting
  *
  * </pre>
  *
@@ -939,7 +942,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
         if (map == null || map.isEmpty()) {
             return "NO DATA";
         }
-        Measure<? extends Number, ?> value = map.get(Interrogator.VALUE);
+        Quantity<?> value = map.get(Interrogator.VALUE);
         if (value == null) {
             return "NO DATA";
         }
@@ -1006,20 +1009,31 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
                         Unit<?> styleUnit = stylePreferences.getDisplayUnits();
                         if (unit != null && styleUnit != null
                                 && unit.isCompatible(styleUnit)) {
-                            value = (float) unit.getConverterTo(styleUnit)
-                                    .convert(value);
+                            try {
+                                value = (float) unit
+                                        .getConverterToAny(styleUnit)
+                                        .convert(value);
+                            } catch (UnconvertibleException | IncommensurableException e) {
+                                SimpleUnitFormat stringFormat = SimpleUnitFormat
+                                        .getInstance(SimpleUnitFormat.Flavor.ASCII);
+                                statusHandler.handle(Priority.ERROR,
+                                        "Unable to convert data unit "
+                                                + stringFormat.format(unit) + " to style unit "
+                                                + stringFormat.format(styleUnit) +".",
+                                        e);
+                            }
                             unit = styleUnit;
                             unitString = stylePreferences.getDisplayUnitLabel();
                         }
                     }
                     result.put(Interrogator.VALUE,
-                            Measure.valueOf(value, unit));
+                            Quantities.getQuantity(value, unit));
                     if (keySet.contains(UNIT_STRING_INTERROGATE_KEY)) {
                         if (unitString != null) {
                             result.put(UNIT_STRING_INTERROGATE_KEY, unitString);
-                        } else if (unit != null && !unit.equals(Unit.ONE)) {
+                        } else if (unit != null && !unit.equals(AbstractUnit.ONE)) {
                             result.put(UNIT_STRING_INTERROGATE_KEY,
-                                    UnitFormat.getUCUMInstance().format(unit));
+                                    SimpleUnitFormat.getInstance(SimpleUnitFormat.Flavor.ASCII).format(unit));
                         } else {
                             result.put(UNIT_STRING_INTERROGATE_KEY, "");
                         }
@@ -1088,7 +1102,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
         if (map == null || map.isEmpty()) {
             return null;
         }
-        Measure<? extends Number, ?> value = map.get(Interrogator.VALUE);
+        Quantity<?> value = map.get(Interrogator.VALUE);
         String unitString = map.get(UNIT_STRING_INTERROGATE_KEY);
         Number direction = map.get(DIRECTION_FROM_INTERROGATE_KEY);
 

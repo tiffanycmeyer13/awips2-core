@@ -21,12 +21,14 @@ package com.raytheon.uf.viz.core.grid.rsc.data;
 
 import java.awt.geom.Rectangle2D;
 
-import javax.measure.unit.Unit;
+import javax.measure.Unit;
+import javax.measure.UnitConverter;
 
 import org.geotools.coverage.grid.GeneralGridGeometry;
 import org.geotools.coverage.grid.GridEnvelope2D;
 import org.geotools.coverage.grid.GridGeometry2D;
 import org.geotools.geometry.Envelope2D;
+import org.locationtech.jts.geom.Coordinate;
 import org.opengis.coverage.grid.GridEnvelope;
 import org.opengis.geometry.Envelope;
 import org.opengis.referencing.FactoryException;
