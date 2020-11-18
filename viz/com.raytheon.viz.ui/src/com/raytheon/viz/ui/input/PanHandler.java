@@ -37,6 +37,7 @@ import com.raytheon.uf.viz.core.IExtent;
 import com.raytheon.uf.viz.core.IView;
 import com.raytheon.uf.viz.core.localization.HierarchicalPreferenceStore;
 import com.raytheon.viz.ui.UiPlugin;
+import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.input.preferences.MouseEvent;
 import com.raytheon.viz.ui.input.preferences.MousePreferenceManager;
 import com.vividsolutions.jts.geom.Coordinate;
@@ -53,10 +54,11 @@ import com.vividsolutions.jts.geom.Coordinate;
  *    ------------ ----------  ----------- --------------------------
  *    Dec 28, 2007             chammack    Refactored out of PanTool
  *    Oct 27, 2009 #2354       bsteffen    Configured input handler to use mouse preferences
+ *    Nov 09, 2020  84809      smanoj      Fix Nsharp EditGraph Bug.
+ *
  * </pre>
  * 
  * @author chammack
- * @version 1
  */
 public class PanHandler extends InputAdapter {
     private static final transient IUFStatusHandler statusHandler = UFStatus
@@ -108,12 +110,6 @@ public class PanHandler extends InputAdapter {
         this.container = container;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.raytheon.viz.ui.input.IInputHandler#handleMouseDown(int, int,
-     * int)
-     */
     @Override
     public boolean handleMouseDown(int x, int y, int button) {
 
@@ -163,14 +159,15 @@ public class PanHandler extends InputAdapter {
         return false;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.raytheon.viz.ui.input.IInputHandler#handleMouseDownMove(int,
-     * int, int)
-     */
     @Override
     public boolean handleMouseDownMove(int aX, int aY, int button) {
+        if (container instanceof AbstractEditor ){
+            AbstractEditor editor = (AbstractEditor) container;
+            if (editor.getPartName().contains("NsharpEditor")) {
+                return true;
+            }
+        }
+
         if (prefManager.handleLongClick(ZOOMIN_PREF, button)
                 || prefManager.handleLongClick(ZOOMOUT_PREF, button)) {
             theLastMouseX = aX;
@@ -231,11 +228,6 @@ public class PanHandler extends InputAdapter {
         return true;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.raytheon.viz.ui.input.IInputHandler#handleMouseUp(int, int, int)
-     */
     public boolean handleMouseUp(int x, int y, int button) {
         zoomDir = 0;
 
