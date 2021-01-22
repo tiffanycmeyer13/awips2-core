@@ -52,10 +52,18 @@ public class StorageProperties implements Cloneable {
      * <LI>ZLIB - standard libz compression (supported by h5dump, etc.)
      * <LI>LZF - LZF compression (much faster but less effective, not supported
      * by h5dump)
+     * <LI>GZIP - Deflate Compression
      * </UL>
      */
     public static enum Compression {
-        NONE, ZLIB, LZF
+        NONE,
+        ZLIB,
+        /**
+         * @Deprecated LZF Compression to be dropped - See RODO #8335
+         */
+        @Deprecated
+        LZF,
+        GZIP
     };
 
     /** The compression flag */
