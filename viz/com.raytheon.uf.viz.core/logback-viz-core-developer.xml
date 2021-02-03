@@ -46,7 +46,9 @@
    <logger name="CaveLogger" level="all">
       <appender-ref ref="AlertAppender"/>
    </logger>
-
+   
+   <logger name="CaveRequestLogger" level="all" />
+   
    <logger name="PerformanceLogger" level="all" />
 
    <!-- TODO should somehow be contributed from viz.gfe plugin -->
