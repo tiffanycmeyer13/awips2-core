@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -37,9 +37,11 @@ import org.eclipse.ui.application.WorkbenchAdvisor;
 import org.eclipse.ui.application.WorkbenchWindowAdvisor;
 import org.eclipse.ui.commands.ICommandService;
 import org.eclipse.ui.contexts.IContextService;
+import org.eclipse.ui.internal.registry.IActionSetDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.raytheon.uf.viz.application.UIThreadMonitor;
 import com.raytheon.uf.viz.core.ProgramArguments;
 import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
 import com.raytheon.uf.viz.ui.menus.DiscoverMenuContributions;
@@ -48,7 +50,7 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
 
 /**
  * Workbench Advisor
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
  * Date         Ticket#     Engineer    Description
@@ -68,9 +70,11 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  * Mar 04, 2016 5267        bsteffen    Let eclipse close nonrestorable views.
  * Jun 27, 2017 6316        njensen     Log perspective argument, perspective activate time,
  *                                       total startup time
- * 
+ * Feb 16, 2021 8339        mchan       Added code to start UI thread monitoring
+ *                                      job post startup
+ *
  * </pre>
- * 
+ *
  * @author chammack
  */
 public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
@@ -95,8 +99,8 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
         configurer.setSaveAndRestore(true);
 
         customizeAppearance();
-        PlatformUI.getWorkbench().addWindowListener(
-                VizWorkbenchManager.getInstance());
+        PlatformUI.getWorkbench()
+                .addWindowListener(VizWorkbenchManager.getInstance());
         VizGlobalsManager.startForWorkbench(PlatformUI.getWorkbench());
     }
 
@@ -138,10 +142,10 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
                 // "org.eclipse.ui.WorkingSetActionSet",
                 "org.eclipse.update.ui.softwareUpdates" };
 
-        for (int i = 0; i < actionSets.length; i++) {
+        for (IActionSetDescriptor actionSet : actionSets) {
             boolean found = false;
-            for (int j = 0; j < removeActionSets.length; j++) {
-                if (removeActionSets[j].equals(actionSets[i].getId())) {
+            for (String removeActionSet : removeActionSets) {
+                if (removeActionSet.equals(actionSet.getId())) {
                     found = true;
                 }
             }
@@ -149,9 +153,9 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
             if (!found) {
                 continue;
             }
-            IExtension ext = actionSets[i].getConfigurationElement()
+            IExtension ext = actionSet.getConfigurationElement()
                     .getDeclaringExtension();
-            reg.removeExtension(ext, new Object[] { actionSets[i] });
+            reg.removeExtension(ext, new Object[] { actionSet });
         }
     }
 
@@ -168,13 +172,14 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
         for (IPreferenceNode root : topNodes) {
             String rootId = root.getId();
             if ("org.eclipse.ui.preferencePages.Workbench".equals(rootId)) {
-                IPreferenceNode node = root
-                        .findSubNode("org.eclipse.ui.preferencePages.Workspace");
+                IPreferenceNode node = root.findSubNode(
+                        "org.eclipse.ui.preferencePages.Workspace");
                 if (node != null) {
-                    node.remove("org.eclipse.ui.preferencePages.LinkedResources");
+                    node.remove(
+                            "org.eclipse.ui.preferencePages.LinkedResources");
                     node.remove("org.eclipse.ui.preferencePages.BuildOrder");
-                    IPreferenceNode localHistoryNode = node
-                            .findSubNode("org.eclipse.ui.preferencePages.FileStates");
+                    IPreferenceNode localHistoryNode = node.findSubNode(
+                            "org.eclipse.ui.preferencePages.FileStates");
                     root.add(localHistoryNode);
                     root.remove("org.eclipse.ui.preferencePages.Workspace");
                 }
@@ -185,8 +190,8 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
 
     @Override
     public String getInitialWindowPerspectiveId() {
-        String perspective = ProgramArguments.getInstance().getString(
-                "-perspective");
+        String perspective = ProgramArguments.getInstance()
+                .getString("-perspective");
         IPerspectiveDescriptor desc = getSpecifiedPerspective(perspective);
         if (desc != null) {
             logger.info("Viz started with -perspective " + perspective);
@@ -208,7 +213,8 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
         return null;
     }
 
-    protected IPerspectiveDescriptor getSpecifiedPerspective(String perspective) {
+    protected IPerspectiveDescriptor getSpecifiedPerspective(
+            String perspective) {
         IPerspectiveRegistry registry = PlatformUI.getWorkbench()
                 .getPerspectiveRegistry();
 
@@ -242,7 +248,7 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
 
     /**
      * Create a new {@link WorkbenchWindowAdvisor}
-     * 
+     *
      * @param configurer
      * @return
      */
@@ -255,14 +261,20 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
     public boolean preShutdown() {
         boolean bResult = super.preShutdown();
         if (bResult) {
-            bResult = MessageDialog.openQuestion(PlatformUI.getWorkbench()
-                    .getActiveWorkbenchWindow().getShell(), "Confirm Exit",
-                    "Are you sure you want to exit?");
+            bResult = MessageDialog.openQuestion(
+                    PlatformUI.getWorkbench().getActiveWorkbenchWindow()
+                            .getShell(),
+                    "Confirm Exit", "Are you sure you want to exit?");
         }
 
         if (bResult) {
             logger.info("User exiting CAVE, shutdown initiated");
         }
+
+        /*
+         * Shutdown the UI thread monitoring jobs
+         */
+        UIThreadMonitor.stop();
 
         return bResult;
     }
@@ -289,13 +301,14 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
             VizPerspectiveListener.getInstance(window)
                     .perspectiveActivated(page, perspective);
             logger.info(perspective.getLabel() + " perspective started in "
-                            + (System.currentTimeMillis() - t0) + " ms");
+                    + (System.currentTimeMillis() - t0) + " ms");
         } else {
             logger.info("No perspective activated at startup");
         }
-        
+
         /*
-         * remove after starting up, as some commands may not have initialized yet
+         * remove after starting up, as some commands may not have initialized
+         * yet
          */
         removeExtraCommands();
 
@@ -305,6 +318,13 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
             logger.info("*** Total CAVE startup: " + (endTime - appStartTime)
                     + " ms ***");
         }
+
+        /*
+         * After the UI has started up, start up some jobs to log messages into
+         * CAVE log if the UI is not responding within a threshold set in the
+         * system properties.
+         */
+        UIThreadMonitor.start();
     }
 
     /**
@@ -318,17 +338,17 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
     public void setWorkbenchStartTime(long timeInMillis) {
         this.workbenchStartTime = timeInMillis;
     }
-    
+
     public void setAppStartTime(long timeInMillis) {
         this.appStartTime = timeInMillis;
     }
 
     /**
-     * Undefines specific commands so that they aren't available in the system. This
-     * has the benefit of removing them from the ctrl-shift-L key binding
+     * Undefines specific commands so that they aren't available in the system.
+     * This has the benefit of removing them from the ctrl-shift-L key binding
      * window, removing them from Preferences -> General -> Keys GUI, and
-     * ensuring that they can't intercept key events for the keys that they're bound
-     * to.
+     * ensuring that they can't intercept key events for the keys that they're
+     * bound to.
      */
     private void removeExtraCommands() {
         IWorkbench wb = getWorkbenchConfigurer().getWorkbench();
@@ -345,14 +365,14 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
                  * org.eclipse.jdt.ui.edit.text.java.correction.assist.proposals
                  * and org.eclipse.debug.ui.actions.WatchCommand are necessary
                  * because they are related to popup menus and Eclipse will
-                 * check if they are visible.  Eclipse will throw errors if they
+                 * check if they are visible. Eclipse will throw errors if they
                  * don't exist even if we never allow them to be visible.
                  */
                 if (id.startsWith(prefix)
-                        && !id.equals(
-                                "org.eclipse.jdt.ui.edit.text.java.correction.assist.proposals")
-                        && !id.equals(
-                                "org.eclipse.debug.ui.actions.WatchCommand")) {
+                        && !"org.eclipse.jdt.ui.edit.text.java.correction.assist.proposals"
+                                .equals(id)
+                        && !"org.eclipse.debug.ui.actions.WatchCommand"
+                                .equals(id)) {
                     c.undefine();
                     break;
                 }
