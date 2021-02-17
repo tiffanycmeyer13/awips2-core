@@ -14,6 +14,11 @@
       <directory>${user.home}/${LOGDIR}</directory>
       <name>cave_${startTime}_pid_%PID%_logs.log</name>
    </define>
+   
+   <define name="caveRequestLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
+      <directory>${user.home}/${LOGDIR}</directory>
+      <name>cave_${startTime}_pid_%PID%_cave_request.log</name>
+   </define>   
 
    <define name="consoleLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
        <directory>${user.home}/${LOGDIR}</directory>
@@ -37,11 +42,28 @@
       <destName>messages</destName>
    </appender>
 
-  <!-- this appender will log the messages to a file -->
-   <appender name="CaveLogAppender" class="ch.qos.logback.core.FileAppender">
+   <!-- this appender will log CAVE messages to a file -->
+   <appender name="CaveLogAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
       <encoder class="com.raytheon.uf.common.logback.encoder.UFStdEncoder"/> 
       <file>${caveLogFile}</file>
+      
+      <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+         <fileNamePattern>${caveLogFile}.%i.zip</fileNamePattern>
+         <minIndex>1</minIndex>
+         <maxIndex>10</maxIndex>
+      </rollingPolicy>
+          
+      <!-- Rollover file if it reaches the max file size-->
+      <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+         <maxFileSize>1GB</maxFileSize>
+      </triggeringPolicy>      
    </appender>
+   
+   <!-- this appender will log all CAVE request and how long request took -->
+   <appender name="CaveRequestLogAppender" class="ch.qos.logback.core.FileAppender">
+      <encoder class="com.raytheon.uf.common.logback.encoder.UFStdEncoder"/> 
+      <file>${caveRequestLogFile}</file>
+   </appender>   
 
    <!-- this appender will log any System.out and System.err printouts to a
          file while also allowing them through to System.out and System.err -->   
@@ -65,6 +87,11 @@
       <queueSize>500</queueSize>
       <appender-ref ref="CaveLogAppender"/>
    </appender>
+   
+   <appender name="AsyncCaveRequestLogAppender" class="ch.qos.logback.classic.AsyncAppender">
+      <queueSize>500</queueSize>
+      <appender-ref ref="CaveRequestLogAppender"/>
+   </appender>   
 
    <appender name="AsyncAlertvizAppender" class="ch.qos.logback.classic.AsyncAppender">
       <queueSize>500</queueSize>      
@@ -84,6 +111,10 @@
    <logger name="CaveLogger" level="all" additivity="false">
       <appender-ref ref="AsyncCaveLogAppender"/>
       <appender-ref ref="AsyncAlertvizAppender"/>
+   </logger>
+
+   <logger name="CaveRequestLogger" level="all" additivity="false">
+      <appender-ref ref="AsyncCaveRequestLogAppender"/>
    </logger>
 
    <logger name="PerformanceLogger" level="all" additivity="false">
