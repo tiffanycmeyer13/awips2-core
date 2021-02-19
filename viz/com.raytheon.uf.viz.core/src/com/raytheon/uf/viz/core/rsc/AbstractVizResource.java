@@ -33,7 +33,9 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import com.raytheon.uf.common.geospatial.ReferencedCoordinate;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
 import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.common.time.DataTime;
@@ -81,6 +83,8 @@ import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
  *                                   exceptions.
  * Nov 28, 2017  5863     bsteffen   Change dataTimes to a NavigableSet
  * Jan 31, 2018  5863     mapeters   Add time-agnostic check in remove(DataTime)
+ * Feb 18, 2021  8343     mchan      Added performance logging to capture how look
+ *                                   took to initialize and paint a resource
  *
  * </pre>
  *
@@ -90,6 +94,9 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
 
     protected static final transient IUFStatusHandler statusHandler = UFStatus
             .getHandler(AbstractVizResource.class);
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("Resource");
 
     public enum ResourceStatus {
         NEW, LOADING, INITIALIZED, DISPOSED
@@ -104,7 +111,7 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      *             resource is time agnostic.
      */
     @Deprecated
-    public static final NavigableSet<DataTime> TIME_AGNOSTIC = Collections
+    protected static final NavigableSet<DataTime> TIME_AGNOSTIC = Collections
             .emptyNavigableSet();
 
     /**
@@ -403,7 +410,11 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      */
     public final void init(IGraphicsTarget target) throws VizException {
         status = ResourceStatus.LOADING;
+        long startTime = System.currentTimeMillis();
         initInternal(target);
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        perfLog.logDuration("initialization: " + this.getClass().getSimpleName()
+                + " " + this.getSafeName(), elapsedTime);
         status = ResourceStatus.INITIALIZED;
 
         for (IInitListener listener : initListeners) {
@@ -539,7 +550,13 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
             // We have initialized successfully, now time to paint
             try {
                 updatePaintStatus(PaintStatus.PAINTING);
+                long startTime = System.currentTimeMillis();
                 paintInternal(target, paintProps);
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                perfLog.logDuration(
+                        "painting: " + this.getClass().getSimpleName() + " "
+                                + this.getSafeName(),
+                        elapsedTime);
             } catch (VizException e) {
                 updatePaintStatus(PaintStatus.ERROR);
                 throw e;
