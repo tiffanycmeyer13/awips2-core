@@ -17,7 +17,7 @@
    
    <define name="caveRequestLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
       <directory>${user.home}/${LOGDIR}</directory>
-      <name>cave_${startTime}_pid_%PID%_cave_request.log</name>
+      <name>cave_${startTime}_pid_%PID%_request.log</name>
    </define>   
 
    <define name="consoleLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
