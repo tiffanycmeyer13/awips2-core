@@ -27,9 +27,11 @@ import com.raytheon.uf.common.message.WsId;
 import com.raytheon.uf.common.serialization.comm.IRequestHandler;
 import com.raytheon.uf.common.serialization.comm.IServerRequest;
 import com.raytheon.uf.common.serialization.comm.RequestWrapper;
+import com.raytheon.uf.common.serialization.comm.ResponseWrapper;
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
+import com.raytheon.uf.common.util.SystemUtil;
 import com.raytheon.uf.edex.auth.AuthManagerFactory;
 import com.raytheon.uf.edex.auth.req.AbstractPrivilegedRequestHandler;
 import com.raytheon.uf.edex.auth.resp.AuthorizationResponse;
@@ -56,6 +58,8 @@ import com.raytheon.uf.edex.requestsrv.logging.RequestLogger;
  * Jul 18, 2017  6217     randerso  Removed support for old roles and
  *                                  permissions framework
  * Mar 09, 2020  dcs21885 brapp     Added request detail logging
+ * Feb 16, 2021  8337     mchan     Wrap response in ResponseWrapper if the
+ *                                  request is a RequestWrapper
  *
  * </pre>
  *
@@ -74,13 +78,15 @@ public class RequestServiceExecutor {
     }
 
     private final HandlerRegistry registry;
+
     private final RequestLogger reqLogger;
 
     public RequestServiceExecutor() {
         this(HandlerRegistry.getInstance(), RequestLogger.getInstance());
     }
 
-    public RequestServiceExecutor(HandlerRegistry registry, RequestLogger reqLogger) {
+    public RequestServiceExecutor(HandlerRegistry registry,
+            RequestLogger reqLogger) {
         this.registry = registry;
         this.reqLogger = reqLogger;
     }
@@ -96,12 +102,13 @@ public class RequestServiceExecutor {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Object execute(IServerRequest request) throws Exception {
+        boolean isRequestWrapper = false;
         boolean subjectSet = false;
         String wsidPString = null;
 
         try {
             if (request instanceof RequestWrapper) {
-
+                isRequestWrapper = true;
                 // Check for wrapped request and get actual request to execute
                 RequestWrapper wrapper = (RequestWrapper) request;
                 WsId wsid = wrapper.getWsId();
@@ -133,8 +140,13 @@ public class RequestServiceExecutor {
                             .authorized(privReq);
                     if (authResp != null && !authResp.isAuthorized()
                             && authResp.getResponseMessage() != null) {
-                        return ResponseFactory.constructNotAuthorized(privReq,
-                                authResp.getResponseMessage());
+                        Object response = ResponseFactory
+                                .constructNotAuthorized(privReq,
+                                        authResp.getResponseMessage());
+                        return isRequestWrapper
+                                ? new ResponseWrapper(response,
+                                        SystemUtil.getHostName())
+                                : response;
                     }
 
                     /*
@@ -145,8 +157,13 @@ public class RequestServiceExecutor {
                      * TODO someday pass in updated IAuthenticationData if we
                      * have an actual implementation that uses it for security
                      */
-                    return ResponseFactory.constructSuccessfulExecution(
-                            privHandler.handleRequest(privReq), null);
+                    Object response = ResponseFactory
+                            .constructSuccessfulExecution(
+                                    privHandler.handleRequest(privReq), null);
+                    return isRequestWrapper
+                            ? new ResponseWrapper(response,
+                                    SystemUtil.getHostName())
+                            : response;
                 } catch (ClassCastException e) {
                     throw new AuthException(
                             "Roles can only be defined for requests/handlers of AbstractPrivilegedRequest/Handler, request was "
@@ -164,7 +181,10 @@ public class RequestServiceExecutor {
 
             reqLogger.logRequest(wsidPString, request);
 
-            return handler.handleRequest(request);
+            Object response = handler.handleRequest(request);
+            return isRequestWrapper
+                    ? new ResponseWrapper(response, SystemUtil.getHostName())
+                    : response;
         } finally {
             if (subjectSet) {
                 AuthManagerFactory.getInstance().getPermissionsManager()
