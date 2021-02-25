@@ -41,7 +41,6 @@ import org.eclipse.ui.internal.registry.IActionSetDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.raytheon.uf.viz.application.UIThreadMonitor;
 import com.raytheon.uf.viz.core.ProgramArguments;
 import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
 import com.raytheon.uf.viz.ui.menus.DiscoverMenuContributions;
@@ -53,25 +52,27 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  *
  * <pre>
  * SOFTWARE HISTORY
- * Date         Ticket#     Engineer    Description
- * ------------ ----------  ----------- --------------------------
- * Jul 01, 2006             chammack    Initial Creation.
- * Mar 05, 2013 1753        njensen     Added shutdown printout
- * May 28, 2013 1967        njensen     Remove unused subnode preferences
- * Jul 16, 2013 2158        bsteffen    Allow VizGlobalsManager to work without
- *                                      accessing UI thread.
- * Oct 15, 2013 2361        njensen     Added startupTimer
- * Jan 27, 2014 2744        njensen     Add Local History pref back in
- * May 09, 2014 3153        njensen     Updates for pydev 3.4.1
- * Jan 04, 2016 5192        njensen     Moved removal of extra perspectives and some prefs
- *                                       to plugin.xml using activities
- * Jan 05, 2016 5193        bsteffen    Activate viz perspective after startup.
- * Jan 14, 2016 5192        njensen     Remove jdt, debug, and team commands
- * Mar 04, 2016 5267        bsteffen    Let eclipse close nonrestorable views.
- * Jun 27, 2017 6316        njensen     Log perspective argument, perspective activate time,
- *                                       total startup time
- * Feb 16, 2021 8339        mchan       Added code to start UI thread monitoring
- *                                      job post startup
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Jul 01, 2006           chammack  Initial Creation.
+ * Mar 05, 2013  1753     njensen   Added shutdown printout
+ * May 28, 2013  1967     njensen   Remove unused subnode preferences
+ * Jul 16, 2013  2158     bsteffen  Allow VizGlobalsManager to work without
+ *                                  accessing UI thread.
+ * Oct 15, 2013  2361     njensen   Added startupTimer
+ * Jan 27, 2014  2744     njensen   Add Local History pref back in
+ * May 09, 2014  3153     njensen   Updates for pydev 3.4.1
+ * Jan 04, 2016  5192     njensen   Moved removal of extra perspectives and some
+ *                                  prefs to plugin.xml using activities
+ * Jan 05, 2016  5193     bsteffen  Activate viz perspective after startup.
+ * Jan 14, 2016  5192     njensen   Remove jdt, debug, and team commands
+ * Mar 04, 2016  5267     bsteffen  Let eclipse close nonrestorable views.
+ * Jun 27, 2017  6316     njensen   Log perspective argument, perspective
+ *                                  activate time, total startup time
+ * Feb 16, 2021  8339     mchan     Added code to start UI thread monitoring job
+ *                                  post startup
+ * Feb 25, 2021  8339     randerso  Moved UIThreadMonitor to this package.
  *
  * </pre>
  *
@@ -126,8 +127,7 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
         org.eclipse.ui.internal.registry.ActionSetRegistry reg = org.eclipse.ui.internal.WorkbenchPlugin
                 .getDefault().getActionSetRegistry();
 
-        org.eclipse.ui.internal.registry.IActionSetDescriptor[] actionSets = reg
-                .getActionSets();
+        IActionSetDescriptor[] actionSets = reg.getActionSets();
         String[] removeActionSets = new String[] {
                 "org.eclipse.search.searchActionSet",
                 // "org.eclipse.ui.cheatsheets.actionSet",

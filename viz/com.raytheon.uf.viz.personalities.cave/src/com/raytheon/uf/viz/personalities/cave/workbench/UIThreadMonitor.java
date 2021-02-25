@@ -17,7 +17,7 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
-package com.raytheon.uf.viz.application;
+package com.raytheon.uf.viz.personalities.cave.workbench;
 
 import java.time.Duration;
 
@@ -43,9 +43,11 @@ import com.raytheon.uf.common.status.UFStatus;
  *
  * SOFTWARE HISTORY
  *
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Feb 05, 2021 8337       mchan       Initial creation
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Feb 05, 2021  8339     mchan     Initial creation
+ * Feb 25, 2021  8339     randerso  Moved to com.raytheon.uf.viz.personalities.
+ *                                  cave.workbench
  *
  * </pre>
  *
