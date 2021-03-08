@@ -100,7 +100,8 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
         return connectionFactory.createContext(sessionMode);
     }
 
-    public static String getConnectionURL(JMSConnectionInfo connectionInfo) {
+    public static String getConnectionURL(JMSConnectionInfo connectionInfo)
+            throws JMSConfigurationException {
         URIBuilder uriBuilder = new URIBuilder();
         uriBuilder.setScheme("amqps");
         uriBuilder.setHost(connectionInfo.getHost());
@@ -116,20 +117,26 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
         return uriBuilder.toString();
     }
 
-    public static URIBuilder configureSSL(URIBuilder uriBuilder) {
+    public static URIBuilder configureSSL(URIBuilder uriBuilder)
+            throws JMSConfigurationException {
         JmsSslConfiguration sslConfig = new JmsSslConfiguration(JMS_USERNAME);
         Path trustStorePath = sslConfig.getJavaTrustStoreFile();
         Path keyStorePath = sslConfig.getJavaKeyStoreFile();
-        String password = sslConfig.getPassword();
+        try {
+            String password = sslConfig.getPassword();
 
-        uriBuilder.addParameter("transport.trustStoreLocation",
-                trustStorePath.toString());
-        uriBuilder.addParameter("transport.trustStorePassword", password);
-        uriBuilder.addParameter("transport.keyStoreLocation",
-                keyStorePath.toString());
-        uriBuilder.addParameter("transport.keyStorePassword", password);
+            uriBuilder.addParameter("transport.trustStoreLocation",
+                    trustStorePath.toString());
+            uriBuilder.addParameter("transport.trustStorePassword", password);
+            uriBuilder.addParameter("transport.keyStoreLocation",
+                    keyStorePath.toString());
+            uriBuilder.addParameter("transport.keyStorePassword", password);
 
-        return uriBuilder;
+            return uriBuilder;
+        } catch (Exception e) {
+            throw new JMSConfigurationException(
+                    "Could not decrypt JMS password.", e);
+        }
     }
 
     public QueueConnection createQueueConnection() throws JMSException {
