@@ -91,6 +91,7 @@ import com.raytheon.uf.common.util.format.BytesFormat;
  * Jan 15, 2020  8005      drogalla    Update sendRequest to keep trying until there's a response.
  * Jan 28, 2020  7985      ksunil      Removed the compression changes introduced in 7435
  * Dec 11, 2020  8299      tgurney     Log before and after each request is sent
+ * Mar 24  2021   8374     srahimi     Added  Method for Logging
  *
  * </pre>
  *
@@ -113,6 +114,9 @@ public class PyPiesDataStore implements IDataStore {
     protected PypiesProperties props;
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+
+    private final Logger requestLogger = LoggerFactory
+            .getLogger("PyPiesRequestLogger");
 
     private static final AtomicLong requestSequence = new AtomicLong(0);
 
@@ -312,13 +316,12 @@ public class PyPiesDataStore implements IDataStore {
         while (ret == null) {
 
             try {
-                logger.info("Sending " + obj.getClass().getSimpleName()
-                        + " (request " + seqNum + ") on file "
-                        + obj.getFilename());
+                requestLogger.info("Sending request {} {}", seqNum,
+                        obj.toString());
                 ret = doSendRequest(obj, huge);
             } catch (CommunicationException ce) {
                 if (ce.getCause() instanceof HttpHostConnectException) {
-                    if (logged == false) {
+                    if (!logged) {
                         logger.error(
                                 "Unable to connect with pypies. Check the PyPies logs to see if it is running. Waiting 6 seconds to try again...",
                                 ce);
@@ -340,9 +343,7 @@ public class PyPiesDataStore implements IDataStore {
 
         long time = System.currentTimeMillis() - t0;
 
-        logger.info("Took " + time + " ms to receive response for "
-                + obj.getClass().getSimpleName() + " (request " + seqNum
-                + ") on file " + obj.getFilename());
+        requestLogger.info("Request {} took {} ms", seqNum, time);
 
         if (ret instanceof ErrorResponse) {
             throw new StorageException("(request " + seqNum + ") "
@@ -413,7 +414,7 @@ public class PyPiesDataStore implements IDataStore {
         }
     }
 
-    protected void initializeProperties() {
+    protected synchronized void initializeProperties() {
         if (address == null) {
             address = props.getAddress();
         }

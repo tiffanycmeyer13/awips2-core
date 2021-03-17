@@ -34,13 +34,16 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Jul 27, 2015 1574       nabowle     Initial creation
- * Feb 24, 2016 5389       nabowle     oldestDate is now oldestDateMap.
+ * Jul 27, 2015  1574       nabowle     Initial creation
+ * Feb 24, 2016  5389       nabowle     oldestDate is now oldestDateMap.
+ * Mar 24 2021   8374       srahimi     Added toString to standardize log message
+ *
+ *
  *
  * </pre>
  *
  * @author nabowle
- * @version 1.0
+ *
  */
 @DynamicSerialize
 public class DeleteOrphansRequest extends AbstractRequest {
@@ -86,6 +89,15 @@ public class DeleteOrphansRequest extends AbstractRequest {
      */
     public void setOldestDateMap(Map<String, Date> oldestDateMap) {
         this.oldestDateMap = oldestDateMap;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", oldestDateMap[");
+        rval.append(oldestDateMap);
+        rval.append("]");
+        return rval.toString();
     }
 
 }

@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -21,8 +21,6 @@ package com.raytheon.uf.common.datastorage;
 
 import java.awt.Point;
 import java.util.Arrays;
-import java.util.LinkedHashSet;
-
 
 import com.raytheon.uf.common.serialization.ISerializableObject;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
@@ -31,21 +29,22 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 /**
  * Represents the style of request to perform (whole dataset, line, slab,
  * points, etc.)
- * 
+ *
  * To retrieve a whole dataset, use Request.ALL.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Jul 27, 2009            chammack     Initial creation
  * Jun 18, 2013 DR 15662   dhuffman     Cross section terrain disappears if baseline is too short.
- * 
+ * Mar 24  2021    8374    srahimi      Code Clean
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1.0
+ *
  */
 @DynamicSerialize
 public class Request implements ISerializableObject {
@@ -65,9 +64,9 @@ public class Request implements ISerializableObject {
     @DynamicSerializeElement
     private Type type;
 
-    public static enum Type {
+    public enum Type {
         POINT, XLINE, YLINE, SLAB, ALL
-    };
+    }
 
     public static final Request ALL;
 
@@ -85,42 +84,42 @@ public class Request implements ISerializableObject {
 
     /**
      * Build a request that asks for specific points to be returned
-     * 
+     *
      * @param points
      * @return
      */
     public static Request buildPointRequest(Point... points) {
         Request request = new Request();
         request.type = Type.POINT;
-        request.points = new LinkedHashSet<Point>(Arrays.asList(points))
-                .toArray(new Point[points.length]);	
+        request.points = points;
 
         return request;
     }
-    
+
     /**
      * Build a request that asks for specific cross points to be returned
-     * 
+     *
      * @param points
      * @return
      */
     public static Request buildXsectPointRequest(Point... points) {
-    	Request request = new Request();
-    	request.type = Type.POINT;
-    	request.points = new Point[points.length];
-    	for(int x=0; x<points.length; x++)
-    		request.points[x] = new Point(points[x]);
-    
-    	return request;
+        Request request = new Request();
+        request.type = Type.POINT;
+        request.points = new Point[points.length];
+        for (int x = 0; x < points.length; x++) {
+            request.points[x] = new Point(points[x]);
+        }
+
+        return request;
     }
 
     /**
      * Build a request that asks for all x values at a provided set of y values.
-     * 
+     *
      * IMPORTANT NOTE: The results are not guaranteed to be in the same order as
      * the indices. The results will be returned in monotonically increasing
      * order of the index.
-     * 
+     *
      * @param yIndices
      * @return
      */
@@ -134,11 +133,11 @@ public class Request implements ISerializableObject {
 
     /**
      * Build a request that asks for all y values at a provided set of x values.
-     * 
+     *
      * IMPORTANT NOTE: The results are not guaranteed to be in the same order as
      * the indices. The results will be returned in monotonically increasing
      * order of the index.
-     * 
+     *
      * @param xIndices
      * @return
      */
@@ -152,7 +151,7 @@ public class Request implements ISerializableObject {
 
     /**
      * Perform a hyperslab request (effectively a rectangle in 2d space)
-     * 
+     *
      * @param minIndex
      * @param maxIndex
      * @return
@@ -205,8 +204,7 @@ public class Request implements ISerializableObject {
     }
 
     public void setPoints(Point[] points) {
-        this.points = new LinkedHashSet<Point>(Arrays.asList(points))
-                .toArray(new Point[points.length]);
+        this.points = points;
     }
 
     public void setIndices(int[] indices) {
@@ -227,7 +225,7 @@ public class Request implements ISerializableObject {
 
     /**
      * Perform a shallow copy into this object
-     * 
+     *
      * @param request
      */
     public void copyFrom(Request request) {
@@ -278,6 +276,8 @@ public class Request implements ISerializableObject {
             str += "]";
             break;
         }
+        default:
+            break;
         }
         return str;
     }
@@ -289,12 +289,15 @@ public class Request implements ISerializableObject {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
+        }
         return toString().equals(obj.toString());
     }
 
