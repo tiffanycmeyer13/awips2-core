@@ -82,6 +82,8 @@ import org.locationtech.jts.geom.Coordinate;
  * Nov 29, 2016  6014     bsteffen   Update dirty state on UI thread.
  * Jul 09, 2018  7315     bsteffen   Ensure close confirmation prompt uses a
  *                                   visible shell.
+ * Feb 24, 2021  88438    smanoj     Add right-click menu option "Sample" for
+ *                                   Turbulence and Icing in NsharpEditor.
  * 
  * </pre>
  * 
@@ -107,6 +109,8 @@ public abstract class AbstractEditor extends EditorPart
     private String closeMessage = null;
 
     protected BackgroundColor backgroundColor;
+
+    protected int graphMode = 0;
 
     /**
      * Constructor
@@ -505,6 +509,14 @@ public abstract class AbstractEditor extends EditorPart
     @Override
     public void setPartName(String partName) {
         super.setPartName(partName);
+    }
+
+    public void setGraphMode(int graphMode) {
+        this.graphMode = graphMode;
+    }
+
+    public int getGraphMode() {
+        return graphMode;
     }
 
     /**
