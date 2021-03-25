@@ -23,7 +23,6 @@ import com.raytheon.uf.common.serialization.ExceptionWrapper;
 import com.raytheon.uf.common.serialization.comm.IServerRequest;
 import com.raytheon.uf.common.serialization.comm.RemoteServiceRequest;
 import com.raytheon.uf.common.serialization.comm.RequestWrapper;
-import com.raytheon.uf.common.serialization.comm.ResponseWrapper;
 import com.raytheon.uf.common.serialization.comm.ServiceException;
 import com.raytheon.uf.common.serialization.comm.response.ServerErrorResponse;
 import com.raytheon.uf.viz.core.VizApp;
@@ -60,17 +59,23 @@ import com.raytheon.uf.viz.core.localization.LocalizationManager;
  * <pre>
  *
  * SOFTWARE HISTORY
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Aug 3, 2009             mschenke    Initial creation
- * Jul 24, 2012            njensen     Enhanced logging
- * Nov 15, 2012  1322      djohnson    Publicize ability to specify specific httpAddress.
- * Jan 24, 2013  1526      njensen     Switch from using postBinary() to postDynamicSerialize()
- * Jan 27, 2016  5170      tjensen     Added logging of stats to sendRequest
- * Oct 19, 2017  6316      njensen     Get uniqueId from RequestWrapper
- * May 09, 2019  7766      kbisanz     Log long request messages instead of printing to STDOUT
- * Feb 16, 2021  8337      mchan       Added performance log to capture the
- *                                     request and how long it took to complete
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Aug 03, 2009           mschenke  Initial creation
+ * Jul 24, 2012           njensen   Enhanced logging
+ * Nov 15, 2012  1322     djohnson  Publicize ability to specify specific
+ *                                  httpAddress.
+ * Jan 24, 2013  1526     njensen   Switch from using postBinary() to
+ *                                  postDynamicSerialize()
+ * Jan 27, 2016  5170     tjensen   Added logging of stats to sendRequest
+ * Oct 19, 2017  6316     njensen   Get uniqueId from RequestWrapper
+ * May 09, 2019  7766     kbisanz   Log long request messages instead of
+ *                                  printing to STDOUT
+ * Feb 16, 2021  8337     mchan     Added performance log to capture the request
+ *                                  and how long it took to complete
+ * Mar 25, 2021  8396     randerso  Temporarily remove logging of processing
+ *                                  host until DR #8399 is worked.
  *
  * </pre>
  *
@@ -307,15 +312,22 @@ public class ThriftClient {
             response = HttpClient.getInstance().postDynamicSerialize(url,
                     wrapper, true);
             long durationInMillis = System.currentTimeMillis() - t0;
-            String processingServerHost = "unknown";
-            if (response instanceof ResponseWrapper) {
-                ResponseWrapper responseWrapper = ((ResponseWrapper) response);
-                processingServerHost = responseWrapper.getHost();
-                response = responseWrapper.getResponse();
-            }
 
-            logger.info("Request processed by host {} took {}ms. id[{}]",
-                    processingServerHost, durationInMillis, requestId);
+            /*
+             * TODO: restore logging of "processed by host" when DR #8399 is
+             * worked
+             */
+            // String processingServerHost = "unknown";
+            // if (response instanceof ResponseWrapper) {
+            // ResponseWrapper responseWrapper = ((ResponseWrapper) response);
+            // processingServerHost = responseWrapper.getHost();
+            // response = responseWrapper.getResponse();
+            // }
+            //
+            // logger.info("Request processed by host {} took {}ms. id[{}]",
+            // processingServerHost, durationInMillis, requestId);
+            logger.info("Request took {}ms. id[{}]", durationInMillis,
+                    requestId);
 
             if (durationInMillis >= BAD_LOG_TIME && logger.isDebugEnabled()) {
                 StackTraceElement[] stackTrace = Thread.currentThread()

@@ -27,11 +27,9 @@ import com.raytheon.uf.common.message.WsId;
 import com.raytheon.uf.common.serialization.comm.IRequestHandler;
 import com.raytheon.uf.common.serialization.comm.IServerRequest;
 import com.raytheon.uf.common.serialization.comm.RequestWrapper;
-import com.raytheon.uf.common.serialization.comm.ResponseWrapper;
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
-import com.raytheon.uf.common.util.SystemUtil;
 import com.raytheon.uf.edex.auth.AuthManagerFactory;
 import com.raytheon.uf.edex.auth.req.AbstractPrivilegedRequestHandler;
 import com.raytheon.uf.edex.auth.resp.AuthorizationResponse;
@@ -47,19 +45,21 @@ import com.raytheon.uf.edex.requestsrv.logging.RequestLogger;
  *
  * SOFTWARE HISTORY
  *
- * Date          Ticket#  Engineer  Description
- * ------------- -------- --------- --------------------------------------------
- * Aug 21, 2014  3541     mschenke  Initial creation
- * Feb 27, 2015  4196     njensen   Null authentication data on responses for
- *                                  backwards compatibility
- * Dec 02, 2015  4834     njensen   Stop triple-wrapping AuthExceptions
- * May 17, 2017  6217     randerso  Add support for new roles and permissions
- *                                  framework
- * Jul 18, 2017  6217     randerso  Removed support for old roles and
- *                                  permissions framework
- * Mar 09, 2020  dcs21885 brapp     Added request detail logging
- * Feb 16, 2021  8337     mchan     Wrap response in ResponseWrapper if the
- *                                  request is a RequestWrapper
+ * Date          Ticket#   Engineer  Description
+ * ------------- --------- --------- -------------------------------------------
+ * Aug 21, 2014  3541      mschenke  Initial creation
+ * Feb 27, 2015  4196      njensen   Null authentication data on responses for
+ *                                   backwards compatibility
+ * Dec 02, 2015  4834      njensen   Stop triple-wrapping AuthExceptions
+ * May 17, 2017  6217      randerso  Add support for new roles and permissions
+ *                                   framework
+ * Jul 18, 2017  6217      randerso  Removed support for old roles and
+ *                                   permissions framework
+ * Mar 09, 2020  dcs21885  brapp     Added request detail logging
+ * Feb 16, 2021  8337      mchan     Wrap response in ResponseWrapper if the
+ *                                   request is a RequestWrapper
+ * Mar 25, 2021  8396      randerso  Temporarily remove use of ResponseWrapper
+ *                                   until DR #8399 is worked.
  *
  * </pre>
  *
@@ -143,10 +143,13 @@ public class RequestServiceExecutor {
                         Object response = ResponseFactory
                                 .constructNotAuthorized(privReq,
                                         authResp.getResponseMessage());
-                        return isRequestWrapper
-                                ? new ResponseWrapper(response,
-                                        SystemUtil.getHostName())
-                                : response;
+
+                        /* TODO: restore when DR #8399 is worked */
+                        // return isRequestWrapper
+                        // ? new ResponseWrapper(response,
+                        // SystemUtil.getHostName())
+                        // : response;
+                        return response;
                     }
 
                     /*
@@ -160,10 +163,13 @@ public class RequestServiceExecutor {
                     Object response = ResponseFactory
                             .constructSuccessfulExecution(
                                     privHandler.handleRequest(privReq), null);
-                    return isRequestWrapper
-                            ? new ResponseWrapper(response,
-                                    SystemUtil.getHostName())
-                            : response;
+
+                    /* TODO: restore when DR #8399 is worked */
+                    // return isRequestWrapper
+                    // ? new ResponseWrapper(response,
+                    // SystemUtil.getHostName())
+                    // : response;
+                    return response;
                 } catch (ClassCastException e) {
                     throw new AuthException(
                             "Roles can only be defined for requests/handlers of AbstractPrivilegedRequest/Handler, request was "
@@ -182,9 +188,12 @@ public class RequestServiceExecutor {
             reqLogger.logRequest(wsidPString, request);
 
             Object response = handler.handleRequest(request);
-            return isRequestWrapper
-                    ? new ResponseWrapper(response, SystemUtil.getHostName())
-                    : response;
+
+            /* TODO: restore when DR #8399 is worked */
+            // return isRequestWrapper
+            // ? new ResponseWrapper(response, SystemUtil.getHostName())
+            // : response;
+            return response;
         } finally {
             if (subjectSet) {
                 AuthManagerFactory.getInstance().getPermissionsManager()
