@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -27,20 +27,20 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
  * Options used that determine how data is stored in the datastore
- * 
+ *
  * <pre>
- * 
+ *
  *   SOFTWARE HISTORY
- *  
- *   Date         Ticket#     Engineer    Description
- *   ------------ ----------  ----------- --------------------------
- *   Feb 8, 2007              chammack    Initial Creation.
- *   Nov 14, 2013  2393     bclement    removed interpolation
- * 
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------
+ * Feb 08, 2007           chammack  Initial Creation.
+ * Nov 14, 2013  2393     bclement  removed interpolation
+ * Mar 29, 2021  8335     mapeters  Removed {@link Compression}.LZF
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1
  */
 @DynamicSerialize
 public class StorageProperties implements Cloneable {
@@ -50,21 +50,12 @@ public class StorageProperties implements Cloneable {
      * <UL>
      * <LI>NONE - No compression
      * <LI>ZLIB - standard libz compression (supported by h5dump, etc.)
-     * <LI>LZF - LZF compression (much faster but less effective, not supported
-     * by h5dump)
      * <LI>GZIP - Deflate Compression
      * </UL>
      */
-    public static enum Compression {
-        NONE,
-        ZLIB,
-        /**
-         * @Deprecated LZF Compression to be dropped - See RODO #8335
-         */
-        @Deprecated
-        LZF,
-        GZIP
-    };
+    public enum Compression {
+        NONE, ZLIB, GZIP
+    }
 
     /** The compression flag */
     @DynamicSerializeElement
@@ -106,7 +97,7 @@ public class StorageProperties implements Cloneable {
     /**
      * @param compression
      *            the compression to set
-     * 
+     *
      *            NOTE: chunking will also be turned on
      */
     public void setCompression(Compression compression) {
@@ -118,11 +109,6 @@ public class StorageProperties implements Cloneable {
         }
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see java.lang.Object#clone()
-     */
     @Override
     public StorageProperties clone() {
         StorageProperties sp = new StorageProperties();
