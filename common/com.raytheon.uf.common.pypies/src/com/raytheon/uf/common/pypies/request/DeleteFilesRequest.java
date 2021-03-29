@@ -19,6 +19,8 @@
  **/
 package com.raytheon.uf.common.pypies.request;
 
+import java.util.Arrays;
+
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -89,9 +91,8 @@ public class DeleteFilesRequest extends AbstractRequest {
     @Override
     public String toString() {
         StringBuilder rval = new StringBuilder(super.toString());
-        rval.append(", datesToDelete[");
-        rval.append(datesToDelete);
-        rval.append("]");
+        rval.append(", datesToDelete");
+        rval.append(Arrays.toString(datesToDelete));
         return rval.toString();
 
     }

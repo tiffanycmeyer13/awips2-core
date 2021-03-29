@@ -26,19 +26,22 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * Provides an interface to datasets of type double
- * 
+ * IDataRecord implementation for 128-bit floating point data
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * Date         Ticket#     Engineer    Description
- * ------------ ----------  ----------- --------------------------
- * Sept 8, 2014             kustert     Initial Creation.
- * Apr 24, 2015 4425        nabowle     Bring in.
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Sep 08, 2014           kustert   Initial Creation.
+ * Apr 24, 2015  4425     nabowle   Bring in.
+ * Mar 29, 2021  8374     randerso  Removed toString() in favor of method in
+ *                                  AbstractStoreageRecord. Code cleanup.
+ *
  * </pre>
- * 
+ *
  * @author kustert
- * @version 1
  */
 @DynamicSerialize
 public class DoubleDataRecord extends AbstractStorageRecord {
@@ -46,6 +49,9 @@ public class DoubleDataRecord extends AbstractStorageRecord {
     @DynamicSerializeElement
     protected double[] doubleData;
 
+    /**
+     * Nullary constructor for Dynamic Serialization
+     */
     public DoubleDataRecord() {
         super();
     }
@@ -66,11 +72,8 @@ public class DoubleDataRecord extends AbstractStorageRecord {
      */
     public DoubleDataRecord(String name, String group, double[] doubleData,
             int dimension, long[] sizes) {
+        super(name, group, dimension, sizes);
         this.doubleData = doubleData;
-        this.group = group;
-        this.dimension = dimension;
-        this.sizes = sizes;
-        this.name = name;
     }
 
     /**
@@ -102,21 +105,11 @@ public class DoubleDataRecord extends AbstractStorageRecord {
         this.doubleData = doubleData;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.raytheon.edex.storage.records.AbstractDataRecord#getDataObject()
-     */
     @Override
     public Object getDataObject() {
         return this.doubleData;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.raytheon.edex.storage.records.IDataRecord#validateDataSet()
-     */
     @Override
     public boolean validateDataSet() {
 
@@ -133,20 +126,6 @@ public class DoubleDataRecord extends AbstractStorageRecord {
         }
     }
 
-    /**
-     * Override toString method to print dimensions
-     */
-    @Override
-    public String toString() {
-        return "[dims,data size]=[" + Arrays.toString(sizes) + ","
-                + this.doubleData.length + "]";
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see com.raytheon.edex.storage.records.IDataRecord#reduce(int[])
-     */
     @Override
     public void reduce(int[] indices) {
         double[] reducedData = new double[indices.length];

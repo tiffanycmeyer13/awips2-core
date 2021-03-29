@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -23,38 +23,40 @@ package com.raytheon.uf.common.datastorage.records;
 import java.util.Map;
 
 import com.raytheon.uf.common.datastorage.StorageProperties;
-import com.raytheon.uf.common.serialization.ISerializableObject;
 
 /**
  * Data Record Interface
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
- * Date         Ticket#     Engineer    Description
- * ------------ ----------  ----------- --------------------------
- * 08 Feb 2007              chammack    Initial Check-in    
- * 24 Nov 2007        555   garmendariz Added method to check dataset dimensions
- * 
+ *
+ * Date          Ticket#  Engineer     Description
+ * ------------- -------- ------------ -----------------------------------------
+ * Feb 08, 2007           chammack     Initial Check-in
+ * Nov 24, 2007  555      garmendariz  Added method to check dataset dimensions
+ * Mar 29, 2021  8374     randerso     Renamed get/setProperties to get/setProps
+ *                                     to match the underlying field name in
+ *                                     AbstractStorageRecord and all the Python
+ *                                     record classes.
+ *
  * </pre>
- * 
+ *
  * @author bphillip
- * @version 1
  */
 
-public interface IDataRecord extends ISerializableObject {
+public interface IDataRecord {
 
     /**
      * @return the storage properties
      */
-    public abstract StorageProperties getProperties();
+    public abstract StorageProperties getProps();
 
     /**
      * @param props
      *            the properties to set
      */
-    public abstract void setProperties(StorageProperties props);
+    public abstract void setProps(StorageProperties props);
 
     /**
      * @return the dimension
@@ -65,16 +67,16 @@ public interface IDataRecord extends ISerializableObject {
      * @param dimension
      *            the dimension to set
      */
-    public abstract void setDimension(int dimensions);
+    public abstract void setDimension(int dimension);
 
     /**
-     * @return the minIndexes
+     * @return the starting indices of sub area
      */
     public abstract long[] getMinIndex();
 
     /**
-     * @param dims
-     *            start Indexes of sub area
+     * @param minIndex
+     *            starting indices of sub area
      */
     public abstract void setMinIndex(long[] minIndex);
 
@@ -96,16 +98,16 @@ public interface IDataRecord extends ISerializableObject {
 
     /**
      * @param sizes
-     *            the sizes to set
+     *            the sizes as 64-bit integers
      */
     public abstract void setSizes(long[] sizes);
 
     /**
      * Generic type interface to the data
-     * 
+     *
      * Subinterfaces will also likely implement type-safe equivalents of this
      * method
-     * 
+     *
      * @return the data object
      */
     public abstract Object getDataObject();
@@ -113,21 +115,21 @@ public interface IDataRecord extends ISerializableObject {
     /**
      * Data type specific check to verify that dimensions are appropriate for
      * data object content.
-     * 
-     * @return
+     *
+     * @return true if dimensions are valid
      */
     public boolean validateDataSet();
 
     /**
      * Get the group
-     * 
-     * @return
+     *
+     * @return the group
      */
     public String getGroup();
 
     /**
      * Set the group
-     * 
+     *
      * @param group
      */
     public void setGroup(String group);
@@ -157,11 +159,11 @@ public interface IDataRecord extends ISerializableObject {
     /**
      * Reduces the dataset into a smaller dataset with only the indices
      * specified. All other indices are dropped from the data.
-     * 
+     *
      * The data is converted to a one dimensional array
-     * 
+     *
      * Indices should be expressed in 1d notation.
-     * 
+     *
      * @param indices
      *            the indices
      */
@@ -178,13 +180,17 @@ public interface IDataRecord extends ISerializableObject {
      */
     public void setFillValue(Number fillValue);
 
-    public void setIntSizes(int[] size);
+    /**
+     * @param sizes
+     *            as 32-bit integers
+     */
+    public void setIntSizes(int[] sizes);
 
     /**
-     * 
+     *
      * Return the maximum size (the size that the dataset can maximally be
      * expanded to)
-     * 
+     *
      * @return the maxSizes
      */
     public long[] getMaxSizes();
@@ -192,7 +198,7 @@ public interface IDataRecord extends ISerializableObject {
     /**
      * Set the maximum size (the size that the dataset can maximally be expanded
      * to)
-     * 
+     *
      * @param maxSizes
      *            the maxSizes to set
      */
@@ -212,15 +218,15 @@ public interface IDataRecord extends ISerializableObject {
     /**
      * Get the size of the data record given the dimensions, sizes of each
      * dimension and the type of data it is (float,byte,int,etc)
-     * 
+     *
      * @return size of record in bytes
      */
     public int getSizeInBytes();
 
     /**
      * Clone the record
-     * 
-     * @return
+     *
+     * @return a deep copy of this record
      */
     public IDataRecord clone();
 }

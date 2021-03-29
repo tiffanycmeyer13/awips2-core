@@ -55,6 +55,8 @@ import com.raytheon.uf.common.pypies.request.GroupsRequest;
 import com.raytheon.uf.common.pypies.request.RepackRequest;
 import com.raytheon.uf.common.pypies.request.RetrieveRequest;
 import com.raytheon.uf.common.pypies.request.StoreRequest;
+import com.raytheon.uf.common.pypies.response.AbstractResponse;
+import com.raytheon.uf.common.pypies.response.DatasetNamesResponse;
 import com.raytheon.uf.common.pypies.response.ErrorResponse;
 import com.raytheon.uf.common.pypies.response.FileActionResponse;
 import com.raytheon.uf.common.pypies.response.RetrieveResponse;
@@ -99,7 +101,7 @@ import com.raytheon.uf.common.util.format.BytesFormat;
  *                                     introduced in 7435
  * Dec 11, 2020  8299     tgurney      Log before and after each request is sent
  * Mar 18, 2021  8349     randerso     Code cleanup
- * Mar 24  2021  8374     srahimi     Added  Method for Logging
+ * Mar 24, 2021  8374     srahimi      Added  Method for Logging
  *
  * </pre>
  *
@@ -151,7 +153,7 @@ public class PyPiesDataStore implements IDataStore {
             if (dataset.getSizeInBytes() > COMPRESSION_LIMIT) {
                 dataset = CompressedDataRecord.convert(dataset);
             }
-            dataset.setProperties(properties);
+            dataset.setProps(properties);
             records.add(dataset);
         } else {
             throw new StorageException(
@@ -164,7 +166,7 @@ public class PyPiesDataStore implements IDataStore {
     @Override
     public void addDataRecord(final IDataRecord dataset)
             throws StorageException {
-        addDataRecord(dataset, dataset.getProperties());
+        addDataRecord(dataset, dataset.getProps());
     }
 
     @Override
@@ -195,8 +197,8 @@ public class PyPiesDataStore implements IDataStore {
             throws StorageException, FileNotFoundException {
         DatasetNamesRequest req = new DatasetNamesRequest();
         req.setGroup(group);
-        String[] result = (String[]) cachedRequest(req);
-        return result;
+        DatasetNamesResponse resp = (DatasetNamesResponse) cachedRequest(req);
+        return resp.getDatasets();
     }
 
     @Override
@@ -315,18 +317,18 @@ public class PyPiesDataStore implements IDataStore {
         return ss;
     }
 
-    protected Object sendRequest(final AbstractRequest obj)
+    protected AbstractResponse sendRequest(final AbstractRequest obj)
             throws StorageException {
         return sendRequest(obj, false);
     }
 
-    protected Object sendRequest(final AbstractRequest obj, boolean huge)
-            throws StorageException {
+    protected AbstractResponse sendRequest(final AbstractRequest obj,
+            boolean huge) throws StorageException {
         obj.setFilename(filename);
 
         initializeProperties();
 
-        Object ret = null;
+        AbstractResponse ret = null;
         long t0 = System.currentTimeMillis();
 
         boolean logged = false;
@@ -334,8 +336,8 @@ public class PyPiesDataStore implements IDataStore {
         while (ret == null) {
 
             try {
-                requestLogger.info("Sending request {} {}", seqNum,
-                        obj.toString());
+                requestLogger.info("Sending request to URL {} id[{}] {}",
+                        address, seqNum, obj.toString());
                 ret = doSendRequest(obj, huge);
             } catch (CommunicationException ce) {
                 if (ce.getCause() instanceof HttpHostConnectException) {
@@ -361,7 +363,8 @@ public class PyPiesDataStore implements IDataStore {
 
         long time = System.currentTimeMillis() - t0;
 
-        requestLogger.info("Request {} took {} ms", seqNum, time);
+        requestLogger.info("Request id[{}] {} took {}ms", seqNum,
+                String.valueOf(ret), time);
 
         if (ret instanceof ErrorResponse) {
             throw new StorageException("(request " + seqNum + ") "
@@ -371,8 +374,10 @@ public class PyPiesDataStore implements IDataStore {
         return ret;
     }
 
-    protected Object doSendRequest(final AbstractRequest obj, boolean huge)
-            throws Exception {
+    protected AbstractResponse doSendRequest(final AbstractRequest obj,
+            boolean huge) throws Exception {
+
+        Object response;
         if (huge) {
             byte[] resp = HttpClient.getInstance().postBinary(address, os -> {
                 try {
@@ -383,19 +388,35 @@ public class PyPiesDataStore implements IDataStore {
                     throw new CommunicationException(e);
                 }
             });
-            return SerializationUtil.transformFromThrift(Object.class, resp);
+
+            response = SerializationUtil.transformFromThrift(Object.class,
+                    resp);
+
         } else {
             // can't stream to pypies due to WSGI spec not handling chunked http
-            Object response = HttpClient.getInstance()
-                    .postDynamicSerialize(address, obj, false);
+            response = HttpClient.getInstance().postDynamicSerialize(address,
+                    obj, false);
             /**
              * Log that we have a message. Size information in NOT logged here.
              * Sending a '1' for sent to trigger request increment.
              */
             HttpClient.getInstance().getStats()
                     .log(obj.getClass().getSimpleName(), 1, 0);
-            return response;
         }
+
+        /*
+         * TODO: remove this if statement after prior releases are no longer in
+         * the field.
+         *
+         * Handle String[] response from previous version of
+         * H5PyDataStore.getDatasets()
+         *
+         */
+        if (response instanceof String[]) {
+            response = new DatasetNamesResponse((String[]) response);
+        }
+
+        return (AbstractResponse) response;
     }
 
     /**

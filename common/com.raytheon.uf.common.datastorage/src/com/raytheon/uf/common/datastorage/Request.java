@@ -22,7 +22,6 @@ package com.raytheon.uf.common.datastorage;
 import java.awt.Point;
 import java.util.Arrays;
 
-import com.raytheon.uf.common.serialization.ISerializableObject;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -35,11 +34,15 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * <pre>
  *
  * SOFTWARE HISTORY
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Jul 27, 2009            chammack     Initial creation
- * Jun 18, 2013 DR 15662   dhuffman     Cross section terrain disappears if baseline is too short.
- * Mar 24  2021    8374    srahimi      Code Clean
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Jul 27, 2009           chammack  Initial creation
+ * Jun 18, 2013  15662    dhuffman  Cross section terrain disappears if baseline
+ *                                  is too short.
+ * Mar 24, 2021  8374     srahimi   Code cleanup
+ * Mar 29, 2021  8374     randerso  Re-implemented copyFrom as shallowCopy.
+ *                                  Additional code cleanup.
  *
  * </pre>
  *
@@ -47,7 +50,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *
  */
 @DynamicSerialize
-public class Request implements ISerializableObject {
+public class Request {
 
     @DynamicSerializeElement
     private Point[] points;
@@ -65,15 +68,17 @@ public class Request implements ISerializableObject {
     private Type type;
 
     public enum Type {
-        POINT, XLINE, YLINE, SLAB, ALL
+        POINT,
+        XLINE,
+        YLINE,
+        SLAB,
+        ALL
     }
 
-    public static final Request ALL;
-
-    static {
-        ALL = new Request();
-        ALL.type = Type.ALL;
-    }
+    /**
+     * Request for full dataset
+     */
+    public static final Request ALL = new Request(Type.ALL);
 
     /**
      * Do NOT use this, only added for dynamic serialization
@@ -82,29 +87,32 @@ public class Request implements ISerializableObject {
 
     }
 
+    protected Request(Type type) {
+        this.type = type;
+    }
+
     /**
      * Build a request that asks for specific points to be returned
      *
      * @param points
-     * @return
+     * @return the point request
      */
     public static Request buildPointRequest(Point... points) {
-        Request request = new Request();
-        request.type = Type.POINT;
+        Request request = new Request(Type.POINT);
         request.points = points;
 
         return request;
     }
 
     /**
-     * Build a request that asks for specific cross points to be returned
+     * Build a request that asks for specific cross section points to be
+     * returned
      *
      * @param points
-     * @return
+     * @return the cross section points request
      */
     public static Request buildXsectPointRequest(Point... points) {
-        Request request = new Request();
-        request.type = Type.POINT;
+        Request request = new Request(Type.POINT);
         request.points = new Point[points.length];
         for (int x = 0; x < points.length; x++) {
             request.points[x] = new Point(points[x]);
@@ -121,11 +129,10 @@ public class Request implements ISerializableObject {
      * order of the index.
      *
      * @param yIndices
-     * @return
+     * @return the X line request
      */
     public static Request buildXLineRequest(int[] yIndices) {
-        Request request = new Request();
-        request.type = Type.XLINE;
+        Request request = new Request(Type.XLINE);
         request.indices = yIndices;
         Arrays.sort(yIndices);
         return request;
@@ -139,11 +146,10 @@ public class Request implements ISerializableObject {
      * order of the index.
      *
      * @param xIndices
-     * @return
+     * @return the Y line request
      */
     public static Request buildYLineRequest(int[] xIndices) {
-        Request request = new Request();
-        request.type = Type.YLINE;
+        Request request = new Request(Type.YLINE);
         request.indices = xIndices;
         Arrays.sort(request.indices);
         return request;
@@ -154,11 +160,10 @@ public class Request implements ISerializableObject {
      *
      * @param minIndex
      * @param maxIndex
-     * @return
+     * @return the slab request
      */
     public static Request buildSlab(int[] minIndex, int[] maxIndex) {
-        Request request = new Request();
-        request.type = Type.SLAB;
+        Request request = new Request(Type.SLAB);
         request.minIndexForSlab = minIndex;
         request.maxIndexForSlab = maxIndex;
         return request;
@@ -224,62 +229,46 @@ public class Request implements ISerializableObject {
     }
 
     /**
-     * Perform a shallow copy into this object
-     *
-     * @param request
+     * @return a shallow copy of this object
      */
-    public void copyFrom(Request request) {
-        this.indices = request.indices;
-        this.maxIndexForSlab = request.maxIndexForSlab;
-        this.minIndexForSlab = request.minIndexForSlab;
-        this.points = request.points;
-        this.type = request.type;
+    public Request shallowCopy() {
+        Request copy = new Request(this.type);
+        copy.indices = this.indices;
+        copy.maxIndexForSlab = this.maxIndexForSlab;
+        copy.minIndexForSlab = this.minIndexForSlab;
+        copy.points = this.points;
+        copy.type = this.type;
+
+        return copy;
     }
 
     @Override
     public String toString() {
-        String str = getType().toString() + ":";
+        StringBuilder str = new StringBuilder();
+        str.append(getType());
+        str.append(": ");
+
         switch (getType()) {
         case POINT: {
-            for (Point p : points) {
-                str += p.toString() + ":";
-            }
+            str.append(points.length);
+            str.append(" points");
             break;
         }
         case SLAB: {
-            str += "[[";
-            for (int i = 0; i < minIndexForSlab.length; ++i) {
-                if (i > 0) {
-                    str += ",";
-                }
-                str += minIndexForSlab[i];
-            }
-            str += "],[";
-            for (int i = 0; i < maxIndexForSlab.length; ++i) {
-                if (i > 0) {
-                    str += ",";
-                }
-                str += maxIndexForSlab[i];
-            }
-            str += "]]";
+            str.append(Arrays.toString(
+                    new int[][] { minIndexForSlab, maxIndexForSlab }));
             break;
         }
         case XLINE:
         case YLINE: {
-            str += "[";
-            for (int i = 0; i < indices.length; ++i) {
-                if (i > 0) {
-                    str += ",";
-                }
-                str += indices[i];
-            }
-            str += "]";
+            str.append(indices.length);
+            str.append(" indices");
             break;
         }
         default:
             break;
         }
-        return str;
+        return str.toString();
     }
 
     @Override

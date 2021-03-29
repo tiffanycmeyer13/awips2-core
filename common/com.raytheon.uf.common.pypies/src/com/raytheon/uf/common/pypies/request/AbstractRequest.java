@@ -20,12 +20,11 @@
  **/
 package com.raytheon.uf.common.pypies.request;
 
-import com.raytheon.uf.common.serialization.ISerializableObject;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * Abstract Base Class for PyPies requests
  *
  * <pre>
  *
@@ -44,7 +43,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  */
 
 @DynamicSerialize
-public abstract class AbstractRequest implements ISerializableObject {
+public abstract class AbstractRequest {
 
     @DynamicSerializeElement
     protected String filename;
@@ -59,11 +58,11 @@ public abstract class AbstractRequest implements ISerializableObject {
 
     @Override
     public String toString() {
-        StringBuilder rval = new StringBuilder();
-        rval.append("filename[");
+        StringBuilder rval = new StringBuilder(getClass().getSimpleName());
+        rval.append(" filename[");
         rval.append(filename);
         rval.append("]");
-        return getClass().getSimpleName() + rval.toString();
+        return rval.toString();
 
     }
 

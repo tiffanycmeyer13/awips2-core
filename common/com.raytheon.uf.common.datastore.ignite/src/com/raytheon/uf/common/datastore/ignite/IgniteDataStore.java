@@ -71,13 +71,15 @@ import com.raytheon.uf.common.datastore.ignite.processor.StoreProcessor;
  * SOFTWARE HISTORY
  *
  * Date          Ticket#  Engineer  Description
- * ------------- -------- --------- -----------------
+ * ------------- -------- --------- --------------------------------------------
  * May 29, 2019  7628     bsteffen  Initial creation
  * Mar 27, 2020  8099     bsteffen  Throw DuplicateRecordStorageException for
  *                                  duplicate records.
  * Mar 30, 2020  8073     bsteffen  Make deleteFiles query lazy to prevent OOM.
  * Apr 02, 2020  8075     bsteffen  Handle updates in fastStore.
- * Dec  8, 2020  8299     tgurney   Receive the through-datastore in constructor
+ * Dec 08, 2020  8299     tgurney   Receive the through-datastore in constructor
+ * Mar 29, 2021  8374     randerso  Renamed IDataRecord.get/setProperties to
+ *                                  get/setProps
  *
  * </pre>
  *
@@ -122,7 +124,7 @@ public class IgniteDataStore implements IDataStore {
     @Override
     public void addDataRecord(IDataRecord dataset,
             StorageProperties properties) {
-        dataset.setProperties(properties);
+        dataset.setProps(properties);
         addDataRecord(dataset);
     }
 

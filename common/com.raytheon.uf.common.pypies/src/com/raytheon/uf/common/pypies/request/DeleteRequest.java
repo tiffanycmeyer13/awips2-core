@@ -19,11 +19,13 @@
  **/
 package com.raytheon.uf.common.pypies.request;
 
+import java.util.Arrays;
+
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * PyPies request to delete groups/datasets
  *
  * <pre>
  *
@@ -70,14 +72,12 @@ public class DeleteRequest extends AbstractRequest {
     @Override
     public String toString() {
         StringBuilder rval = new StringBuilder(super.toString());
-        rval.append(", datasets[");
-        rval.append(datasets);
-        rval.append("]");
-        rval.append(", groups[");
-        rval.append(groups);
-        rval.append("]");
+        rval.append(", datasets");
+        rval.append(Arrays.toString(datasets));
+        rval.append("");
+        rval.append(", groups");
+        rval.append(Arrays.toString(groups));
         return rval.toString();
-
     }
 
 }

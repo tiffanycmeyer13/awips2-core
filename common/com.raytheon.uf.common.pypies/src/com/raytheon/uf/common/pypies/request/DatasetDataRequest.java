@@ -19,12 +19,14 @@
  **/
 package com.raytheon.uf.common.pypies.request;
 
+import java.util.Arrays;
+
 import com.raytheon.uf.common.datastorage.Request;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * PyPies dataset data request
  *
  * <pre>
  *
@@ -70,9 +72,9 @@ public class DatasetDataRequest extends AbstractRequest {
     @Override
     public String toString() {
         StringBuilder rval = new StringBuilder(super.toString());
-        rval.append(", datasetGroupPath[");
-        rval.append(datasetGroupPath);
-        rval.append("], request[");
+        rval.append(", datasetGroupPath");
+        rval.append(Arrays.toString(datasetGroupPath));
+        rval.append(", request[");
         rval.append(request);
         rval.append("]");
         return rval.toString();

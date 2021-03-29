@@ -17,14 +17,15 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
-package com.raytheon.uf.common.pypies.request;
+package com.raytheon.uf.common.pypies.response;
 
-import com.raytheon.uf.common.datastorage.records.IDataRecord;
+import java.util.Arrays;
+
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * PyPies create dataset request
+ * PyPies dataset names response
  *
  * <pre>
  *
@@ -32,40 +33,57 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Oct 28, 2010            njensen     Initial creation
- * Mar 24 2021   8374      srahimi     Added toString to standardize log message
- *
- *
- *
+ * Mar 30, 2021 8374       randerso     Initial creation
  *
  * </pre>
  *
- * @author njensen
- *
+ * @author randerso
  */
 
 @DynamicSerialize
-public class CreateDatasetRequest extends AbstractRequest {
+public class DatasetNamesResponse extends AbstractResponse {
 
-    @DynamicSerializeElement
-    private IDataRecord record;
+    /**
+     * Nullary constructor for dynamic serialization
+     */
+    public DatasetNamesResponse() {
 
-    public IDataRecord getRecord() {
-        return record;
     }
 
-    public void setRecord(IDataRecord record) {
-        this.record = record;
+    /**
+     * Constructor
+     *
+     * @param datasets
+     *            the dataset names
+     */
+    public DatasetNamesResponse(String[] datasets) {
+        this.datasets = datasets;
+    }
+
+    @DynamicSerializeElement
+    private String[] datasets;
+
+    /**
+     * @return the datasets
+     */
+    public String[] getDatasets() {
+        return datasets;
+    }
+
+    /**
+     * @param datasets
+     *            the datasets to set
+     */
+    public void setDatasets(String[] datasets) {
+        this.datasets = datasets;
     }
 
     @Override
     public String toString() {
-        StringBuilder rval = new StringBuilder(super.toString());
-        rval.append(", record[");
-        rval.append(record);
-        rval.append("]");
-        return rval.toString();
+        StringBuilder sb = new StringBuilder(super.toString());
+        sb.append(", datasets");
+        sb.append(Arrays.toString(datasets));
 
+        return sb.toString();
     }
-
 }

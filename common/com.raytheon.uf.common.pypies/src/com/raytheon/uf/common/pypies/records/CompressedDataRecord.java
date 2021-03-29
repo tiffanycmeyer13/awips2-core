@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -46,18 +46,20 @@ import com.raytheon.uf.common.util.ByteArrayOutputStreamPool;
 import com.raytheon.uf.common.util.PooledByteArrayOutputStream;
 
 /**
- * 
+ *
  * Record containing gzip compressed version of data. This is intended to reduce
  * the bandwidth usage when communicating with pypies.
- * 
+ *
  * <pre>
  *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer  Description
- * ------------- -------- --------- -----------------
+ * ------------- -------- --------- --------------------------------------------
  * Nov 15, 2016  5992     bsteffen  Initial creation
- * 
+ * Mar 29, 2021  8374     randerso  Renamed IDataRecord.get/setProperties to
+ *                                  get/setProps
+ *
  * </pre>
  *
  * @author bsteffen
@@ -70,7 +72,12 @@ public class CompressedDataRecord extends AbstractStorageRecord {
     private static final int COMPRESSION_RATIO_ASSUMPTION = 4;
 
     public static enum Type {
-        BYTE, SHORT, INT, LONG, FLOAT, DOUBLE;
+        BYTE,
+        SHORT,
+        INT,
+        LONG,
+        FLOAT,
+        DOUBLE;
     }
 
     @DynamicSerializeElement
@@ -148,7 +155,8 @@ public class CompressedDataRecord extends AbstractStorageRecord {
                 return convertDouble((DoubleDataRecord) sourceRecord);
             }
         } catch (IOException e) {
-            throw new StorageException("Error compressing Data", sourceRecord);
+            throw new StorageException("Error compressing Data", sourceRecord,
+                    e);
         }
         return sourceRecord;
     }
@@ -160,7 +168,7 @@ public class CompressedDataRecord extends AbstractStorageRecord {
         compressedRecord.setDimension(sourceRecord.getDimension());
         compressedRecord.setSizes(sourceRecord.getSizes());
         compressedRecord.setMaxSizes(sourceRecord.getMaxSizes());
-        compressedRecord.setProperties(sourceRecord.getProperties());
+        compressedRecord.setProps(sourceRecord.getProps());
         compressedRecord.setMinIndex(sourceRecord.getMinIndex());
         compressedRecord.setGroup(sourceRecord.getGroup());
         compressedRecord.setDataAttributes(sourceRecord.getDataAttributes());

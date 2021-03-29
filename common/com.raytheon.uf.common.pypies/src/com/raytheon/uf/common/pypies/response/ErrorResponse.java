@@ -25,7 +25,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * Error Response object
+ * PyPies error response
  *
  * <pre>
  *
@@ -35,6 +35,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * ------------- -------- --------- --------------------------------------------
  * Aug 17, 2010           njensen   Initial creation
  * Mar 18, 2021  8349     randerso  Added constructors for String and Throwable
+ * Mar 29, 2021  8374     randerso  Added toString() for logging. Code cleanup.
  *
  * </pre>
  *
@@ -42,7 +43,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  */
 
 @DynamicSerialize
-public class ErrorResponse {
+public class ErrorResponse extends AbstractResponse {
 
     @DynamicSerializeElement
     private String error;
@@ -88,6 +89,15 @@ public class ErrorResponse {
      */
     public void setError(String error) {
         this.error = error;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(super.toString());
+        sb.append(", error[");
+        sb.append(error);
+        sb.append("]");
+        return sb.toString();
     }
 
 }

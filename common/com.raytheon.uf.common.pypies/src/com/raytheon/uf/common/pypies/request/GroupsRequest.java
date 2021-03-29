@@ -17,32 +17,28 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  *
- * TODO Add Description
-
- *<pre>
- * * * SOFTWARE HISTORY
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Aug 16, 2010                njensen     Initial creation
-*  Mar 24  2021      8374      srahimi     Added toString Method for Logging
-*</pre>
-*
-* @author njensen
 *
  **/
 package com.raytheon.uf.common.pypies.request;
+
+import java.util.Arrays;
 
 import com.raytheon.uf.common.datastorage.Request;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
+ * PyPies groups request
  *
+ * <pre>
+ * * * SOFTWARE HISTORY
+ * Date         Ticket#    Engineer    Description
+ * ------------ ---------- ----------- --------------------------
+ * Aug 16, 2010                njensen     Initial creation
+ * Mar 24  2021      8374      srahimi     Added toString Method for Logging
+ * </pre>
  *
- *
- *
- *
- *
+ * @author njensen
  */
 
 @DynamicSerialize
@@ -73,9 +69,9 @@ public class GroupsRequest extends AbstractRequest {
     @Override
     public String toString() {
         StringBuilder rval = new StringBuilder(super.toString());
-        rval.append(", groups[");
-        rval.append(groups);
-        rval.append("], request[");
+        rval.append(", groups");
+        rval.append(Arrays.toString(groups));
+        rval.append(", request[");
         rval.append(request);
         rval.append("]");
         return rval.toString();

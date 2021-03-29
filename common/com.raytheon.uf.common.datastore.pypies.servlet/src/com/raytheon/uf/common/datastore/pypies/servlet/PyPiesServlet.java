@@ -88,6 +88,8 @@ import com.raytheon.uf.common.util.PooledByteArrayOutputStream;
  * ------------- -------- --------- -------------------------------------------
  * Apr 18, 2019  7628     bsteffen  Initial creation
  * Mar 18, 2021  8349     randerso  Return ErrorResponse for StorageExceptions
+ * Mar 29, 2021  8374     randerso  Renamed IDataRecord.get/setProperties to
+ *                                  get/setProps
  *
  * </pre>
  *
@@ -405,7 +407,7 @@ public class PyPiesServlet extends HttpServlet {
         result.setDimension(record.getDimension());
         result.setSizes(record.getSizes());
         result.setMaxSizes(record.getMaxSizes());
-        result.setProperties(record.getProperties());
+        result.setProps(record.getProps());
         result.setMinIndex(record.getMinIndex());
         result.setGroup(record.getGroup());
         result.setDataAttributes(record.getDataAttributes());

@@ -17,55 +17,32 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
-package com.raytheon.uf.common.pypies.request;
+package com.raytheon.uf.common.pypies.response;
 
-import com.raytheon.uf.common.datastorage.records.IDataRecord;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
-import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * PyPies create dataset request
+ * Abstract base class for PyPies responses.
  *
  * <pre>
  *
  * SOFTWARE HISTORY
  *
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Oct 28, 2010            njensen     Initial creation
- * Mar 24 2021   8374      srahimi     Added toString to standardize log message
- *
- *
- *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- -----------------
+ * Mar 29, 2021  8374     randerso  Initial creation
  *
  * </pre>
  *
- * @author njensen
- *
+ * @author randerso
  */
 
 @DynamicSerialize
-public class CreateDatasetRequest extends AbstractRequest {
-
-    @DynamicSerializeElement
-    private IDataRecord record;
-
-    public IDataRecord getRecord() {
-        return record;
-    }
-
-    public void setRecord(IDataRecord record) {
-        this.record = record;
-    }
+public class AbstractResponse {
 
     @Override
     public String toString() {
-        StringBuilder rval = new StringBuilder(super.toString());
-        rval.append(", record[");
-        rval.append(record);
-        rval.append("]");
-        return rval.toString();
-
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName());
+        return sb.toString();
     }
-
 }
