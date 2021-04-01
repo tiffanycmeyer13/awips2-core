@@ -10,7 +10,6 @@
       <encoder>
          <pattern>%-5p %d %4.4lsn [%t] %c{0}: %m%n</pattern>
       </encoder>
-
    </appender>
 
    <appender name="asyncFile" class="ch.qos.logback.classic.AsyncAppender">
@@ -26,6 +25,27 @@
    <appender name="asyncConsole" class="ch.qos.logback.classic.AsyncAppender">
       <appender-ref ref="console" />
    </appender>
+
+   <!-- PyPiesRequest log -->
+   <appender name="PyPiesRequestLogFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+      <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+          <fileNamePattern>${IGNITE_HOME}/logs/ignite-pypies-%d{yyyMMdd}.log.gz</fileNamePattern>
+          <totalSizeCap>5GB</totalSizeCap>
+          <maxHistory>60</maxHistory>
+      </rollingPolicy>
+      <encoder>
+         <pattern>%-5p %d %4.4lsn [%t] %c{0}: %m%n</pattern>
+      </encoder>
+   </appender>
+
+   <appender name="AsyncPyPiesRequestLogAppender" class="ch.qos.logback.classic.AsyncAppender">
+      <queueSize>500</queueSize>
+      <appender-ref ref="PyPiesRequestLogFile"/>
+   </appender>   
+
+   <logger name="PyPiesRequestLogger" level="ALL" additivity="false">
+      <appender-ref ref="AsyncPyPiesRequestLogAppender"/>
+   </logger>
 
    <logger name="org.eclipse.jetty" level="ERROR" />
 

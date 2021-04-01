@@ -20,6 +20,11 @@
       <name>cave_${startTime}_pid_%PID%_request.log</name>
    </define>   
 
+   <define name="pyPiesRequestLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
+      <directory>${user.home}/${LOGDIR}</directory>
+      <name>cave_${startTime}_pid_%PID%_pypies.log</name>
+   </define>   
+
    <define name="consoleLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
        <directory>${user.home}/${LOGDIR}</directory>
        <name>cave_${startTime}_pid_%PID%_console.log</name>
@@ -65,6 +70,12 @@
       <file>${caveRequestLogFile}</file>
    </appender>   
 
+   <!-- this appender will log all CAVE request and how long request took -->
+   <appender name="PyPiesRequestLogAppender" class="ch.qos.logback.core.FileAppender">
+      <encoder class="com.raytheon.uf.common.logback.encoder.UFStdEncoder"/> 
+      <file>${pyPiesRequestLogFile}</file>
+   </appender>   
+
    <!-- this appender will log any System.out and System.err printouts to a
          file while also allowing them through to System.out and System.err -->   
    <appender name="consoleLog" class="com.raytheon.uf.common.logback.appender.ConsoleFileAppender">
@@ -93,6 +104,11 @@
       <appender-ref ref="CaveRequestLogAppender"/>
    </appender>   
 
+   <appender name="AsyncPyPiesRequestLogAppender" class="ch.qos.logback.classic.AsyncAppender">
+      <queueSize>500</queueSize>
+      <appender-ref ref="PyPiesRequestLogAppender"/>
+   </appender>   
+
    <appender name="AsyncAlertvizAppender" class="ch.qos.logback.classic.AsyncAppender">
       <queueSize>500</queueSize>      
       <appender-ref ref="AlertvizAppender"/>
@@ -115,6 +131,10 @@
 
    <logger name="CaveRequestLogger" level="all" additivity="false">
       <appender-ref ref="AsyncCaveRequestLogAppender"/>
+   </logger>
+
+   <logger name="PyPiesRequestLogger" level="all" additivity="false">
+      <appender-ref ref="AsyncPyPiesRequestLogAppender"/>
    </logger>
 
    <logger name="PerformanceLogger" level="all" additivity="false">

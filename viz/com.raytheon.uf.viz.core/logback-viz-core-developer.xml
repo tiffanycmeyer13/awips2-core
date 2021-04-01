@@ -46,10 +46,68 @@
    <logger name="CaveLogger" level="all">
       <appender-ref ref="AlertAppender"/>
    </logger>
+
+   <timestamp key="startTime" datePattern="yyyyMMdd_HHmmss" />
    
-   <logger name="CaveRequestLogger" level="all" />
-   
-   <logger name="PerformanceLogger" level="all" />
+   <!-- CaveRequest log -->
+   <define name="caveRequestLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
+      <directory>${user.home}/${LOGDIR}</directory>
+      <name>cave_${startTime}_pid_%PID%_request.log</name>
+   </define>   
+
+   <appender name="CaveRequestLogAppender" class="ch.qos.logback.core.FileAppender">
+      <encoder class="com.raytheon.uf.common.logback.encoder.UFStdEncoder"/> 
+      <file>${caveRequestLogFile}</file>
+   </appender>   
+
+   <appender name="AsyncCaveRequestLogAppender" class="ch.qos.logback.classic.AsyncAppender">
+      <queueSize>500</queueSize>
+      <appender-ref ref="CaveRequestLogAppender"/>
+   </appender>   
+
+   <logger name="CaveRequestLogger" level="all" additivity="false">
+      <appender-ref ref="AsyncCaveRequestLogAppender"/>
+   </logger>
+
+   <!-- PyPiesRequest log -->
+   <define name="pyPiesRequestLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
+      <directory>${user.home}/${LOGDIR}</directory>
+      <name>cave_${startTime}_pid_%PID%_pypies.log</name>
+   </define>   
+
+   <appender name="PyPiesRequestLogAppender" class="ch.qos.logback.core.FileAppender">
+      <encoder class="com.raytheon.uf.common.logback.encoder.UFStdEncoder"/> 
+      <file>${pyPiesRequestLogFile}</file>
+   </appender>   
+
+   <appender name="AsyncPyPiesRequestLogAppender" class="ch.qos.logback.classic.AsyncAppender">
+      <queueSize>500</queueSize>
+      <appender-ref ref="PyPiesRequestLogAppender"/>
+   </appender>   
+
+   <logger name="PyPiesRequestLogger" level="all" additivity="false">
+      <appender-ref ref="AsyncPyPiesRequestLogAppender"/>
+   </logger>
+
+   <!-- Performance log -->
+   <define name="performanceLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
+       <directory>${user.home}/${LOGDIR}</directory>
+       <name>cave_${startTime}_pid_%PID%_perf.log</name>
+   </define>
+
+   <appender name="PerformanceLogAppender" class="ch.qos.logback.core.FileAppender">
+      <file>${performanceLogFile}</file>
+      <encoder class="com.raytheon.uf.common.logback.encoder.UFStdEncoder"/> 
+   </appender>
+
+   <appender name="AsyncPerfLogAppender" class="ch.qos.logback.classic.AsyncAppender">
+      <queueSize>500</queueSize>
+      <appender-ref ref="PerformanceLogAppender"/>
+   </appender> 
+
+   <logger name="PerformanceLogger" level="all" additivity="false">
+      <appender-ref ref="AsyncPerfLogAppender"/>
+   </logger>
 
    <!-- TODO should somehow be contributed from viz.gfe plugin -->
    <logger name="ProductEditorLogger" level="all">
