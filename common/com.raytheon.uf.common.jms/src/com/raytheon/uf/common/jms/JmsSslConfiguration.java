@@ -54,12 +54,13 @@ import com.raytheon.uf.common.status.UFStatus;
  * <pre>
  *
  * SOFTWARE HISTORY
- *
+ *+
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
  * Feb 02, 2017  6085     bsteffen    Initial creation
  * Jun 26, 2017  6340     rjpeter     Check file times and recreate stores if necessary.
  * Jul 17, 2019  7724     mrichardson Upgrade Qpid to Qpid Proton.
+ * Mar 05, 2021  7899     tbucher     getPassword() uses new JMSPasswordUtil class
  *
  * </pre>
  *
@@ -73,8 +74,6 @@ public class JmsSslConfiguration {
     private static final String CERTIFICATE_DIR = "QPID_SSL_CERT_DB";
 
     private static final String CERTIFICATE_NAME = "QPID_SSL_CERT_NAME";
-
-    private static final String CERTIFICATE_PASSWORD = "QPID_SSL_CERT_PASSWORD";
 
     private final String clientName;
 
@@ -144,8 +143,7 @@ public class JmsSslConfiguration {
         return rootCert;
     }
 
-    public KeyStore loadKeyStore()
-            throws GeneralSecurityException, IOException {
+    public KeyStore loadKeyStore() throws Exception {
         try (InputStream keyStream = Files.newInputStream(getClientKey());
                 InputStream crtStream = Files.newInputStream(getClientCert())) {
             PrivateKey privateKey = readPrivateKey(keyStream);
@@ -200,6 +198,10 @@ public class JmsSslConfiguration {
             } catch (GeneralSecurityException | IOException e) {
                 statusHandler.error("Failed to create java trust store file.",
                         e);
+            } catch (Exception e) {
+                statusHandler.error(
+                        "Failed to decrypt password for java trust store file.",
+                        e);
             }
         }
         return path;
@@ -233,17 +235,16 @@ public class JmsSslConfiguration {
                 }
             } catch (GeneralSecurityException | IOException e) {
                 statusHandler.error("Failed to create java key store file.", e);
+            } catch (Exception e) {
+                statusHandler.error("Failed to decrypt JMS key store password.",
+                        e);
             }
         }
         return path;
     }
 
-    public String getPassword() {
-        String password = System.getenv(CERTIFICATE_PASSWORD);
-        if (password == null) {
-            password = "password";
-        }
-        return password;
+    public String getPassword() throws Exception {
+        return JMSPasswordUtil.getJMSPassword();
     }
 
     /**

@@ -161,6 +161,13 @@
          unpack="false"/>
 
    <plugin
+         id="com.raytheon.uf.common.security"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
          id="com.raytheon.uf.common.serialization"
          download-size="0"
          install-size="0"
@@ -343,7 +350,7 @@
          id="org.slf4j"
          download-size="0"
          install-size="0"
-         version="1.7.25"/>
+         version="1.7.30"/>
 
    <plugin
          id="org.springframework"
@@ -382,7 +389,7 @@
          id="org.quartz"
          download-size="0"
          install-size="0"
-         version="1.8.6"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.apache.commons.io"
