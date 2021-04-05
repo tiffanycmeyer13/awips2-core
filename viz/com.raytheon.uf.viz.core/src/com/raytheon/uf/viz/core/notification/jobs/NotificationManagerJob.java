@@ -27,6 +27,7 @@ import javax.jms.JMSException;
 import org.apache.qpid.jms.exceptions.JmsExceptionSupport;
 import org.eclipse.ui.services.IDisposable;
 
+import com.raytheon.uf.common.jms.notification.IConnectionObserver;
 import com.raytheon.uf.common.jms.notification.JmsNotificationManager;
 import com.raytheon.uf.viz.core.Activator;
 import com.raytheon.uf.viz.core.comm.JMSConnection;
@@ -53,6 +54,7 @@ import com.raytheon.uf.viz.core.comm.JMSConnection;
  * Feb 02, 2017  6085     bsteffen    Do not NPE after problems in JMSConnection
  * Jul 17, 2019  7724     mrichardson Upgrade Qpid to Qpid Proton.
  * Oct 16, 2019  7724     tgurney     Remove references to broker REST API
+ * Mar 25, 2021  8380     mapeters    Support connection observers
  *
  * </pre>
  *
@@ -162,6 +164,16 @@ public class NotificationManagerJob implements IDisposable {
         manager.disconnect(notifyError);
     }
 
+    /**
+     * Register an observer to be notified upon connection changes.
+     *
+     * @param observer
+     *            the observer
+     */
+    public static void addConnectionObserver(IConnectionObserver obs) {
+        getInstance().getManager().addConnectionObserver(obs);
+    }
+
     public static void addQueueObserver(String queue,
             com.raytheon.uf.common.jms.notification.INotificationObserver obs) {
         getInstance().getManager().addQueueObserver(queue, obs);
@@ -190,6 +202,16 @@ public class NotificationManagerJob implements IDisposable {
             com.raytheon.uf.common.jms.notification.INotificationObserver obs,
             String queryString) {
         getInstance().getManager().addObserver(topic, obs, queryString);
+    }
+
+    /**
+     * Remove an observer that was added via {@link #addConnectionObserver}.
+     *
+     * @param observer
+     *            the observer to remove
+     */
+    public static void removeConnectionObserver(IConnectionObserver obs) {
+        getInstance().getManager().removeConnectionObserver(obs);
     }
 
     /**
