@@ -99,6 +99,10 @@ public class CompressedDataRecord extends AbstractStorageRecord {
 
     @Override
     public int getSizeInBytes() {
+        if (compressedData == null) {
+            return 0;
+        }
+
         return compressedData.length;
     }
 
