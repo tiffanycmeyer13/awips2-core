@@ -17,14 +17,14 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
-package com.raytheon.uf.common.pypies.request;
+package com.raytheon.uf.common.serialization.comm;
 
-import com.raytheon.uf.common.datastorage.records.IDataRecord;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * Decorates response with more information. Currently the host that served the
+ * request is added.
  *
  * <pre>
  *
@@ -32,40 +32,53 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Oct 28, 2010            njensen     Initial creation
- * Mar 24 2021   8374      srahimi     Added toString to standardize log message
- *
- *
- *
+ * Feb 04, 2021 8337       mchan       Initial creation
  *
  * </pre>
  *
- * @author njensen
- *
+ * @author mchan
  */
-
 @DynamicSerialize
-public class CreateDatasetRequest extends AbstractRequest {
+public class ResponseWrapper {
 
     @DynamicSerializeElement
-    private IDataRecord record;
+    private Object response;
 
-    public IDataRecord getRecord() {
-        return record;
+    @DynamicSerializeElement
+    private String host;
+
+    public ResponseWrapper() {
     }
 
-    public void setRecord(IDataRecord record) {
-        this.record = record;
+    public ResponseWrapper(Object response, String host) {
+        this.response = response;
+        this.host = host;
     }
 
-    @Override
-    public String toString() {
-        StringBuilder rval = new StringBuilder(super.toString());
-        rval.append(", record[");
-        rval.append(record);
-        rval.append("]");
-        return rval.toString();
+    public void setResponse(Object response) {
+        this.response = response;
+    }
 
+    /**
+     * The response to the request.
+     *
+     * @return response object
+     */
+    public Object getResponse() {
+        return response;
+    }
+
+    public void setHost(String host) {
+        this.host = host;
+    }
+
+    /**
+     * The host name of the server that serviced the request.
+     *
+     * @return server host name
+     */
+    public String getHost() {
+        return host;
     }
 
 }
