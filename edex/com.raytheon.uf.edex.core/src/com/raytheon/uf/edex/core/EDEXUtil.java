@@ -44,25 +44,26 @@ import com.raytheon.uf.edex.core.exception.ShutdownException;
  * <pre>
  * SOFTWARE HISTORY
  *
- * Date          Ticket#     Engineer     Description
- * ------------- ----------- ------------ --------------------------
- * Apr 23, 2008  1088        chammack     Split from Util
- * Nov 22, 2010  2235        cjeanbap     Added audio file to StatusMessage.
- * Feb 02, 2011  6500        cjeanbap     Added paramter to method signature and
- *                                        properly assign source value.
- * Jun 12, 2012  609         djohnson     Use EDEXUtil for EDEX_HOME.
- * Mar 18, 2013  1802        bphillip     Added getList utility function
- * Apr 10, 2014  2726        rjpeter      Added methods for waiting for edex to
- *                                        be running.
- * Jun 25, 2014  3165        njensen      Remove dead code
- * Jul 16, 2014  2914        garmendariz  Remove EnvProperties
- * Jul 27, 2015  4654        skorolev     Added filters in sendMessageAlertViz
- * Dec 17, 2015  5166        kbisanz      Update logging to use SLF4J
- * Apr 25, 2016  5604        rjpeter      Updated checkPersistenceTimes to
- *                                        utilize same object for each call.
- * Apr 19, 2017  6187        njensen      Improved logging
- * Mar 20, 2018  7096        randerso     Remove call to
- *                                        StatusMessage.setEventTime()
+ * Date          Ticket#  Engineer     Description
+ * ------------- -------- ------------ -------------------------------------------------------------
+ * Apr 23, 2008  1088     chammack     Split from Util
+ * Nov 22, 2010  2235     cjeanbap     Added audio file to StatusMessage.
+ * Feb 02, 2011  6500     cjeanbap     Added paramter to method signature and properly assign source
+ *                                     value.
+ * Jun 12, 2012  609      djohnson     Use EDEXUtil for EDEX_HOME.
+ * Mar 18, 2013  1802     bphillip     Added getList utility function
+ * Apr 10, 2014  2726     rjpeter      Added methods for waiting for edex to be running.
+ * Jun 25, 2014  3165     njensen      Remove dead code
+ * Jul 16, 2014  2914     garmendariz  Remove EnvProperties
+ * Jul 27, 2015  4654     skorolev     Added filters in sendMessageAlertViz
+ * Dec 17, 2015  5166     kbisanz      Update logging to use SLF4J
+ * Apr 25, 2016  5604     rjpeter      Updated checkPersistenceTimes to utilize same object for each
+ *                                     call.
+ * Apr 19, 2017  6187     njensen      Improved logging
+ * Mar 20, 2018  7096     randerso     Remove call to StatusMessage.setEventTime()
+ * Apr 21, 2021  7849     mapeters     Deprecate methods using static Spring context, add {@link
+ *                                     #getESBComponent(ApplicationContext, String)}, remove
+ *                                     IContextAdmin field
  *
  * </pre>
  *
@@ -88,13 +89,12 @@ public class EDEXUtil implements ApplicationContextAware {
 
     private static final String EDEX_SHARE = EDEX_DATA + "share";
 
-    private static Logger logger = LoggerFactory.getLogger(EDEXUtil.class);
+    private static final Logger logger = LoggerFactory
+            .getLogger(EDEXUtil.class);
 
-    private static ApplicationContext CONTEXT;
+    private static ApplicationContext mainContext;
 
-    private static IMessageProducer MESSAGE_PRODUCER;
-
-    private static IContextAdmin CONTEXT_ADMIN;
+    private static IMessageProducer mainMessageProducer;
 
     private static final String alertEndpoint = "alertVizNotify";
 
@@ -142,47 +142,63 @@ public class EDEXUtil implements ApplicationContextAware {
     @Override
     public void setApplicationContext(ApplicationContext context)
             throws BeansException {
-        CONTEXT = context;
-    }
-
-    public static ApplicationContext getSpringContext() {
-        return CONTEXT;
+        if (mainContext == null) {
+            mainContext = context;
+        }
     }
 
     /**
-     * Retrieve an object from the ESB context This object could be a Spring
+     * @deprecated There can be multiple Spring contexts within a single EDEX
+     *             JVM, and this can use the wrong one. Inject the Spring
+     *             application context more directly into the calling code, such
+     *             as by implementing ApplicationContextAware.
+     */
+    @Deprecated
+    public static ApplicationContext getSpringContext() {
+        return mainContext;
+    }
+
+    /**
+     * Retrieve an object from the ESB context. This object could be a Spring
      * Bean, a context or a property container
      *
      * @param name
      *            name of the object
      * @return The instance
+     * @deprecated There can be multiple Spring contexts within a single EDEX
+     *             JVM, and this can use the wrong one. Inject the Spring
+     *             application context into the calling code (e.g. by
+     *             implementing ApplicationContextAware) and instead call
+     *             {@link #getESBComponent(ApplicationContext, String)}.
      */
+    @Deprecated
     public static Object getESBComponent(String name) {
+        return getESBComponent(mainContext, name);
+    }
+
+    /**
+     * Retrieve an object from the given ESB context. This object could be a
+     * Spring bean, a context or a property container.
+     *
+     * @param context
+     *            ESB context
+     * @param name
+     *            name of the object
+     * @return the object instance
+     */
+    public static Object getESBComponent(ApplicationContext context,
+            String name) {
         Object result = null;
 
         try {
-            result = CONTEXT.getBean(name);
+            result = context.getBean(name);
         } catch (Exception e) {
-            logger.error("Unable to retrieve component: " + name + " from ESB.",
+            logger.error("Unable to retrieve component '" + name
+                    + "' from ESB context '" + context.getDisplayName() + "'",
                     e);
         }
 
         return result;
-
-    }
-
-    /**
-     * Retrieve an object from the ESB context This object could be a Spring
-     * Bean, a context or a property container
-     *
-     * @param clazz
-     *            the return class type
-     * @param name
-     *            the name of the component
-     * @return The casted instance
-     */
-    public static <T> T getESBComponent(Class<T> clazz, String name) {
-        return clazz.cast(getESBComponent(name));
     }
 
     public static boolean isRunning() {
@@ -213,10 +229,6 @@ public class EDEXUtil implements ApplicationContextAware {
         }
     }
 
-    public static boolean containsESBComponent(String name) {
-        return CONTEXT.containsBean(name);
-    }
-
     /**
      * True if shutdown has been initiated, false otherwise.
      *
@@ -237,20 +249,24 @@ public class EDEXUtil implements ApplicationContextAware {
         }
     }
 
+    /**
+     * Get the message producer of the main Spring application context
+     *
+     * @return the main application context message producer
+     * @deprecated There can be multiple Spring contexts within a single EDEX
+     *             JVM, and this can be the message producer for the wrong one.
+     *             Inject the Spring application context's message producer more
+     *             directly into the calling code.
+     */
+    @Deprecated
     public static IMessageProducer getMessageProducer() {
-        return MESSAGE_PRODUCER;
+        return mainMessageProducer;
     }
 
-    public void setMessageProducer(IMessageProducer message_producer) {
-        MESSAGE_PRODUCER = message_producer;
-    }
-
-    public static IContextAdmin getContextAdmin() {
-        return CONTEXT_ADMIN;
-    }
-
-    public void setContextAdmin(IContextAdmin admin) {
-        CONTEXT_ADMIN = admin;
+    public void setMessageProducer(IMessageProducer messageProducer) {
+        if (mainMessageProducer == null) {
+            mainMessageProducer = messageProducer;
+        }
     }
 
     public static void checkPersistenceTimes(PluginDataObject[] pdos) {
@@ -294,7 +310,11 @@ public class EDEXUtil implements ApplicationContextAware {
         sm.setAudioFile(audioFile);
         sm.setFilters(filters);
         try {
-            getMessageProducer().sendAsync(alertEndpoint, sm);
+            /*
+             * Main message producer works fine for AlertViz regardless of
+             * calling code's Spring application context
+             */
+            mainMessageProducer.sendAsync(alertEndpoint, sm);
         } catch (Exception e) {
             logger.error("Could not send message to AlertViz", e);
         }

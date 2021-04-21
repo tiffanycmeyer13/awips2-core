@@ -70,6 +70,7 @@ import com.raytheon.uf.edex.database.dao.SessionManagedDao;
  * Feb 13, 2017  5899     rjpeter   Don't allow regeneration of tables by
  *                                  default.
  * Feb 26, 2019  6140     tgurney   Hibernate 5 upgrade
+ * Apr 14, 2021  7849     mapeters  Use admin tx manager in {@link #initDb}
  *
  * </pre>
  *
@@ -121,29 +122,33 @@ public abstract class DbInit {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
     /** The dao for executing database commands **/
-    protected SessionManagedDao<?, ?> dao;
+    protected final SessionManagedDao<?, ?> adminDao;
 
     /**
      * Constructor.
      *
      * @param application
      *            the application component the database is used in support of
+     * @param adminDao
+     *            the admin DAO for executing DB commands
      */
-    protected DbInit(String application) {
+    protected DbInit(String application, SessionManagedDao<?, ?> adminDao) {
         this.application = application;
+        this.adminDao = adminDao;
     }
 
     /**
-     * Initializes the database. This method compares the existing tables in the
-     * database to verify that they match the tables that Hibernate is aware of.
-     * If the existing tables in the database do not match the tables Hibernate
-     * is expecting, the tables are regenerated. During the regeneration
-     * process, the minimum database objects are reloaded into the database.
+     * Initializes the database as the admin user. This method compares the
+     * existing tables in the database to verify that they match the tables that
+     * Hibernate is aware of. If the existing tables in the database do not
+     * match the tables Hibernate is expecting, the tables are regenerated.
+     * During the regeneration process, the minimum database objects are
+     * reloaded into the database.
      *
      * @throws Exception
      *             on error initializing the database
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(transactionManager = "admin_metadataTxManager", propagation = Propagation.REQUIRES_NEW)
     public void initDb() throws Exception {
         Collection<Class<?>> classes = getDbClasses();
 
@@ -154,7 +159,7 @@ public abstract class DbInit {
                 + "] against entity classes...");
 
         StandardServiceRegistryBuilder builder = new StandardServiceRegistryBuilder();
-        builder.applySetting("hibernate.dialect", dao.getDialect());
+        builder.applySetting("hibernate.dialect", adminDao.getDialect());
         try (ServiceRegistry serviceRegistry = builder.build()) {
 
             Set<String> definedTables = getDefinedTables(classes,
@@ -250,7 +255,7 @@ public abstract class DbInit {
             }
         };
 
-        executeWork(work);
+        adminDao.executeWork(work);
     }
 
     /**
@@ -271,7 +276,7 @@ public abstract class DbInit {
                 }
             }
         };
-        executeWork(work);
+        adminDao.executeWork(work);
 
         return existingTables;
     }
@@ -355,7 +360,7 @@ public abstract class DbInit {
             }
         };
 
-        executeWork(work);
+        adminDao.executeWork(work);
     }
 
     /**
@@ -386,26 +391,12 @@ public abstract class DbInit {
     }
 
     /**
-     * Execute the work.
-     *
-     * @param work
-     *            the work
-     */
-    protected void executeWork(final Work work) {
-        dao.executeWork(work);
-    }
-
-    /**
      * Get the dialect.
      *
      * @return
      */
     protected Dialect getDialect() {
-        return dao.getDialect();
-    }
-
-    public void setDao(SessionManagedDao<?, ?> dao) {
-        this.dao = dao;
+        return adminDao.getDialect();
     }
 
     /**
