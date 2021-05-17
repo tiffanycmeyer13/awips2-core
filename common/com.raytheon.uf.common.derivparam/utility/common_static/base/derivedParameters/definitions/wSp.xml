@@ -68,4 +68,7 @@
     <Method name="Max" levels="MaxWind">
         <Field abbreviation="wSp" level="3D"/>
     </Method>
+    <Method name="Alias" models="profiler" levels="Surface">
+        <Field abbreviation="windSpeedSfc" level="Station"/>
+    </Method>
 </DerivedParameter>
