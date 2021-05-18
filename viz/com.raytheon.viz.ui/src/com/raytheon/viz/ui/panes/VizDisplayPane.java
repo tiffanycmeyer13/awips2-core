@@ -48,6 +48,7 @@ import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
+import org.locationtech.jts.geom.Coordinate;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
@@ -71,7 +72,6 @@ import com.raytheon.viz.ui.cmenu.IContextMenuProvider;
 import com.raytheon.viz.ui.input.preferences.MousePreferenceManager;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
 import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
-import org.locationtech.jts.geom.Coordinate;
 
 /**
  * Creates a GL Context for drawing
@@ -94,22 +94,27 @@ import org.locationtech.jts.geom.Coordinate;
  *
  * SOFTWARE HISTORY
  *
- * Date         Ticket#     Engineer    Description
- * ------------ ----------  ----------- --------------------------
- * Oct 25, 2006             chammack    Initial Creation.
- * 20 Nov 2007              ebabin      Fix location of sample,lat/lon menu add.
- * 14 Jan 2007              ebabin      Update to remove lat/lon only for GLEditor an Gl4panelEDitor.
- * Jul 9, 2008  #1228       chammack    Add capability for perspective contributed right click menus
- * Oct 27, 2009 #2354       bsteffen    Configured input handler to use mouse preferences
- * Aug 3, 2015  ASM #14474  D. Friedman Respond to resize immediately
- * Mar 13, 2018 7160        tgurney     getDisplay check for disposed canvas
+ * Date          Ticket#  Engineer     Description
+ * ------------- -------- ------------ -----------------------------------------
+ * Oct 25, 2006           chammack     Initial Creation.
+ * Nov 20, 2007           ebabin       Fix location of sample,lat/lon menu add.
+ * Jan 14, 2007           ebabin       Update to remove lat/lon only for
+ *                                     GLEditor an Gl4panelEDitor.
+ * Jul 09, 2008  1228     chammack     Add capability for perspective
+ *                                     contributed right click menus
+ * Oct 27, 2009  2354     bsteffen     Configured input handler to use mouse
+ *                                     preferences
+ * Aug 03, 2015  14474    D. Friedman  Respond to resize immediately
+ * Mar 13, 2018  7160     tgurney      getDisplay check for disposed canvas
+ * May 17, 2021  8452     randerso     Add ability for the descriptor to
+ *                                     contribute to the context menu.
  *
  * </pre>
  *
  * @author chammack
  */
 public class VizDisplayPane implements IDisplayPane {
-    private static final transient IUFStatusHandler statusHandler = UFStatus
+    private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(VizDisplayPane.class);
 
     protected static final String CONTEXT_MENU_PREF = "com.raytheon.viz.ui.contextmenu";
@@ -329,6 +334,10 @@ public class VizDisplayPane implements IDisplayPane {
                 .getResourcesByTypeAsType(IContextMenuContributor.class);
         for (IContextMenuContributor contributor : contributors) {
             addContextMenuItems(contributor, manager);
+        }
+
+        if (descriptor instanceof IContextMenuContributor) {
+            addContextMenuItems((IContextMenuContributor) descriptor, manager);
         }
 
         // Get the contributions from the perspective
