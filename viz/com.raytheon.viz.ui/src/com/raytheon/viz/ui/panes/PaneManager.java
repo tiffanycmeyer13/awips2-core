@@ -35,6 +35,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.locationtech.jts.geom.Coordinate;
 import org.opengis.coverage.grid.GridEnvelope;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
@@ -60,7 +61,6 @@ import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
 import com.raytheon.viz.ui.input.InputAdapter;
 import com.raytheon.viz.ui.input.InputManager;
-import org.locationtech.jts.geom.Coordinate;
 
 /**
  * Manages panes. If virtual cursor is not desired, override InputAdapter
@@ -83,6 +83,8 @@ import org.locationtech.jts.geom.Coordinate;
  * Feb 14, 2018  6866     njensen   Don't mess with map layers while swapping
  * May 01, 2018  7064     bsteffen  Grab only visible panes for screenshots.
  * Jul 08, 2020  80637    tjensen   Reset display bounds on clear
+ * Jun 07, 2021  8453     randerso  Make 2 panel display left/right vs
+ *                                  top/bottom
  *
  * </pre>
  *
@@ -232,7 +234,7 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
         if (composite == null || composite.isDisposed()) {
             return;
         }
-        int numColums = (int) Math.sqrt(paneCount);
+        int numColums = (int) Math.ceil(Math.sqrt(paneCount));
         int numRows = (int) Math.ceil(paneCount / (double) numColums);
         GridLayout gl = new GridLayout(numColums, true);
         int width = composite.getBounds().width;
