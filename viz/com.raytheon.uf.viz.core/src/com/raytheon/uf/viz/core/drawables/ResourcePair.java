@@ -51,6 +51,7 @@ import com.raytheon.uf.viz.core.rsc.ResourceProperties;
  * Oct 22, 2013  2491     bsteffen  Remove ISerializableObject
  * Jan 04, 2018  6753     bsteffen  Instantiate resources in a group in order.
  * Mar 09, 2018  6731     bsteffen  Remove resources that fail instantiation from groups.
+ * Jun 23, 2021  21282    jrohwein  add setPropertiesWithoutSideEffects.
  * 
  * </pre>
  * 
@@ -113,6 +114,10 @@ public class ResourcePair {
         if (properties != null) {
             properties.setResource(this.resource);
         }
+    }
+
+    public void setPropertiesWithoutSideEffects(ResourceProperties properties) {
+        this.properties = properties;
     }
 
     @Override
@@ -270,3 +275,4 @@ public class ResourcePair {
     }
 
 }
+

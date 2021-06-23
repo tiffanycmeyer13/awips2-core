@@ -52,6 +52,7 @@ import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
  * Feb 27, 2015  3879     nabowle   Handle null resource names
  * Jan 08, 2018  7091     bsteffen  Remove resources from history list entries
  *                                  to prevent time matching operations.
+ * Jun 23, 2021  21282    jrohwein  change setProperties to setPropertiesWithoutSideEffects in disconnectBundle()
  * 
  * </pre>
  *
@@ -360,7 +361,7 @@ public class HistoryList {
             for (ResourcePair currentPair : currentDisplay.getDescriptor().getResourceList()) {
                 ResourcePair newPair = new ResourcePair();
                 newPair.setLoadProperties(currentPair.getLoadProperties());
-                newPair.setProperties(currentPair.getProperties());
+                newPair.setPropertiesWithoutSideEffects(currentPair.getProperties());
                 newPair.setResourceData(currentPair.getResourceData());
                 /*
                  * Do not copy the resource. Adding the resource makes this
@@ -383,3 +384,4 @@ public class HistoryList {
     }
 
 }
+
