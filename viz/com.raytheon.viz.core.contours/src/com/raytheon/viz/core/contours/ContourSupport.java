@@ -752,6 +752,39 @@ public class ContourSupport {
                                         }
                                     }
                                 }
+                                shapeToAddTo
+                                        .addLineSegment(contourWorldPointsArr);
+                            }
+
+                            /*
+                             * Loop over all values tags in the preferences and
+                             * check the specified values for a match
+                             */
+                            for (int i1 = 0; i1 < contourLabeling.getValues()
+                                    .size() && !found; i1++) {
+
+                                ValuesLabelingPreferences currentPref = contourLabeling
+                                        .getValues().get(i1);
+                                /*
+                                 * If we have explicit values and no explicit
+                                 * format use the default String representation
+                                 * of the given values. Else add to the shape
+                                 * for the current preferences.
+                                 */
+                                if (!currentPref.noStylesSet()) {
+                                    float[] values = currentPref.getValues();
+                                    for (float value : values) {
+                                        if (Float.compare(compareValue,
+                                                value) == 0) {
+
+                                            shapeToAddTo = contourGroup.labeledValuesMap
+                                                    .get(currentPref);
+
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -1337,6 +1370,13 @@ public class ContourSupport {
                                                 found = true;
                                                 break;
                                             }
+                                        }
+                                    }
+                                    if (currentPref.noStylesSet()) {
+                                        if (contourValue >= 0) {
+                                            shapeToAddTo = contourGroup.posValueShape;
+                                        } else {
+                                            shapeToAddTo = contourGroup.negValueShape;
                                         }
                                     }
                                 }

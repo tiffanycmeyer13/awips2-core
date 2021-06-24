@@ -44,6 +44,8 @@ import com.raytheon.viz.ui.VizWorkbenchManager;
  * May 23, 2018 7298       tgurney     Rename menu item from "Toolbar" to
  *                                     "Show Toolbar"
  * Dec 09, 2019 7991       randerso    Fix NPE in isChecked()
+ * Jan 19, 2020 84062      A Challa    implemented a check to handle if
+ *                                     activeWorkbenchWindow is null
  * </pre>
  *
  * @author unknown
@@ -59,7 +61,9 @@ public class ToggleToolbarContributionItem extends CompoundContributionItem {
                     public boolean isChecked() {
                         IWorkbenchWindow activeWorkbenchWindow = VizWorkbenchManager
                                 .getInstance().getCurrentWindow();
-                        if (activeWorkbenchWindow != null) {
+                        if (activeWorkbenchWindow == null) {
+                            return false;
+                        }
                             IEvaluationService service = activeWorkbenchWindow
                                     .getService(IEvaluationService.class);
                             IEvaluationContext appState = service
@@ -67,9 +71,7 @@ public class ToggleToolbarContributionItem extends CompoundContributionItem {
                             Boolean visible = (Boolean) appState.getVariable(
                                     ISources.ACTIVE_WORKBENCH_WINDOW_IS_COOLBAR_VISIBLE_NAME);
                             return (visible != null ? visible : false);
-                        }
 
-                        return false;
                     }
 
                     @Override
