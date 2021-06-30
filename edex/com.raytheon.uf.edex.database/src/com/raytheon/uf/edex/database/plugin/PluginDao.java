@@ -70,7 +70,6 @@ import com.raytheon.uf.common.datastorage.records.IDataRecord;
 import com.raytheon.uf.common.localization.ILocalizationFile;
 import com.raytheon.uf.common.localization.IPathManager;
 import com.raytheon.uf.common.localization.PathManagerFactory;
-import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.common.time.util.TimeUtil;
 import com.raytheon.uf.edex.core.EdexException;
 import com.raytheon.uf.edex.database.DataAccessLayerException;
@@ -134,6 +133,7 @@ import com.raytheon.uf.edex.database.query.DatabaseQuery;
  * Mar 08, 2018  6961     tgurney     Update purge versionsToKeep handling,
  *                                    treat 0 as "keep no data"
  * Mar 25, 2020  8103     randerso    Fixed ContraintViolationException handling
+ * May 03, 2021  7849     mapeters    Switch from UFStatus to slf4j logging
  *
  * </pre>
  *
@@ -307,7 +307,7 @@ public abstract class PluginDao extends CoreDao {
                                     subPersisted.add(object);
                                 }
                             } catch (PluginException e) {
-                                logger.handle(Priority.PROBLEM,
+                                logger.warn(
                                         "Query failed: Unable to insert or update "
                                                 + object.getIdentifier(),
                                         e);
@@ -375,7 +375,7 @@ public abstract class PluginDao extends CoreDao {
                                 if (errorMessage.contains(" unique ")) {
                                     subDuplicates.add(object);
                                 } else {
-                                    logger.handle(Priority.PROBLEM,
+                                    logger.warn(
                                             "Query failed: Unable to insert or update "
                                                     + object.getIdentifier(),
                                             e);
@@ -385,7 +385,7 @@ public abstract class PluginDao extends CoreDao {
                             }
                         } catch (PluginException e) {
                             tx.rollback();
-                            logger.handle(Priority.PROBLEM,
+                            logger.warn(
                                     "Query failed: Unable to insert or update "
                                             + object.getIdentifier(),
                                     e);
@@ -409,7 +409,7 @@ public abstract class PluginDao extends CoreDao {
 
         if (!duplicates.isEmpty()) {
             logger.info("Discarded : " + duplicates.size() + " duplicates!");
-            if (logger.isPriorityEnabled(Priority.DEBUG)) {
+            if (logger.isDebugEnabled()) {
                 for (PluginDataObject pdo : duplicates) {
                     logger.debug("Discarding duplicate: " + pdo.getDataURI());
                 }
@@ -671,8 +671,7 @@ public abstract class PluginDao extends CoreDao {
      */
     public IDataRecord[] getHDF5Data(PluginDataObject object, int tile)
             throws PluginException {
-        return getHDF5Data(Arrays.asList(new PluginDataObject[] { object }),
-                tile).get(0);
+        return getHDF5Data(Arrays.asList(object), tile).get(0);
     }
 
     /**

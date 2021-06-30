@@ -14,8 +14,12 @@
 
     <bean id="qlServerRequestHandler" class="com.raytheon.uf.edex.database.QlServerRequestHandler" />
     <bean id="dataRecordRequestHandler" class="com.raytheon.uf.edex.database.handlers.DataRecordRequestHandler" />
-    <bean id="timeQueryHandler" class="com.raytheon.uf.edex.database.handlers.TimeQueryHandler" />
-    <bean id="timeQueryHandlerSet" class="com.raytheon.uf.edex.database.handlers.TimeQueryHandlerSet" />
+    <bean id="timeQueryHandler" class="com.raytheon.uf.edex.database.handlers.TimeQueryHandler">
+        <constructor-arg ref="daoConfigFactory"/>
+    </bean>
+    <bean id="timeQueryHandlerSet" class="com.raytheon.uf.edex.database.handlers.TimeQueryHandlerSet">
+        <constructor-arg ref="daoConfigFactory"/>
+    </bean>
     <bean id="saveOrUpdateHandler" class="com.raytheon.uf.edex.database.handlers.SaveOrUpdateHandler" />
     <bean id="dbCreateHandler" class="com.raytheon.uf.edex.database.handlers.DbCreateHandler" />
 

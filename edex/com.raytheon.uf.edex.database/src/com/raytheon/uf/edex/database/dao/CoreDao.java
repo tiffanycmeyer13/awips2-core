@@ -38,17 +38,13 @@ import org.hibernate.SQLQuery;
 import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
 import org.hibernate.Session;
-import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.Example;
 import org.hibernate.criterion.Property;
 import org.hibernate.metadata.ClassMetadata;
-import org.springframework.orm.hibernate5.HibernateTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.TransactionCallback;
-import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.raytheon.uf.common.dataplugin.PluginDataObject;
@@ -57,17 +53,15 @@ import com.raytheon.uf.common.dataplugin.persist.PersistableDataObject;
 import com.raytheon.uf.common.dataquery.db.QueryParam;
 import com.raytheon.uf.common.dataquery.db.QueryResult;
 import com.raytheon.uf.common.dataquery.db.QueryResultRow;
-import com.raytheon.uf.common.status.IUFStatusHandler;
-import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.edex.database.DataAccessLayerException;
 import com.raytheon.uf.edex.database.processor.IDatabaseProcessor;
 import com.raytheon.uf.edex.database.query.DatabaseQuery;
 
 /**
- * The base implementation of all daos. This implementation provides basic
- * database interaction functionality necessary to most persistable data types.
- * These functions include basic persistance and retrieval methods. Any data
- * type specific operations may be implemented by extending this class.
+ * Core Data Access Object implementation that provides basic database
+ * interaction functionality necessary to most persistable data types. These
+ * functions include basic persistance and retrieval methods. Any data type
+ * specific operations may be implemented by extending this class.
  * <p>
  * Data types which must be persisted to the database must have an associated
  * dao which extends this class. Each class needing a dao must also extend the
@@ -115,14 +109,13 @@ import com.raytheon.uf.edex.database.query.DatabaseQuery;
  * Sep 11, 2019  7931     tgurney   Add default aliases for returned columns
  *                                  that don't have aliases
  * Nov 04, 2019  7960     mapeters  Added {@link #createAll}
+ * Apr 14, 2021  7849     mapeters  Extract functionality to new superclass
  *
  * </pre>
  *
  * @author bphillip
  */
-public class CoreDao {
-
-    protected final IUFStatusHandler logger = UFStatus.getHandler(getClass());
+public class CoreDao extends AbstractDao {
 
     protected static final Pattern MAPPED_SQL_PATTERN = Pattern.compile(
             "select (.+?) FROM .*",
@@ -134,15 +127,14 @@ public class CoreDao {
     protected static final String COLON_REPLACEMENT = Matcher
             .quoteReplacement("\\:\\:");
 
-    protected SessionFactory sessionFactory;
-
-    protected HibernateTransactionManager txManager;
-
-    /** The convenience wrapper for the Hibernate transaction manager */
+    /**
+     * @deprecated Use {@link #runInTransaction} or {@link #supplyInTransaction}
+     *             instead of directly accessing transaction template. Make
+     *             {@link #getTransactionTemplate} private once this is no
+     *             longer needed.
+     */
+    @Deprecated
     protected final TransactionTemplate txTemplate;
-
-    /** The class associated with this dao */
-    protected Class<?> daoClass;
 
     /**
      * Creates a new dao instance not associated with a specific class. A class
@@ -155,10 +147,9 @@ public class CoreDao {
      * has been assigned
      */
     public CoreDao(DaoConfig config) {
-        this.txManager = config.getTxManager();
-        txTemplate = new TransactionTemplate(txManager);
-        setSessionFactory(config.getSessionFactory());
-        this.daoClass = config.getDaoClass();
+        super(config, TransactionDefinition.withDefaults());
+        txTemplate = getTransactionTemplate(
+                TransactionDefinition.withDefaults());
     }
 
     /**
@@ -169,11 +160,8 @@ public class CoreDao {
      *            The object to be persisted to the database
      */
     public void persist(final Object obj) throws TransactionException {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                getCurrentSession().saveOrUpdate(obj);
-            }
+        runInTransaction(() -> {
+            getCurrentSession().saveOrUpdate(obj);
         });
     }
 
@@ -185,11 +173,8 @@ public class CoreDao {
      *            The object to be persisted to the database
      */
     public void saveOrUpdate(final Object obj) {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                getCurrentSession().saveOrUpdate(obj);
-            }
+        runInTransaction(() -> {
+            getCurrentSession().saveOrUpdate(obj);
         });
     }
 
@@ -200,11 +185,8 @@ public class CoreDao {
      *            The object to be created in the database
      */
     public void create(final Object obj) {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                getCurrentSession().save(obj);
-            }
+        runInTransaction(() -> {
+            getCurrentSession().save(obj);
         });
     }
 
@@ -216,13 +198,10 @@ public class CoreDao {
      *            The objects to be created in the database
      */
     public void createAll(List<?> objs) {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                Session session = getCurrentSession();
-                for (Object obj : objs) {
-                    session.save(obj);
-                }
+        runInTransaction(() -> {
+            Session session = getCurrentSession();
+            for (Object obj : objs) {
+                session.save(obj);
             }
         });
     }
@@ -235,11 +214,8 @@ public class CoreDao {
      *            The object to be persisted to the database
      */
     public <T> void update(final PersistableDataObject<T> obj) {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                getCurrentSession().update(obj);
-            }
+        runInTransaction(() -> {
+            getCurrentSession().update(obj);
         });
     }
 
@@ -250,13 +226,10 @@ public class CoreDao {
      *            The object to be persisted to the database
      */
     public void persistAll(final Collection<? extends Object> objs) {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                Session session = getCurrentSession();
-                for (Object obj : objs) {
-                    session.saveOrUpdate(obj);
-                }
+        runInTransaction(() -> {
+            Session session = getCurrentSession();
+            for (Object obj : objs) {
+                session.saveOrUpdate(obj);
             }
         });
     }
@@ -268,11 +241,8 @@ public class CoreDao {
      *            The object to delete
      */
     public <T> void delete(final Object obj) {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                getCurrentSession().delete(obj);
-            }
+        runInTransaction(() -> {
+            getCurrentSession().delete(obj);
         });
     }
 
@@ -286,16 +256,12 @@ public class CoreDao {
      *         Null if not found
      */
     public <T> PersistableDataObject<T> queryById(final Serializable id) {
-        PersistableDataObject<T> retVal = txTemplate
-                .execute(new TransactionCallback<PersistableDataObject<T>>() {
-                    @Override
-                    @SuppressWarnings("unchecked")
-                    public PersistableDataObject<T> doInTransaction(
-                            TransactionStatus status) {
-                        return (PersistableDataObject<T>) getCurrentSession()
-                                .get(daoClass, id);
-                    }
-                });
+        @SuppressWarnings("unchecked")
+        PersistableDataObject<T> retVal = supplyInTransaction(() -> {
+            return (PersistableDataObject<T>) getCurrentSession().get(daoClass,
+                    id);
+        });
+
         return retVal;
     }
 
@@ -307,26 +273,18 @@ public class CoreDao {
      * @return The object
      */
     public <T> PersistableDataObject<T> queryById(final PluginDataObject id) {
-        PersistableDataObject<T> retVal = txTemplate
-                .execute(new TransactionCallback<PersistableDataObject<T>>() {
-                    @Override
-                    @SuppressWarnings("unchecked")
-                    public PersistableDataObject<T> doInTransaction(
-                            TransactionStatus status) {
-                        DetachedCriteria criteria = DetachedCriteria
-                                .forClass(id.getClass())
-                                .add(Property.forName("dataURI")
-                                        .eq(id.getDataURI()));
-                        List<?> list = criteria
-                                .getExecutableCriteria(getCurrentSession())
-                                .list();
-                        if (!list.isEmpty()) {
-                            return (PluginDataObject) list.get(0);
-                        } else {
-                            return null;
-                        }
-                    }
-                });
+        @SuppressWarnings("unchecked")
+        PersistableDataObject<T> retVal = supplyInTransaction(() -> {
+            DetachedCriteria criteria = DetachedCriteria.forClass(id.getClass())
+                    .add(Property.forName("dataURI").eq(id.getDataURI()));
+            List<?> list = criteria.getExecutableCriteria(getCurrentSession())
+                    .list();
+            if (!list.isEmpty()) {
+                return (PluginDataObject) list.get(0);
+            } else {
+                return null;
+            }
+        });
         return retVal;
     }
 
@@ -344,17 +302,11 @@ public class CoreDao {
      */
     public <T> List<PersistableDataObject<T>> queryByExample(
             final PersistableDataObject<T> obj, final int maxResults) {
-        List<PersistableDataObject<T>> retVal = txTemplate.execute(
-                new TransactionCallback<List<PersistableDataObject<T>>>() {
-                    @Override
-                    @SuppressWarnings("unchecked")
-                    public List<PersistableDataObject<T>> doInTransaction(
-                            TransactionStatus status) {
-                        return getCurrentSession()
-                                .createCriteria(obj.getClass())
-                                .add(Example.create(obj)).list();
-                    }
-                });
+        @SuppressWarnings("unchecked")
+        List<PersistableDataObject<T>> retVal = supplyInTransaction(() -> {
+            return getCurrentSession().createCriteria(obj.getClass())
+                    .add(Example.create(obj)).list();
+        });
         return retVal;
     }
 
@@ -387,24 +339,17 @@ public class CoreDao {
         int rowsDeleted = 0;
         try {
             // Get a session and create a new criteria instance
-            rowsDeleted = txTemplate
-                    .execute(new TransactionCallback<Integer>() {
-                        @Override
-                        public Integer doInTransaction(
-                                TransactionStatus status) {
-                            String queryString = query.createHQLDelete();
-                            Query hibQuery = getCurrentSession()
-                                    .createQuery(queryString);
-                            try {
-                                query.populateHQLQuery(hibQuery,
-                                        getSessionFactory());
-                            } catch (DataAccessLayerException e) {
-                                throw new org.hibernate.TransactionException(
-                                        "Error populating delete statement", e);
-                            }
-                            return hibQuery.executeUpdate();
-                        }
-                    });
+            rowsDeleted = supplyInTransaction(() -> {
+                String queryString = query.createHQLDelete();
+                Query hibQuery = getCurrentSession().createQuery(queryString);
+                try {
+                    query.populateHQLQuery(hibQuery, getSessionFactory());
+                } catch (DataAccessLayerException e) {
+                    throw new org.hibernate.TransactionException(
+                            "Error populating delete statement", e);
+                }
+                return hibQuery.executeUpdate();
+            });
         } catch (TransactionException e) {
             throw new DataAccessLayerException("Transaction failed", e);
         }
@@ -425,31 +370,22 @@ public class CoreDao {
         List<?> queryResult = null;
         try {
             // Get a session and create a new criteria instance
-            queryResult = txTemplate
-                    .execute(new TransactionCallback<List<?>>() {
-                        @Override
-                        public List<?> doInTransaction(
-                                TransactionStatus status) {
-                            String queryString = query.createHQLQuery();
-                            Query hibQuery = getCurrentSession()
-                                    .createQuery(queryString);
-                            try {
-                                query.populateHQLQuery(hibQuery,
-                                        getSessionFactory());
-                            } catch (DataAccessLayerException e) {
-                                throw new org.hibernate.TransactionException(
-                                        "Error populating query", e);
-                            }
-                            // hibQuery.setCacheMode(CacheMode.NORMAL);
-                            // hibQuery.setCacheRegion(QUERY_CACHE_REGION);
-                            Integer maxResults = query.getMaxResults();
-                            if (maxResults != null && maxResults > 0) {
-                                hibQuery.setMaxResults(maxResults);
-                            }
-                            List<?> results = hibQuery.list();
-                            return results;
-                        }
-                    });
+            queryResult = supplyInTransaction(() -> {
+                String queryString = query.createHQLQuery();
+                Query hibQuery = getCurrentSession().createQuery(queryString);
+                try {
+                    query.populateHQLQuery(hibQuery, getSessionFactory());
+                } catch (DataAccessLayerException e) {
+                    throw new org.hibernate.TransactionException(
+                            "Error populating query", e);
+                }
+                Integer maxResults = query.getMaxResults();
+                if (maxResults != null && maxResults > 0) {
+                    hibQuery.setMaxResults(maxResults);
+                }
+                List<?> results = hibQuery.list();
+                return results;
+            });
 
         } catch (TransactionException e) {
             throw new DataAccessLayerException("Transaction failed", e);
@@ -475,59 +411,49 @@ public class CoreDao {
         int rowsProcessed = 0;
         try {
             // Get a session and create a new criteria instance
-            rowsProcessed = txTemplate
-                    .execute(new TransactionCallback<Integer>() {
-                        @SuppressWarnings("unchecked")
-                        @Override
-                        public Integer doInTransaction(
-                                TransactionStatus status) {
-                            String queryString = query.createHQLQuery();
-                            Query hibQuery = getCurrentSession()
-                                    .createQuery(queryString);
-                            try {
-                                query.populateHQLQuery(hibQuery,
-                                        getSessionFactory());
-                            } catch (DataAccessLayerException e) {
-                                throw new org.hibernate.TransactionException(
-                                        "Error populating query", e);
-                            }
+            rowsProcessed = supplyInTransaction(() -> {
+                String queryString = query.createHQLQuery();
+                Query hibQuery = getCurrentSession().createQuery(queryString);
+                try {
+                    query.populateHQLQuery(hibQuery, getSessionFactory());
+                } catch (DataAccessLayerException e) {
+                    throw new org.hibernate.TransactionException(
+                            "Error populating query", e);
+                }
 
-                            int batchSize = processor.getBatchSize();
-                            if (batchSize <= 0) {
-                                batchSize = 1000;
-                            }
+                int batchSize = processor.getBatchSize();
+                if (batchSize <= 0) {
+                    batchSize = 1000;
+                }
 
-                            hibQuery.setFetchSize(processor.getBatchSize());
+                hibQuery.setFetchSize(processor.getBatchSize());
 
-                            int count = 0;
-                            ScrollableResults rs = hibQuery
-                                    .scroll(ScrollMode.FORWARD_ONLY);
-                            boolean continueProcessing = true;
+                int count = 0;
+                ScrollableResults rs = hibQuery.scroll(ScrollMode.FORWARD_ONLY);
+                boolean continueProcessing = true;
 
-                            try {
-                                while (rs.next() && continueProcessing) {
-                                    Object[] row = rs.get();
-                                    if (row.length > 0) {
-                                        continueProcessing = processor
-                                                .process((T) row[0]);
-                                    }
-                                    count++;
-                                    if (count % batchSize == 0) {
-                                        getCurrentSession().clear();
-                                    }
-                                }
-                                processor.finish();
-                            } catch (Exception e) {
-                                /*
-                                 * Only way to propogate the error to the caller
-                                 * is to throw a runtime exception
-                                 */
-                                throw new RuntimeException(
-                                        "Error occurred during processing", e);
-                            }
-                            return count;
+                try {
+                    while (rs.next() && continueProcessing) {
+                        Object[] row = rs.get();
+                        if (row.length > 0) {
+                            continueProcessing = processor.process((T) row[0]);
                         }
-                    });
+                        count++;
+                        if (count % batchSize == 0) {
+                            getCurrentSession().clear();
+                        }
+                    }
+                    processor.finish();
+                } catch (Exception e) {
+                    /*
+                     * Only way to propogate the error to the caller is to throw
+                     * a runtime exception
+                     */
+                    throw new RuntimeException(
+                            "Error occurred during processing", e);
+                }
+                return count;
+            });
 
         } catch (Exception e) {
             throw new DataAccessLayerException(
@@ -538,13 +464,10 @@ public class CoreDao {
     }
 
     public void deleteAll(final List<?> objs) {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                Session session = getCurrentSession();
-                for (Object obj : objs) {
-                    session.delete(obj);
-                }
+        runInTransaction(() -> {
+            Session session = getCurrentSession();
+            for (Object obj : objs) {
+                session.delete(obj);
             }
         });
     }
@@ -769,62 +692,52 @@ public class CoreDao {
      */
     public QueryResult executeHQLQuery(final String hqlQuery,
             final Map<String, Object> paramMap, int maxResults) {
-        QueryResult result = txTemplate
-                .execute(new TransactionCallback<QueryResult>() {
-                    @Override
-                    public QueryResult doInTransaction(
-                            TransactionStatus status) {
-                        Query hibQuery = getCurrentSession()
-                                .createQuery(hqlQuery);
-                        // hibQuery.setCacheMode(CacheMode.NORMAL);
-                        // hibQuery.setCacheRegion(QUERY_CACHE_REGION);
-                        hibQuery.setCacheable(true);
-                        if (maxResults > 0) {
-                            hibQuery.setMaxResults(maxResults);
-                        }
-                        addParamsToQuery(hibQuery, paramMap);
+        QueryResult rval = supplyInTransaction(() -> {
+            Query hibQuery = getCurrentSession().createQuery(hqlQuery);
+            hibQuery.setCacheable(true);
+            if (maxResults > 0) {
+                hibQuery.setMaxResults(maxResults);
+            }
+            addParamsToQuery(hibQuery, paramMap);
 
-                        List<?> queryResult = hibQuery.list();
+            List<?> queryResult = hibQuery.list();
 
-                        QueryResultRow[] rows = new QueryResultRow[queryResult
-                                .size()];
-                        if (!queryResult.isEmpty()) {
-                            if (queryResult.get(0) instanceof Object[]) {
-                                for (int i = 0; i < queryResult.size(); i++) {
-                                    QueryResultRow row = new QueryResultRow(
-                                            (Object[]) queryResult.get(i));
-                                    rows[i] = row;
-                                }
-
-                            } else {
-                                for (int i = 0; i < queryResult.size(); i++) {
-                                    QueryResultRow row = new QueryResultRow(
-                                            new Object[] {
-                                                    queryResult.get(i) });
-                                    rows[i] = row;
-                                }
-                            }
-                        }
-                        QueryResult result = new QueryResult();
-                        String[] returnAliases = hibQuery.getReturnAliases();
-                        if (returnAliases == null) {
-                            result.addColumnName("record", 0);
-                        } else {
-                            for (int i = 0; i < returnAliases.length; i++) {
-                                if (returnAliases[i] == null) {
-                                    String suffix = UUID.randomUUID().toString()
-                                            .substring(0, 8);
-                                    result.addColumnName("column_" + suffix, i);
-                                } else {
-                                    result.addColumnName(returnAliases[i], i);
-                                }
-                            }
-                        }
-                        result.setRows(rows);
-                        return result;
+            QueryResultRow[] rows = new QueryResultRow[queryResult.size()];
+            if (!queryResult.isEmpty()) {
+                if (queryResult.get(0) instanceof Object[]) {
+                    for (int i = 0; i < queryResult.size(); i++) {
+                        QueryResultRow row = new QueryResultRow(
+                                (Object[]) queryResult.get(i));
+                        rows[i] = row;
                     }
-                });
-        return result;
+
+                } else {
+                    for (int i = 0; i < queryResult.size(); i++) {
+                        QueryResultRow row = new QueryResultRow(
+                                new Object[] { queryResult.get(i) });
+                        rows[i] = row;
+                    }
+                }
+            }
+            QueryResult result = new QueryResult();
+            String[] returnAliases = hibQuery.getReturnAliases();
+            if (returnAliases == null) {
+                result.addColumnName("record", 0);
+            } else {
+                for (int i = 0; i < returnAliases.length; i++) {
+                    if (returnAliases[i] == null) {
+                        String suffix = UUID.randomUUID().toString()
+                                .substring(0, 8);
+                        result.addColumnName("column_" + suffix, i);
+                    } else {
+                        result.addColumnName(returnAliases[i], i);
+                    }
+                }
+            }
+            result.setRows(rows);
+            return result;
+        });
+        return rval;
     }
 
     /**
@@ -848,16 +761,11 @@ public class CoreDao {
     public int executeHQLStatement(final String hqlStmt,
             final Map<String, Object> paramMap) {
 
-        int queryResult = txTemplate
-                .execute(new TransactionCallback<Integer>() {
-                    @Override
-                    public Integer doInTransaction(TransactionStatus status) {
-                        Query hibQuery = getCurrentSession()
-                                .createQuery(hqlStmt);
-                        addParamsToQuery(hibQuery, paramMap);
-                        return hibQuery.executeUpdate();
-                    }
-                });
+        int queryResult = supplyInTransaction(() -> {
+            Query hibQuery = getCurrentSession().createQuery(hqlStmt);
+            addParamsToQuery(hibQuery, paramMap);
+            return hibQuery.executeUpdate();
+        });
 
         return queryResult;
     }
@@ -956,21 +864,15 @@ public class CoreDao {
     public Object[] executeSQLQuery(final String sql,
             final Map<String, Object> paramMap, int maxRowCount) {
         long start = System.currentTimeMillis();
-        List<?> queryResult = txTemplate
-                .execute(new TransactionCallback<List<?>>() {
-                    @Override
-                    public List<?> doInTransaction(TransactionStatus status) {
-                        String replaced = COLONS.matcher(sql)
-                                .replaceAll(COLON_REPLACEMENT);
-                        SQLQuery query = getCurrentSession()
-                                .createSQLQuery(replaced);
-                        addParamsToQuery(query, paramMap);
-                        if (maxRowCount > 0) {
-                            query.setMaxResults(maxRowCount);
-                        }
-                        return query.list();
-                    }
-                });
+        List<?> queryResult = supplyInTransaction(() -> {
+            String replaced = COLONS.matcher(sql).replaceAll(COLON_REPLACEMENT);
+            SQLQuery query = getCurrentSession().createSQLQuery(replaced);
+            addParamsToQuery(query, paramMap);
+            if (maxRowCount > 0) {
+                query.setMaxResults(maxRowCount);
+            }
+            return query.list();
+        });
         logger.debug("executeSQLQuery took: "
                 + (System.currentTimeMillis() - start) + " ms");
         return queryResult.toArray();
@@ -989,22 +891,6 @@ public class CoreDao {
     @Deprecated
     public QueryResult executeMappedSQLQuery(final String sql) {
         return executeMappedSQLQuery(sql, null);
-    }
-
-    /**
-     * Executes a single parameterized SQL query.
-     *
-     * @param sql
-     *            An SQL query to execute
-     * @return An array objects (multiple rows are returned as Object [ Object
-     *         [] ]
-     */
-    @Deprecated
-    public QueryResult executeMappedSQLQuery(final String sql,
-            final String param, final Object val) {
-        Map<String, Object> paramMap = new HashMap<>(1, 1);
-        paramMap.put(param, val);
-        return executeMappedSQLQuery(sql, paramMap);
     }
 
     /**
@@ -1110,19 +996,13 @@ public class CoreDao {
     public List<?> executeCriteriaQuery(final List<Criterion> criterion) {
 
         long start = System.currentTimeMillis();
-        List<?> queryResult = txTemplate
-                .execute(new TransactionCallback<List<?>>() {
-                    @Override
-                    public List<?> doInTransaction(TransactionStatus status) {
-
-                        Criteria crit = getCurrentSession()
-                                .createCriteria(daoClass);
-                        for (Criterion cr : criterion) {
-                            crit.add(cr);
-                        }
-                        return crit.list();
-                    }
-                });
+        List<?> queryResult = supplyInTransaction(() -> {
+            Criteria crit = getCurrentSession().createCriteria(daoClass);
+            for (Criterion cr : criterion) {
+                crit.add(cr);
+            }
+            return crit.list();
+        });
         logger.debug("executeCriteriaQuery took: "
                 + (System.currentTimeMillis() - start) + " ms");
         return queryResult;
@@ -1179,18 +1059,12 @@ public class CoreDao {
     public int executeSQLUpdate(final String sql,
             final Map<String, Object> paramMap) {
         long start = System.currentTimeMillis();
-        int updateResult = txTemplate
-                .execute(new TransactionCallback<Integer>() {
-                    @Override
-                    public Integer doInTransaction(TransactionStatus status) {
-                        String replaced = COLONS.matcher(sql)
-                                .replaceAll(COLON_REPLACEMENT);
-                        SQLQuery query = getCurrentSession()
-                                .createSQLQuery(replaced);
-                        addParamsToQuery(query, paramMap);
-                        return query.executeUpdate();
-                    }
-                });
+        int updateResult = supplyInTransaction(() -> {
+            String replaced = COLONS.matcher(sql).replaceAll(COLON_REPLACEMENT);
+            SQLQuery query = getCurrentSession().createSQLQuery(replaced);
+            addParamsToQuery(query, paramMap);
+            return query.executeUpdate();
+        });
         logger.debug("executeSQLUpdate took: "
                 + (System.currentTimeMillis() - start) + " ms");
         return updateResult;
@@ -1234,33 +1108,6 @@ public class CoreDao {
     }
 
     /**
-     * Gets the object class associated with this dao
-     *
-     * @return The object class associated with this dao
-     */
-    public Class<?> getDaoClass() {
-        return daoClass;
-    }
-
-    /**
-     * Sets the object class associated with this dao
-     *
-     * @param daoClass
-     *            The object class to assign to this dao
-     */
-    public void setDaoClass(Class<?> daoClass) {
-        this.daoClass = daoClass;
-    }
-
-    public SessionFactory getSessionFactory() {
-        return sessionFactory;
-    }
-
-    public void setSessionFactory(SessionFactory sessionFactory) {
-        this.sessionFactory = sessionFactory;
-    }
-
-    /**
      * Sets the dao class given a fully qualified class name
      *
      * @param fqn
@@ -1268,7 +1115,7 @@ public class CoreDao {
      */
     public void setDaoClass(String fqn) {
         try {
-            daoClass = this.getClass().getClassLoader().loadClass(fqn);
+            setDaoClass(this.getClass().getClassLoader().loadClass(fqn));
         } catch (ClassNotFoundException e) {
             logger.warn("Unable to load class: " + fqn, e);
         }
@@ -1294,28 +1141,15 @@ public class CoreDao {
     public void bulkSaveOrUpdateAndDelete(
             final Collection<? extends Object> updates,
             final Collection<? extends Object> deletes) {
-        txTemplate.execute(new TransactionCallbackWithoutResult() {
-            @Override
-            public void doInTransactionWithoutResult(TransactionStatus status) {
-                Session session = getCurrentSession();
-                for (Object obj : updates) {
-                    session.saveOrUpdate(obj);
-                }
-                for (Object obj : deletes) {
-                    session.delete(obj);
-                }
+        runInTransaction(() -> {
+            Session session = getCurrentSession();
+            for (Object obj : updates) {
+                session.saveOrUpdate(obj);
+            }
+            for (Object obj : deletes) {
+                session.delete(obj);
             }
         });
-    }
-
-    /**
-     * Gets the session associated with the current thread. This method does not
-     * create a new session if one does not exist
-     *
-     * @return The current thread-bound session
-     */
-    public Session getCurrentSession() {
-        return getSessionFactory().getCurrentSession();
     }
 
     /**
@@ -1365,16 +1199,13 @@ public class CoreDao {
      * @return list of objects
      */
     public List<?> findByNamedQuery(final String queryName, int maxRowCount) {
-        return txTemplate.execute(new TransactionCallback<List<?>>() {
-            @Override
-            public List<?> doInTransaction(TransactionStatus status) {
-                Session session = getCurrentSession();
-                Query query = session.getNamedQuery(queryName);
-                if (maxRowCount > 0) {
-                    query.setMaxResults(maxRowCount);
-                }
-                return query.list();
+        return supplyInTransaction(() -> {
+            Session session = getCurrentSession();
+            Query query = session.getNamedQuery(queryName);
+            if (maxRowCount > 0) {
+                query.setMaxResults(maxRowCount);
             }
+            return query.list();
         });
     }
 
@@ -1411,17 +1242,14 @@ public class CoreDao {
      */
     public List<?> findByNamedQueryAndNamedParam(final String queryName,
             final String paramName, final Object paramValue, int maxRowCount) {
-        return txTemplate.execute(new TransactionCallback<List<?>>() {
-            @Override
-            public List<?> doInTransaction(TransactionStatus status) {
-                Session session = getCurrentSession();
-                Query query = session.getNamedQuery(queryName);
-                addParamToQuery(query, paramName, paramValue);
-                if (maxRowCount > 0) {
-                    query.setMaxResults(maxRowCount);
-                }
-                return query.list();
+        return supplyInTransaction(() -> {
+            Session session = getCurrentSession();
+            Query query = session.getNamedQuery(queryName);
+            addParamToQuery(query, paramName, paramValue);
+            if (maxRowCount > 0) {
+                query.setMaxResults(maxRowCount);
             }
+            return query.list();
         });
     }
 
@@ -1459,17 +1287,14 @@ public class CoreDao {
             throw new IllegalArgumentException("paramMap must not be null");
 
         }
-        return txTemplate.execute(new TransactionCallback<List<?>>() {
-            @Override
-            public List<?> doInTransaction(TransactionStatus status) {
-                Session session = getCurrentSession();
-                Query query = session.getNamedQuery(queryName);
-                addParamsToQuery(query, paramMap);
-                if (maxRowCount > 0) {
-                    query.setMaxResults(maxRowCount);
-                }
-                return query.list();
+        return supplyInTransaction(() -> {
+            Session session = getCurrentSession();
+            Query query = session.getNamedQuery(queryName);
+            addParamsToQuery(query, paramMap);
+            if (maxRowCount > 0) {
+                query.setMaxResults(maxRowCount);
             }
+            return query.list();
         });
     }
 }

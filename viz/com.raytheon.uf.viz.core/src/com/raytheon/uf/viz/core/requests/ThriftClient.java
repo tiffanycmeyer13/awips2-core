@@ -76,6 +76,8 @@ import com.raytheon.uf.viz.core.localization.LocalizationManager;
  *                                  and how long it took to complete
  * Mar 25, 2021  8396     randerso  Temporarily remove logging of processing
  *                                  host until DR #8399 is worked.
+ * Apr 13, 2021  8337     randerso  Minor tweaks to log message formats for
+ *                                  consistnecy with PyPies request logging.
  *
  * </pre>
  *
@@ -303,7 +305,7 @@ public class ThriftClient {
         RequestWrapper wrapper = new RequestWrapper(request, VizApp.getWsId());
         String requestId = wrapper.getUniqueId();
         String requestStr = request.toString();
-        logger.info("Sending request to URL {}: id[{}] {}", url, requestId,
+        logger.info("Sending request to URL {} id[{}] {}", url, requestId,
                 requestStr);
 
         Object response = null;
@@ -324,10 +326,10 @@ public class ThriftClient {
             // response = responseWrapper.getResponse();
             // }
             //
-            // logger.info("Request processed by host {} took {}ms. id[{}]",
-            // processingServerHost, durationInMillis, requestId);
-            logger.info("Request took {}ms. id[{}]", durationInMillis,
-                    requestId);
+            // logger.info("Request id[{}] processed by host {}, took {}ms",
+            // requestId, processingServerHost, durationInMillis);
+            logger.info("Request id[{}] took {}ms", requestId,
+                    durationInMillis);
 
             if (durationInMillis >= BAD_LOG_TIME && logger.isDebugEnabled()) {
                 StackTraceElement[] stackTrace = Thread.currentThread()
