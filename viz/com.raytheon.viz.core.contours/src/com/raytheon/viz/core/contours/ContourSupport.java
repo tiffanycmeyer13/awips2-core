@@ -135,6 +135,7 @@ import com.raytheon.viz.core.interval.XFormFunctions;
  * Oct 28, 2019  68196    ksunil       code tweak to apply world wrapping correction to streamLines.
  * Jun 09, 2020  79241    pbutler      Removed unnecessary loop to speed up contour processing/loading
  * Oct 19, 2020  83998    tjensen      Fix rendering of negative contours
+ * Jul 01, 2021  93757    tjensen      Add check for null values list
  * </pre>
  *
  * @author chammack
@@ -599,23 +600,37 @@ public class ContourSupport {
                             vals = newVals;
                         }
                     }
-                    config.seed = vals;
-                    if (contourLabeling.getNumberOfContours() > 0) {
-                        config.mode = contourLabeling.getNumberOfContours();
-                    } else {
-                        config.mode = vals.length;
-                    }
-                    if (contours == null) {
-                        contours = FortConBuf.contour(subgridSource, szX, szY,
-                                config);
-                    } else {
-                        // means we have both "values" and "increment" specified
-                        // in the contourLabeling element.
-                        ContourContainer valueContours = FortConBuf
-                                .contour(subgridSource, szX, szY, config);
 
-                        contours = concatContourContainers(contours,
-                                valueContours);
+                    /*
+                     * Check to make sure there are values to label. Passing in
+                     * a config with no values causes IndexOutOfBounds
+                     * exceptions as FortConBuf assumes you actually have values
+                     * to label.
+                     */
+                    if (vals.length > 0) {
+                        config.seed = vals;
+                        if (contourLabeling.getNumberOfContours() > 0) {
+                            config.mode = contourLabeling.getNumberOfContours();
+                        } else {
+                            config.mode = vals.length;
+                        }
+                        if (contours == null) {
+                            contours = FortConBuf.contour(subgridSource, szX,
+                                    szY, config);
+                        } else {
+                            /*
+                             * We have both "values" and "increment" specified
+                             * in the contourLabeling element.
+                             */
+                            ContourContainer valueContours = FortConBuf
+                                    .contour(subgridSource, szX, szY, config);
+
+                            contours = concatContourContainers(contours,
+                                    valueContours);
+                        }
+                    } else {
+                        statusHandler.warn(
+                                "Attempted to create contours from null values list. Skipping...");
                     }
                 }
             }
