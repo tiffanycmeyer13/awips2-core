@@ -46,7 +46,7 @@ import com.raytheon.uf.common.datastorage.StorageProperties;
  *
  * @author bphillip
  */
-public interface IDataRecord extends ISerializableObject, Serializable {
+public interface IDataRecord extends Serializable {
 
     /**
      * @return the storage properties
