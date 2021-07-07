@@ -20,6 +20,8 @@
 
 package com.raytheon.uf.common.datastorage;
 
+import java.io.Serializable;
+
 import org.apache.commons.lang3.Validate;
 
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
@@ -33,17 +35,20 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *   SOFTWARE HISTORY
  *
  * Date          Ticket#  Engineer  Description
- * ------------- -------- --------- --------------------------------
+ * ------------- -------- --------- -------------------------------
  * Feb 08, 2007           chammack  Initial Creation.
  * Nov 14, 2013  2393     bclement  removed interpolation
  * Mar 29, 2021  8335     mapeters  Removed {@link Compression}.LZF
+ * Jun 10, 2021  8450     mapeters  Implement {@link Serializable}
  *
  * </pre>
  *
  * @author chammack
  */
 @DynamicSerialize
-public class StorageProperties implements Cloneable {
+public class StorageProperties implements Cloneable, Serializable {
+
+    private static final long serialVersionUID = -6698742345326911532L;
 
     /**
      * Compression types:

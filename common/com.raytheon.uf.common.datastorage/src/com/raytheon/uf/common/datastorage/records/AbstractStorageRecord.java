@@ -40,6 +40,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Feb 08, 2007           chammack  Initial Creation.
  * Dec 31, 2008           chammack  Added correlation object
  * Mar 29, 2021  8374     randerso  Added toString() method. Code cleanup.
+ * Jun 10, 2021  8450     mapeters  Add serialVersionUID
  *
  * </pre>
  *
@@ -47,6 +48,8 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  */
 @DynamicSerialize
 public abstract class AbstractStorageRecord implements IDataRecord {
+
+    private static final long serialVersionUID = -8156857671855801312L;
 
     @DynamicSerializeElement
     protected String name;

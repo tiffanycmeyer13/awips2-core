@@ -20,6 +20,7 @@
 
 package com.raytheon.uf.common.datastorage.records;
 
+import java.io.Serializable;
 import java.util.Map;
 
 import com.raytheon.uf.common.datastorage.StorageProperties;
@@ -39,68 +40,68 @@ import com.raytheon.uf.common.datastorage.StorageProperties;
  *                                     to match the underlying field name in
  *                                     AbstractStorageRecord and all the Python
  *                                     record classes.
+ * Jun 10, 2021  8450     mapeters     Implement {@link Serializable}
  *
  * </pre>
  *
  * @author bphillip
  */
-
-public interface IDataRecord {
+public interface IDataRecord extends ISerializableObject, Serializable {
 
     /**
      * @return the storage properties
      */
-    public abstract StorageProperties getProps();
+    StorageProperties getProps();
 
     /**
      * @param props
      *            the properties to set
      */
-    public abstract void setProps(StorageProperties props);
+    void setProps(StorageProperties props);
 
     /**
      * @return the dimension
      */
-    public abstract int getDimension();
+    int getDimension();
 
     /**
      * @param dimension
      *            the dimension to set
      */
-    public abstract void setDimension(int dimension);
+    void setDimension(int dimension);
 
     /**
      * @return the starting indices of sub area
      */
-    public abstract long[] getMinIndex();
+    long[] getMinIndex();
 
     /**
      * @param minIndex
      *            starting indices of sub area
      */
-    public abstract void setMinIndex(long[] minIndex);
+    void setMinIndex(long[] minIndex);
 
     /**
      * @return the name
      */
-    public abstract String getName();
+    String getName();
 
     /**
      * @param name
      *            the name to set
      */
-    public abstract void setName(String name);
+    void setName(String name);
 
     /**
      * @return the sizes
      */
-    public abstract long[] getSizes();
+    long[] getSizes();
 
     /**
      * @param sizes
      *            the sizes as 64-bit integers
      */
-    public abstract void setSizes(long[] sizes);
+    void setSizes(long[] sizes);
 
     /**
      * Generic type interface to the data
@@ -110,7 +111,7 @@ public interface IDataRecord {
      *
      * @return the data object
      */
-    public abstract Object getDataObject();
+    Object getDataObject();
 
     /**
      * Data type specific check to verify that dimensions are appropriate for
@@ -118,43 +119,43 @@ public interface IDataRecord {
      *
      * @return true if dimensions are valid
      */
-    public boolean validateDataSet();
+    boolean validateDataSet();
 
     /**
      * Get the group
      *
      * @return the group
      */
-    public String getGroup();
+    String getGroup();
 
     /**
      * Set the group
      *
      * @param group
      */
-    public void setGroup(String group);
+    void setGroup(String group);
 
     /**
      * @return the correlationObject
      */
-    public Object getCorrelationObject();
+    Object getCorrelationObject();
 
     /**
      * @param correlationObject
      *            the correlationObject to set
      */
-    public void setCorrelationObject(Object correlationObject);
+    void setCorrelationObject(Object correlationObject);
 
     /**
      * @return the dataAttributes
      */
-    public Map<String, Object> getDataAttributes();
+    Map<String, Object> getDataAttributes();
 
     /**
      * @param dataAttributes
      *            the dataAttributes to set
      */
-    public void setDataAttributes(Map<String, Object> dataAttributes);
+    void setDataAttributes(Map<String, Object> dataAttributes);
 
     /**
      * Reduces the dataset into a smaller dataset with only the indices
@@ -167,24 +168,24 @@ public interface IDataRecord {
      * @param indices
      *            the indices
      */
-    public abstract void reduce(int[] indices);
+    void reduce(int[] indices);
 
     /**
      * @return the fillValue
      */
-    public Number getFillValue();
+    Number getFillValue();
 
     /**
      * @param fillValue
      *            the fillValue to set
      */
-    public void setFillValue(Number fillValue);
+    void setFillValue(Number fillValue);
 
     /**
      * @param sizes
      *            as 32-bit integers
      */
-    public void setIntSizes(int[] sizes);
+    void setIntSizes(int[] size);
 
     /**
      *
@@ -193,7 +194,7 @@ public interface IDataRecord {
      *
      * @return the maxSizes
      */
-    public long[] getMaxSizes();
+    long[] getMaxSizes();
 
     /**
      * Set the maximum size (the size that the dataset can maximally be expanded
@@ -202,18 +203,18 @@ public interface IDataRecord {
      * @param maxSizes
      *            the maxSizes to set
      */
-    public void setMaxSizes(long[] maxSizes);
+    void setMaxSizes(long[] maxSizes);
 
     /**
      * @return the maxChunkSize
      */
-    public int getMaxChunkSize();
+    int getMaxChunkSize();
 
     /**
      * @param maxChunkSize
      *            the maxChunkSize to set
      */
-    public void setMaxChunkSize(int maxChunkSize);
+    void setMaxChunkSize(int maxChunkSize);
 
     /**
      * Get the size of the data record given the dimensions, sizes of each
@@ -221,12 +222,12 @@ public interface IDataRecord {
      *
      * @return size of record in bytes
      */
-    public int getSizeInBytes();
+    int getSizeInBytes();
 
     /**
      * Clone the record
      *
      * @return a deep copy of this record
      */
-    public IDataRecord clone();
+    IDataRecord clone();
 }

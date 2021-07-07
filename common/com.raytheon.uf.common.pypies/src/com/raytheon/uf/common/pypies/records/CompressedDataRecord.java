@@ -59,6 +59,7 @@ import com.raytheon.uf.common.util.PooledByteArrayOutputStream;
  * Nov 15, 2016  5992     bsteffen  Initial creation
  * Mar 29, 2021  8374     randerso  Renamed IDataRecord.get/setProperties to
  *                                  get/setProps
+ * Jun 10, 2021  8450     mapeters  Add serialVersionUID
  *
  * </pre>
  *
@@ -67,11 +68,13 @@ import com.raytheon.uf.common.util.PooledByteArrayOutputStream;
 @DynamicSerialize
 public class CompressedDataRecord extends AbstractStorageRecord {
 
+    private static final long serialVersionUID = -1535722233997351161L;
+
     private static final int ARRAY_CHUNK_SIZE = 1024;
 
     private static final int COMPRESSION_RATIO_ASSUMPTION = 4;
 
-    public static enum Type {
+    public enum Type {
         BYTE,
         SHORT,
         INT,
