@@ -38,6 +38,8 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Apr 24, 2015  4425     nabowle   Bring in.
  * Mar 29, 2021  8374     randerso  Removed toString() in favor of method in
  *                                  AbstractStoreageRecord. Code cleanup.
+ * Jun 10, 2021  8450     mapeters  Add serialVersionUID
+ *
  *
  * </pre>
  *
@@ -45,6 +47,8 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  */
 @DynamicSerialize
 public class DoubleDataRecord extends AbstractStorageRecord {
+
+    private static final long serialVersionUID = -7277425766726168679L;
 
     @DynamicSerializeElement
     protected double[] doubleData;
