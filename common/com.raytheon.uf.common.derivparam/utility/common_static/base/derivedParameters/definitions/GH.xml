@@ -193,7 +193,7 @@
     <Method name="Alias" levels="BLyr">
         <Field abbreviation="GH" level="0BLD" />
     </Method>
-    <Method models="radar" name="SliceSample" levels="MB">
+    <Method models="radar-.*" name="SliceSample" levels="MB">
         <Field abbreviation="GH" level="3D" />
         <Field abbreviation="P" />
         <ConstantField value="-2" />
