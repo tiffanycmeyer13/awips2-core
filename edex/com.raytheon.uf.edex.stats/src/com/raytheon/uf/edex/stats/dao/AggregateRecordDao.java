@@ -27,37 +27,44 @@ import java.util.List;
 import com.raytheon.uf.common.stats.AggregateRecord;
 import com.raytheon.uf.common.util.CollectionUtil;
 import com.raytheon.uf.edex.database.DataAccessLayerException;
+import com.raytheon.uf.edex.database.dao.IDaoConfigFactory;
 import com.raytheon.uf.edex.database.dao.SessionManagedDao;
 
 /**
  * Record class for stats waiting to be stored in the appropriate bucket.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Aug 21, 2012            jsanchez    Initial creation
- * Mar 18, 2013 1082       bphillip    Modified to extend sessionmanagedDao and use spring injection
- * May 22, 2013 1917       rjpeter     Added query methods for retrieving data about aggregates.
- * 8/1/2013     1693       bphillip    Fixed named parameters in queries
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Aug 21, 2012           jsanchez  Initial creation
+ * Mar 18, 2013  1082     bphillip  Modified to extend sessionmanagedDao and use
+ *                                  spring injection
+ * May 22, 2013  1917     rjpeter   Added query methods for retrieving data
+ *                                  about aggregates.
+ * Aug 01, 2013  1693     bphillip  Fixed named parameters in queries
+ * Apr 14, 2021  7849     mapeters  Refactor to use TransactionTemplate.execute
+ *                                  instead of Transactional annotations
+ *
  * </pre>
- * 
+ *
  * @author jsanchez
  */
-public class AggregateRecordDao extends
-        SessionManagedDao<Integer, AggregateRecord> {
+public class AggregateRecordDao
+        extends SessionManagedDao<Integer, AggregateRecord> {
+
     /**
      * Creates a new data access object
      */
-    public AggregateRecordDao() {
-
+    public AggregateRecordDao(IDaoConfigFactory daoConfigFactory) {
+        super(daoConfigFactory);
     }
 
     /**
      * Retrieves stat records that has a date before the limit.
-     * 
+     *
      * @param limit
      * @param eventType
      * @param maxResults
@@ -66,34 +73,42 @@ public class AggregateRecordDao extends
      *         size 0 will be returned.
      */
     public void mergeRecord(AggregateRecord newRecord) {
-        String hql = "from AggregateRecord rec where rec.eventType = :eventType and rec.field = :field"
-                + " and rec.grouping = :grouping and rec.startDate = :startDate and rec.endDate = :endDate";
+        runInTransaction(() -> {
+            String hql = "from AggregateRecord rec where rec.eventType = :eventType and rec.field = :field"
+                    + " and rec.grouping = :grouping and rec.startDate = :startDate and rec.endDate = :endDate";
 
-        List<AggregateRecord> results = this.executeHQLQuery(hql, "eventType",
-                newRecord.getEventType(), "field", newRecord.getField(),
-                "grouping", newRecord.getGrouping(), "startDate",
-                newRecord.getStartDate(), "endDate", newRecord.getEndDate());
-        if (!CollectionUtil.isNullOrEmpty(results)) {
-            // shouldn't be able to get multiple results, just merge with first
-            // and update
-            AggregateRecord prevRecord = results.get(0);
-            prevRecord.setCount(prevRecord.getCount() + newRecord.getCount());
-            prevRecord.setSum(prevRecord.getSum() + newRecord.getSum());
-            if (newRecord.getMin() < prevRecord.getMin()) {
-                prevRecord.setMin(newRecord.getMin());
+            List<AggregateRecord> results = this.executeHQLQuery(hql,
+                    "eventType", newRecord.getEventType(), "field",
+                    newRecord.getField(), "grouping", newRecord.getGrouping(),
+                    "startDate", newRecord.getStartDate(), "endDate",
+                    newRecord.getEndDate());
+            if (!CollectionUtil.isNullOrEmpty(results)) {
+                /*
+                 * shouldn't be able to get multiple results, just merge with
+                 * first and update
+                 */
+                AggregateRecord prevRecord = results.get(0);
+                prevRecord
+                        .setCount(prevRecord.getCount() + newRecord.getCount());
+                prevRecord.setSum(prevRecord.getSum() + newRecord.getSum());
+                if (newRecord.getMin() < prevRecord.getMin()) {
+                    prevRecord.setMin(newRecord.getMin());
+                }
+                if (newRecord.getMax() > prevRecord.getMax()) {
+                    prevRecord.setMax(newRecord.getMax());
+                }
+                this.update(prevRecord);
+            } else {
+                this.createOrUpdate(newRecord);
             }
-            if (newRecord.getMax() > prevRecord.getMax()) {
-                prevRecord.setMax(newRecord.getMax());
-            }
-            this.update(prevRecord);
-        } else {
-            this.createOrUpdate(newRecord);
-        }
+        });
     }
 
     @Override
     public AggregateRecord getById(Integer id) {
-        return super.getById(id);
+        return supplyInTransaction(() -> {
+            return super.getById(id);
+        });
     }
 
     @Override
@@ -103,7 +118,7 @@ public class AggregateRecordDao extends
 
     /**
      * Returns the oldest start date for a given aggregate eventType.
-     * 
+     *
      * @param eventType
      * @return
      * @throws DataAccessLayerException
@@ -113,28 +128,30 @@ public class AggregateRecordDao extends
         String hql = "SELECT MIN(startDate) FROM AggregateRecord WHERE eventType = :eventType";
 
         try {
-            List<Calendar> results = this.executeHQLQuery(hql, "eventType",
-                    eventType);
-            if (!CollectionUtil.isNullOrEmpty(results)) {
-                Calendar minTime = results.get(0);
-                if (minTime != null) {
-                    return minTime.getTime();
+            return supplyInTransaction(() -> {
+                List<Calendar> results = this.executeHQLQuery(hql, "eventType",
+                        eventType);
+                if (!CollectionUtil.isNullOrEmpty(results)) {
+                    Calendar minTime = results.get(0);
+                    if (minTime != null) {
+                        return minTime.getTime();
+                    }
                 }
-            }
 
-            return null;
+                return null;
+            });
         } catch (Exception e) {
             throw new DataAccessLayerException(
                     "Unable to look up min start date for event [" + eventType
-                            + "]", e);
-
+                            + "]",
+                    e);
         }
     }
 
     /**
      * Returns all aggregates of a given type and such that startDate >=
      * event.startDate < endDate.
-     * 
+     *
      * @param eventType
      * @param startDate
      * @param endDate
@@ -146,18 +163,21 @@ public class AggregateRecordDao extends
             throws DataAccessLayerException {
         String hql = "FROM AggregateRecord WHERE eventType = :eventType AND startDate >= :minStart AND startDate < :maxStart ORDER BY startDate";
         try {
-            Calendar start = Calendar.getInstance();
-            start.setTime(startDate);
-            Calendar end = Calendar.getInstance();
-            end.setTime(endDate);
-            List<AggregateRecord> results = this.executeHQLQuery(hql,
-                    "eventType", eventType, "minStart", start, "maxStart", end);
-            return results;
+            return supplyInTransaction(() -> {
+                Calendar start = Calendar.getInstance();
+                start.setTime(startDate);
+                Calendar end = Calendar.getInstance();
+                end.setTime(endDate);
+                List<AggregateRecord> results = this.executeHQLQuery(hql,
+                        "eventType", eventType, "minStart", start, "maxStart",
+                        end);
+                return results;
+            });
         } catch (Exception e) {
             throw new DataAccessLayerException(
                     "Unable to look up aggregates for event [" + eventType
-                            + "]", e);
-
+                            + "]",
+                    e);
         }
     }
 }

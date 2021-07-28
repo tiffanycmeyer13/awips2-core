@@ -248,7 +248,7 @@
          id="org.apache.commons.beanutils"
          download-size="0"
          install-size="0"
-         version="1.9.3"/>
+         version="1.9.4"/>
 
    <plugin
          id="org.apache.commons.codec"
@@ -395,7 +395,7 @@
          id="org.apache.commons.io"
          download-size="0"
          install-size="0"
-         version="2.6"/>
+         version="2.7.0"/>
 
    <plugin
          id="ch.qos.logback"

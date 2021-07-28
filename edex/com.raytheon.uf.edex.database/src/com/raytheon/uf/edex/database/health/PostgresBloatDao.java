@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -52,7 +53,7 @@ import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.edex.core.EDEXUtil;
 import com.raytheon.uf.edex.database.dao.CoreDao;
-import com.raytheon.uf.edex.database.dao.DaoConfig;
+import com.raytheon.uf.edex.database.dao.IDaoConfigFactory;
 
 /**
  * Postgres implemetation of Database Bloat checking.
@@ -69,11 +70,11 @@ import com.raytheon.uf.edex.database.dao.DaoConfig;
  * Jun 29, 2018 20505      ryu         Attempt to obtain access exclusive locks before altering tables.
  * Aug 06, 2018 20505      edebebe     Re-factored the 'reindex()' method to speed up the table re-indexing
  *                                     logic and added three inner classes: 'ReindexJob', 'Action', 'WorkerThread'.
+ * Apr 21, 2021 7849       mapeters    Add {@link IDaoConfigFactory} constructor arg
  * </pre>
  *
  * @author rjpeter
  */
-
 public class PostgresBloatDao extends CoreDao implements BloatDao {
 
     /**
@@ -313,8 +314,8 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
 
     private final ReindexThread workerThread;
 
-    public PostgresBloatDao(String database) {
-        super(DaoConfig.forDatabase(database, true));
+    public PostgresBloatDao(IDaoConfigFactory configFactory, String database) {
+        super(configFactory.forDatabase(database, true));
         this.database = database;
 
         this.delay = Long.getLong(REINDEXING_DELAY_PROPERTY, 60000);
@@ -435,7 +436,7 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
                 /* update index name to a tmp name */
                 String tmpName = TMP_INDEX_PREFIX + indexName;
                 if (tmpName.length() > 64) {
-                    tmpName.substring(0, 64);
+                    tmpName = tmpName.substring(0, 64);
                 }
                 String fqnTmpName = "\"" + schema + "\".\"" + tmpName + "\"";
 
@@ -689,8 +690,11 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
                                 .getLocks();
                         if (!tableLocks.isEmpty()) {
                             actionStatus.setLockFailure(true);
-                            for (LockLevel lockLevel : tableLocks.keySet()) {
-                                for (String table : tableLocks.get(lockLevel)) {
+                            for (Entry<LockLevel, Set<String>> tableLocksEntry : tableLocks
+                                    .entrySet()) {
+                                LockLevel lockLevel = tableLocksEntry.getKey();
+                                for (String table : tableLocksEntry
+                                        .getValue()) {
                                     String lockStatement = "LOCK TABLE " + table
                                             + " IN " + lockLevel.level
                                             + " MODE NOWAIT;";
@@ -879,7 +883,7 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
     private static class ReindexThread extends Thread {
 
         /** Singleton instance of this class */
-        private static ReindexThread instance = null;
+        private static final ReindexThread instance = new ReindexThread();
 
         private final BlockingQueue<ReindexJob> delayQueue;
 
@@ -895,9 +899,6 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
         }
 
         public static ReindexThread getInstance() {
-            if (instance == null) {
-                instance = new ReindexThread();
-            }
             return instance;
         }
 
@@ -939,8 +940,8 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
                         delayQueue.put(reindexJob);
                     } else if (status == 2) {
                         queuedJobs.remove(indexName);
-                        loggerForWorker
-                                .error("Error occured in processing ReindexJob: "
+                        loggerForWorker.error(
+                                "Error occured in processing ReindexJob: "
                                         + reindexJob);
                     } else {
                         queuedJobs.remove(indexName);

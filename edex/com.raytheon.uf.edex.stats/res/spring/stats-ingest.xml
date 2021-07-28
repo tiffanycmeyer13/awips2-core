@@ -6,7 +6,7 @@
     http://camel.apache.org/schema/spring/camel-spring.xsd">
 
     <bean id="aggregateDao" class="com.raytheon.uf.edex.stats.dao.AggregateRecordDao">
-        <property name="sessionFactory" ref="metadataSessionFactory" />
+        <constructor-arg ref="daoConfigFactory"/>
     </bean>
 
     <bean id="statsGroupingColumnJaxbManager" class="com.raytheon.uf.common.serialization.JAXBManager">

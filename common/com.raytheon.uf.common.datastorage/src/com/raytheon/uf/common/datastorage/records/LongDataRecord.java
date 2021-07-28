@@ -33,11 +33,12 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *
  * Date          Ticket#  Engineer     Description
  * ------------- -------- ------------ -----------------------------------------
- * 20070913      379      jkorman      Initial Creation.
+ * Sep 13, 2007  379      jkorman      Initial Creation.
  * Nov 24, 2007  555      garmendariz  Added method to check dataset dimensions
  *                                     and override toString
  * Mar 29, 2021  8374     randerso     Removed toString() in favor of method in
  *                                     AbstractStoreageRecord. Code cleanup.
+ * Jun 10, 2021  8450     mapeters     Add serialVersionUID
  *
  * </pre>
  *
@@ -45,6 +46,8 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  */
 @DynamicSerialize
 public class LongDataRecord extends AbstractStorageRecord {
+
+    private static final long serialVersionUID = 3625819214525745995L;
 
     @DynamicSerializeElement
     protected long[] longData;

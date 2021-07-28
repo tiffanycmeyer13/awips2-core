@@ -44,6 +44,8 @@ import com.raytheon.viz.ui.VizWorkbenchManager;
  * May 23, 2018 7298       tgurney     Rename menu item from "Toolbar" to
  *                                     "Show Toolbar"
  * Dec 09, 2019 7991       randerso    Fix NPE in isChecked()
+ * Jan 19, 2020 84062      A Challa    implemented a check to handle if
+ *                                     activeWorkbenchWindow is null
  * </pre>
  *
  * @author unknown

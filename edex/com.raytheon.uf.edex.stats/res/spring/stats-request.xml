@@ -4,7 +4,7 @@
     http://www.springframework.org/schema/beans/spring-beans.xsd">
 
     <bean id="graphDataHandlerAggregateRecordDao" class="com.raytheon.uf.edex.stats.dao.AggregateRecordDao">
-        <property name="sessionFactory" ref="metadataSessionFactory" />
+        <constructor-arg ref="daoConfigFactory"/>
     </bean>
 
     <bean id="aggregatedStatsHandler" class="com.raytheon.uf.edex.stats.handler.AggregatedStatsHandler"/>

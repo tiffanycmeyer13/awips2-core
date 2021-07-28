@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -35,36 +35,34 @@ import java.util.regex.Pattern;
 
 import org.hibernate.SQLQuery;
 import org.hibernate.Session;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 
 import com.raytheon.uf.common.dataplugin.PluginException;
 import com.raytheon.uf.edex.core.EDEXUtil;
 import com.raytheon.uf.edex.database.DataAccessLayerException;
 import com.raytheon.uf.edex.database.DatabasePluginProperties;
 import com.raytheon.uf.edex.database.dao.CoreDao;
-import com.raytheon.uf.edex.database.dao.DaoConfig;
+import com.raytheon.uf.edex.database.dao.IDaoConfigFactory;
 import com.raytheon.uf.edex.database.query.DatabaseQuery;
 
 /**
  * The dao implementation associated with the PluginVersion class used for all
  * database interaction.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer  Description
  * ------------- -------- --------- ----------------------------------------------------------------
- * Jul 24, 0007  353      bphillip  Initial Check in
+ * Jul 24, 2007  353      bphillip  Initial Check in
  * Oct 06, 2014  3702     bsteffen  Create PluginVersion table in each database containing plugins.
  * Jul 10, 2015  4500     rjpeter   Changed to package scope, added runPluginScripts.
  * Jun 20, 2016  5679     rjpeter   Add admin database account.
- * 
+ * Apr 21, 2021  7849     mapeters  Add {@link IDaoConfigFactory} constructor arg
+ *
  * </pre>
- * 
+ *
  * @author bphillip
- * @version 1
  */
 class PluginVersionDao extends CoreDao {
 
@@ -76,35 +74,36 @@ class PluginVersionDao extends CoreDao {
     /**
      * Creates a new PluginVersionDao.
      */
-    public PluginVersionDao() {
-        super(DaoConfig.forClass(PluginVersion.class));
+    public PluginVersionDao(IDaoConfigFactory configFactory) {
+        super(configFactory.forClass(PluginVersion.class));
     }
 
     /**
      * Creates a new PluginVersionDao.
-     * 
+     *
      * @param database
      *            The database to connect to.
      */
-    public PluginVersionDao(String database) {
-        super(DaoConfig.forClass(database, PluginVersion.class));
+    public PluginVersionDao(IDaoConfigFactory configFactory, String database) {
+        super(configFactory.forClass(database, PluginVersion.class));
     }
 
     /**
      * Creates a new PluginVersionDao.
-     * 
+     *
      * @param database
      *            The database to connect to.
      * @param admin
      *            Whether to connect to be with admin privileges or not.
      */
-    public PluginVersionDao(String database, boolean admin) {
-        super(DaoConfig.forClass(database, PluginVersion.class, admin));
+    public PluginVersionDao(IDaoConfigFactory configFactory, String database,
+            boolean admin) {
+        super(configFactory.forClass(database, PluginVersion.class, admin));
     }
 
     /**
      * Checks if the database has been initialized yet
-     * 
+     *
      * @return True if database has been initialized, false if not
      */
     public boolean isDbInitialized() {
@@ -113,10 +112,12 @@ class PluginVersionDao extends CoreDao {
 
     /**
      * Checks if a particular plugin has been initialized yet
-     * 
+     *
      * @param plugin
      *            The plugin to check
-     * @return true if the plugin has been initialized, else false
+     * @return true if the plugin has been initialized, false if plugin has DB
+     *         entry that indicates it's uninitialized, null if plugin does not
+     *         have DB entry to indicate its initialized state
      * @throws DataAccessLayerException
      */
     public Boolean isPluginInitialized(String plugin)
@@ -139,14 +140,14 @@ class PluginVersionDao extends CoreDao {
 
     /**
      * Loads all the plugin names currently registered in the plugin_info table
-     * 
+     *
      * @return The names of the plugins
      * @throws DataAccessLayerException
      *             If problems occur during query
      */
     @SuppressWarnings("unchecked")
     public List<String> loadAllPluginNames() throws DataAccessLayerException {
-        List<String> pluginNames = new ArrayList<String>();
+        List<String> pluginNames = new ArrayList<>();
         DatabaseQuery query = new DatabaseQuery(daoClass);
         query.addReturnedField("name");
         pluginNames = (List<String>) this.queryByCriteria(query);
@@ -155,7 +156,7 @@ class PluginVersionDao extends CoreDao {
 
     /**
      * Retrieves all plugins available in the system
-     * 
+     *
      * @return A list of plugin names
      * @throws DataAccessLayerException
      *             If errors occur during query
@@ -171,7 +172,7 @@ class PluginVersionDao extends CoreDao {
 
     /**
      * Deletes a plugin info entry
-     * 
+     *
      * @param pluginName
      *            The plugin name of the entry to remove
      * @throws DataAccessLayerException
@@ -190,7 +191,7 @@ class PluginVersionDao extends CoreDao {
 
     /**
      * Runs all scripts for a particular plugin.
-     * 
+     *
      * @param pluginName
      *            The plugin to run the scripts for
      * @throws PluginException
@@ -204,9 +205,11 @@ class PluginVersionDao extends CoreDao {
         try {
             File jarFile = new File(PLUGIN_DIR, pluginFQN + ".jar");
             if (!jarFile.exists()) {
-                /* check for any jar files of the format pluginFQN_version.jar */
-                Pattern p = Pattern.compile("^" + Pattern.quote(pluginFQN)
-                        + "_.*\\.jar$");
+                /*
+                 * check for any jar files of the format pluginFQN_version.jar
+                 */
+                Pattern p = Pattern
+                        .compile("^" + Pattern.quote(pluginFQN) + "_.*\\.jar$");
                 File pluginDir = new File(PLUGIN_DIR);
                 for (File f : pluginDir.listFiles()) {
                     if (p.matcher(f.getName()).find()) {
@@ -217,8 +220,8 @@ class PluginVersionDao extends CoreDao {
             }
             jar = new JarFile(jarFile);
         } catch (IOException e) {
-            throw new PluginException("Unable to find jar for plugin FQN "
-                    + pluginFQN, e);
+            throw new PluginException(
+                    "Unable to find jar for plugin FQN " + pluginFQN, e);
         }
 
         String name = null;
@@ -238,20 +241,16 @@ class PluginVersionDao extends CoreDao {
                     final List<String> statements = parseJarEntryForStatements(
                             jar, entry);
 
-                    txTemplate.execute(new TransactionCallbackWithoutResult() {
-                        @Override
-                        public void doInTransactionWithoutResult(
-                                TransactionStatus status) {
-                            Session sess = getCurrentSession();
-                            for (String statement : statements) {
-                                /*
-                                 * SQL Injection not a concern as the entire
-                                 * statement was provided by file contained in
-                                 * the jar.
-                                 */
-                                SQLQuery query = sess.createSQLQuery(statement);
-                                query.executeUpdate();
-                            }
+                    runInTransaction(() -> {
+                        Session sess = getCurrentSession();
+                        for (String statement : statements) {
+                            /*
+                             * SQL Injection not a concern as the entire
+                             * statement was provided by file contained in the
+                             * jar.
+                             */
+                            SQLQuery query = sess.createSQLQuery(statement);
+                            query.executeUpdate();
                         }
                     });
                 }
@@ -275,7 +274,7 @@ class PluginVersionDao extends CoreDao {
 
     /**
      * Parses a given jar entry for sql statements, ignoring all comments.
-     * 
+     *
      * @param jar
      * @param entry
      * @throws IOException
@@ -283,13 +282,10 @@ class PluginVersionDao extends CoreDao {
     private List<String> parseJarEntryForStatements(JarFile jar, JarEntry entry)
             throws IOException {
         final List<String> rval = new LinkedList<>();
-        BufferedReader reader = null;
-        InputStream stream = null;
 
-        try {
-            stream = jar.getInputStream(entry);
-            reader = new BufferedReader(new InputStreamReader(stream));
-
+        try (InputStream stream = jar.getInputStream(entry);
+                BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(stream))) {
             String line = null;
             StringBuilder buffer = new StringBuilder();
             boolean ignoringLines = false;
@@ -321,21 +317,6 @@ class PluginVersionDao extends CoreDao {
                             buffer.setLength(0);
                         }
                     }
-                }
-            }
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    // ignore
-                }
-            }
-            if (stream != null) {
-                try {
-                    stream.close();
-                } catch (IOException e) {
-                    // ignore
                 }
             }
         }

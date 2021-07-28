@@ -51,7 +51,7 @@
    
    <!-- CaveRequest log -->
    <define name="caveRequestLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
-      <directory>${user.home}/${LOGDIR}</directory>
+      <directory>${user.home}/caveData/logs/consoleLogs/${HOSTNAME}</directory>
       <name>cave_${startTime}_pid_%PID%_request.log</name>
    </define>   
 
@@ -71,7 +71,7 @@
 
    <!-- PyPiesRequest log -->
    <define name="pyPiesRequestLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
-      <directory>${user.home}/${LOGDIR}</directory>
+      <directory>${user.home}/caveData/logs/consoleLogs/${HOSTNAME}</directory>
       <name>cave_${startTime}_pid_%PID%_pypies.log</name>
    </define>   
 
@@ -91,7 +91,7 @@
 
    <!-- Performance log -->
    <define name="performanceLogFile" class="com.raytheon.uf.common.logback.LogFilePropertyDefiner" >
-       <directory>${user.home}/${LOGDIR}</directory>
+       <directory>${user.home}/caveData/logs/consoleLogs/${HOSTNAME}</directory>
        <name>cave_${startTime}_pid_%PID%_perf.log</name>
    </define>
 
