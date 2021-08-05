@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Pattern;
 
 import com.raytheon.uf.common.dataplugin.level.Level;
 import com.raytheon.uf.common.dataplugin.level.LevelFactory;
@@ -71,16 +72,16 @@ import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.common.time.DataTime;
 
 /**
- * 
+ *
  * The Inventory is responsible for managing what parameters can be derived. It
  * maintains a dataTree which contains all the base parameter as well as any
  * previously used derived parameters. It can dynamically calculate what
  * parameters can be derived using the walk tree method.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- ------------------------------------------
  * Mar 17, 2010           bsteffen    Initial creation
@@ -97,13 +98,14 @@ import com.raytheon.uf.common.time.DataTime;
  *                                    derived parameters.
  * Aug 20, 2018  7019     bsteffen    Allow sub-classes a little more control in
  *                                    providing custom fields.
- * 
+ * Jul 07, 2021  8576     randerso    Added support for regex in validModels
+ *
  * </pre>
- * 
+ *
  * @author bsteffen
  */
 public abstract class AbstractInventory implements DerivParamUpdateListener {
-    private static final transient IUFStatusHandler statusHandler = UFStatus
+    private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(AbstractInventory.class);
 
     protected ReentrantLock lock = new ReentrantLock(true);
@@ -188,9 +190,9 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
      * A call to this method assigns the passed grid tree to the original grid
      * tree and populates it with available derived parameters based on what is
      * available from the base parameters.
-     * 
+     *
      * @throws DataCubeException
-     * 
+     *
      */
     public void initTree(Map<String, DerivParamDesc> derParLibrary)
             throws DataCubeException {
@@ -271,7 +273,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
 
     /**
      * Resolve any Supplement Derived Parameters.
-     * 
+     *
      * @param sNode
      * @throws VizCommunicationException
      */
@@ -293,7 +295,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
                 }
                 List<String> validModels = method.getValidModels();
                 if (validModels != null
-                        && !validModels.contains(sNode.getValue())) {
+                        && !verifyValidModels(validModels, sNode.getValue())) {
                     continue;
                 }
                 for (LevelNode lNode : pNode.getChildNodes().values()) {
@@ -324,7 +326,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
 
     /**
      * Handle a query for a time agnostic node.
-     * 
+     *
      * @param query
      * @return
      */
@@ -334,7 +336,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
     /**
      * Returns the allSources field if it is set, if it is unset will return all
      * sources regardless of whether any usable data exists for that source
-     * 
+     *
      * @return
      */
     protected Collection<String> getAllSources() {
@@ -354,7 +356,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
      * the returnQueue. If any of the source/level/parameter lists is null
      * assume all sources/levels/parameters. Upon completion, any parameters
      * added to the returnQueue will no longer be in sourcesToCheck.
-     * 
+     *
      * @param sourcesToCheck
      * @param paramsToProcess
      * @param levelsToProcess
@@ -404,7 +406,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
 
     /**
      * See get allSources, same function but for parameters
-     * 
+     *
      * @return
      */
     protected Collection<String> getAllParameters() {
@@ -427,7 +429,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
 
     /**
      * See checkSources, same function but for parameters
-     * 
+     *
      * @param sourcesToProcess
      * @param paramsToCheck
      * @param levelsToProcess
@@ -472,7 +474,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
 
     /**
      * See get allSources, same function but for levels
-     * 
+     *
      * @return
      */
     protected Collection<Level> getAllLevels() {
@@ -485,7 +487,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
 
     /**
      * See checkSources, same function but for levels
-     * 
+     *
      * @param sourcesToProcess
      * @param paramsToProcess
      * @param levelsToCheck
@@ -532,7 +534,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
      * one of the other functions which calls this one and is more clear in its
      * functionality will work(such as checkSources, checkParameters,
      * checkLevels, evaluateConstraints).
-     * 
+     *
      * The clazz argument should specify an AbstractNode class (source,
      * parameter, level) or null. If it is null this function will return all
      * AbstractRequestableLevelNodes it finds which have any combination of the
@@ -544,23 +546,24 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
      * source/level from those lists will be removed from paramsToProcess and
      * added to the ReturnQueue. For levels, the returnQueue will contain the
      * level id as a string.
-     * 
+     *
      * The derive argument determines if the walk will attempt to derive
      * parameters, if true then it will attempt to derive all parameters for the
      * given source/parameter/level combinations. If derived=false, only values
      * which are already determined to exist will be returned and the return
      * value is not a comprehensive list of the available values but rather a
      * quick heuristic which can be used to speed up other processing.
-     * 
+     *
      * @param clazz
      * @param sourcesToProcess
      * @param paramsToProcess
      * @param levelsToProcess
      * @param derive
+     * @param includeConstant
      * @param returnQueue
      * @return
      * @throws InterruptedException
-     *             thrown if the thread was interupted during execution.
+     *             thrown if the thread was interrupted during execution.
      */
     protected List<AbstractRequestableNode> walkTree(
             Class<? extends AbstractNode<?>> clazz,
@@ -758,6 +761,20 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
         }
     }
 
+    private boolean verifyValidModels(List<String> validModels, String model) {
+        if (validModels.contains(model)) {
+            return true;
+        } else {
+            for (String regex : validModels) {
+                if (Pattern.matches(regex, model)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /**
      * For the given model/param/level attempt to derive a parameter if it is
      * possible. The stack is used to detect and respond to recursion. nodata is
@@ -766,7 +783,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
      * occasionally to avoid getting huge. This function will either return a
      * node which can request data for the given source, parameter, and level or
      * null if there is no way to derive the parameter.
-     * 
+     *
      * @param sourceNode
      * @param param
      * @param level
@@ -824,7 +841,8 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
                         // verify valid models
                         List<String> validModels = method.getValidModels();
                         if (validModels != null && !validModels.isEmpty()) {
-                            if (!validModels.contains(sourceNode.getValue())) {
+                            if (!verifyValidModels(validModels,
+                                    sourceNode.getValue())) {
                                 continue;
                             }
                         }
@@ -891,7 +909,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
                                         .getFrameworkMethod() != FrameworkMethod.OR) {
                                     break;
                                 }
-                            } // field loop
+                            }
                             if (needsNormalization) {
                                 List<LevelTypeMap> toNormalize = new ArrayList<>();
                                 for (Object obj : request) {
@@ -950,7 +968,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
                                         + method.getName() + "] failed",
                                 e);
                     }
-                } // method loop
+                }
             }
             if (level.isRangeLevel()) {
                 Level upperLevel;
@@ -1047,7 +1065,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
      * A utility function used by resolveNode which will use an ifield in place
      * of a specific param, using that ifield to determine the true
      * level/parameter desired.
-     * 
+     *
      * @param sourceNode
      * @param level
      * @param ifield
@@ -1211,7 +1229,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
      * {@link #resolvePluginStaticData(SourceNode, DerivParamField, Level)} but
      * it also provides the {@link DerivParamMethod} so that a sub-class can
      * provide even more customized fields based off the method.
-     * 
+     *
      * @param sourceNode
      *            The node specifying the source that is trying to resolve a
      *            field
@@ -1236,7 +1254,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
      * {@link #resolvePluginSpecifiedField(SourceNode, Level, DerivParamMethod, DerivParamField)}
      * but intended use for data that is constant for a specified source and
      * field, such as latitude, longitude and other location dependent data.
-     * 
+     *
      * @param sNode
      *            The node specifying the source that is trying to resolve a
      *            field
@@ -1256,7 +1274,7 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
 
     /**
      * This method is responsible for actually creating the derived nodes
-     * 
+     *
      * @param desc
      * @param method
      * @param level
@@ -1267,25 +1285,30 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
     protected AbstractDerivedDataNode createDerivedNode(DerivParamDesc desc,
             DerivParamMethod method, Level level, List<Object> fields,
             SourceNode source) {
+        AbstractDerivedDataNode rval;
         switch (method.getMethodType()) {
         case PYTHON:
             if ((method.isDtime() || method.isFtime()) && source.getDt() <= 0) {
-                return null;
-            }
-            DerivedLevelNode node = new DerivedLevelNode(level, desc, method,
-                    source.getValue(), source.getDt());
-            for (int k = 0; k < method.getFields().size(); k++) {
-                Object obj = fields.get(k);
-                if (obj instanceof AbstractRequestableData) {
-                    node.putStaticField(method.getFields().get(k),
-                            (AbstractRequestableData) obj);
+                rval = null;
+            } else {
+                DerivedLevelNode node = new DerivedLevelNode(level, desc,
+                        method, source.getValue(), source.getDt());
+                for (int k = 0; k < method.getFields().size(); k++) {
+                    Object obj = fields.get(k);
+                    if (obj instanceof AbstractRequestableData) {
+                        node.putStaticField(method.getFields().get(k),
+                                (AbstractRequestableData) obj);
+                    }
+                    if (obj instanceof AbstractRequestableNode) {
+                        node.putField(
+                                (DerivParamField) method.getFields().get(k),
+                                (AbstractRequestableNode) obj);
+                    }
                 }
-                if (obj instanceof AbstractRequestableNode) {
-                    node.putField((DerivParamField) method.getFields().get(k),
-                            (AbstractRequestableNode) obj);
-                }
+                rval = node;
             }
-            return node;
+            break;
+
         case FRAMEWORK:
             switch (method.getFrameworkMethod()) {
             case ALIAS: {
@@ -1297,14 +1320,17 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
                     data.setParameterName(desc.getName());
                     data.setSource(source.getValue());
                     data.setUnit(desc.getUnit());
-                    return new StaticDataLevelNode(level, desc, method, data,
+                    rval = new StaticDataLevelNode(level, desc, method, data,
                             source.getValue());
                 } else if (field instanceof AbstractRequestableNode) {
-                    return new AliasLevelNode((AbstractRequestableNode) field,
+                    rval = new AliasLevelNode((AbstractRequestableNode) field,
                             desc, method, source.getValue(), level);
+                } else {
+                    rval = null;
                 }
-                return null;
+                break;
             }
+
             case IMPORT: {
                 String importSource = null;
                 IDerivParamField derivParamField = method.getFields().get(0);
@@ -1320,36 +1346,45 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
 
                 Object field = fields.get(0);
                 if (field instanceof AbstractRequestableData) {
-                    return getImportNode((AbstractRequestableData) field,
+                    rval = getImportNode((AbstractRequestableData) field,
                             source, desc, method, level);
                 } else if (field instanceof AbstractRequestableNode) {
-                    return getImportNode((AbstractRequestableNode) field,
+                    rval = getImportNode((AbstractRequestableNode) field,
                             importSource, source, desc, method, level);
+                } else {
+                    rval = null;
                 }
-                return null;
+                break;
             }
+
             case MODELRUN:
                 if (source.getDt() <= 0) {
-                    return null;
+                    rval = null;
+                } else {
+                    AbstractRequestableNode sourceLevelNode = (AbstractRequestableNode) fields
+                            .get(0);
+                    rval = new TimeRangeLevelNode(sourceLevelNode, desc, method,
+                            source.getValue(), (Integer) null, 0,
+                            source.getDt(), level);
                 }
-                AbstractRequestableNode sourceLevelNode = (AbstractRequestableNode) fields
-                        .get(0);
-                return new TimeRangeLevelNode(sourceLevelNode, desc, method,
-                        source.getValue(), (Integer) null, 0, source.getDt(),
-                        level);
+                break;
+
             case TIMERANGE:
                 if (source.getDt() <= 0) {
-                    return null;
+                    rval = null;
+                } else {
+                    AbstractRequestableNode sourceNode = (AbstractRequestableNode) fields
+                            .get(0);
+                    Float startTime = ((FloatRequestableData) fields.get(1))
+                            .getDataValue();
+                    Float endTime = ((FloatRequestableData) fields.get(2))
+                            .getDataValue();
+                    rval = new TimeRangeLevelNode(sourceNode, desc, method,
+                            source.getValue(), startTime.intValue(),
+                            endTime.intValue(), source.getDt(), level);
                 }
-                AbstractRequestableNode sourceNode = (AbstractRequestableNode) fields
-                        .get(0);
-                Float startTime = ((FloatRequestableData) fields.get(1))
-                        .getDataValue();
-                Float endTime = ((FloatRequestableData) fields.get(2))
-                        .getDataValue();
-                return new TimeRangeLevelNode(sourceNode, desc, method,
-                        source.getValue(), startTime.intValue(),
-                        endTime.intValue(), source.getDt(), level);
+                break;
+
             case SUPPLEMENT:
             case OR:
                 List<AbstractRequestableNode> choices = new ArrayList<>(
@@ -1357,33 +1392,42 @@ public abstract class AbstractInventory implements DerivParamUpdateListener {
                 for (Object obj : fields) {
                     choices.add((AbstractRequestableNode) obj);
                 }
-                return new OrLevelNode(level, desc, method, source.getValue(),
+                rval = new OrLevelNode(level, desc, method, source.getValue(),
                         choices);
+                break;
+
             case UNION:
                 List<AbstractRequestableNode> nodes = new ArrayList<>(
                         fields.size());
                 for (Object obj : fields) {
                     nodes.add((AbstractRequestableNode) obj);
                 }
-                return new UnionLevelNode(level, desc, method,
+                rval = new UnionLevelNode(level, desc, method,
                         source.getValue(), nodes);
+                break;
+
             default:
                 statusHandler.handle(Priority.PROBLEM,
                         "Unimplemented framework method [" + method.getName()
                                 + "] in definition of ["
                                 + desc.getAbbreviation() + "]");
-                return null;
+                rval = null;
             }
+            break;
+
         case OTHER:
-            return null;
+            rval = null;
+            break;
+
         default:
             statusHandler.handle(Priority.PROBLEM,
                     "Unknown method type [" + method.getMethodType()
                             + "] for method [" + method.getName()
                             + "] in definition of [" + desc.getAbbreviation()
                             + "]");
-            return null;
+            rval = null;
         }
+        return rval;
     }
 
 }
