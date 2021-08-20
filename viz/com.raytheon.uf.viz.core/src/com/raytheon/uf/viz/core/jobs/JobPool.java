@@ -50,13 +50,15 @@ import com.raytheon.uf.common.util.Pair;
  * ------------ ---------- ----------- --------------------------
  * Jul 28, 2011            bsteffen    Initial creation
  * Jan 12, 2018 7189       rjpeter     Refactored to use Phaser for join.
+ * Aug 18, 2021 DR21543    jrohwein    set the workQueue to 65534, number of parties supported by phaser class
  * </pre>
  *
  * @author bsteffen
  */
 public class JobPool {
 
-    protected final LinkedBlockingQueue<Pair<Runnable, Phaser>> workQueue = new LinkedBlockingQueue<>();
+    protected final LinkedBlockingQueue<Pair<Runnable, Phaser>> workQueue = new LinkedBlockingQueue<>(
+            65534);
 
     protected final LinkedBlockingQueue<Job> jobQueue = new LinkedBlockingQueue<>();
 
