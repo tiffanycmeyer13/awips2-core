@@ -685,6 +685,10 @@
     <Level displayName="54 ft" key="54ftAgl" group="S">
         <DatabaseLevel levelName="FHAG" levelOneValue="54.0" unit="ft" />
     </Level>
+    <Level displayName="1.5 kft AGL" key="1.5kftAgl" group="S">
+        <DatabaseLevel levelName="FHAG" levelOneValue="1500.0"
+            unit="ft" />
+    </Level>
     <Level displayName="2 kft AGL" key="2kftAgl" group="S">
         <DatabaseLevel levelName="FHAG" levelOneValue="2000.0"
             unit="ft" />
@@ -692,6 +696,10 @@
     <Level displayName="0-2 kft AGL" key="0-2kftAgl" group="C">
         <DatabaseLevel levelName="FHAG" levelOneValue="0"
             levelTwoValue="2000.0" unit="ft" />
+    </Level>
+    <Level displayName="3 kft AGL" key="3kftAgl" group="S">
+        <DatabaseLevel levelName="FHAG" levelOneValue="3000.0"
+            unit="ft" />
     </Level>
     <Level displayName="5 kft AGL" key="5kftAgl" group="S">
         <DatabaseLevel levelName="FHAG" levelOneValue="5000.0"

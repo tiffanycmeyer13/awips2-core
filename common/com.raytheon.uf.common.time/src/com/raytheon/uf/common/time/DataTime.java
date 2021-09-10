@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -52,12 +52,12 @@ import com.raytheon.uf.common.time.util.TimeUtil;
 
 /**
  * Represents the time associated with a data item
- * 
+ *
  * Partial Port of AWIPS I D2D DataTime class
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer   Description
  * ------------- -------- ---------- -------------------------------------------
  *                        Jim Ramer  Original Code
@@ -74,50 +74,53 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  *                                   format as 2 digits.
  * Aug 20, 2020  21952    dhaines    Added support for timematching radar
  *                                   datasets with negative tilts >= -1
- * 
+ * Jul 28, 2021  8611     randerso   Code cleanup. Created NO_LEVEL constant
+ *                                   more in line with what is used in
+ *                                   Level.INVALID_VALUE.
+ *
  * </pre>
- * 
+ *
  * A DataTime has methods that allow the user to obtain the valid time,
  * reference time, forecast time, or the valid period. Constructors are
  * available that allow one to create a DataTime from all of these, or with as
  * little as the reference time.
- * 
+ *
  * The units of forecast time are seconds, and the internal representations of
  * the reference time and valid period are such that they have in effect the
  * units of seconds...the punchline being that no time requiring a precision of
  * less than a second can be correctly represented.
- * 
+ *
  * Some definitions:
- * 
+ *
  * Observation Time: The time an observation is taken.
- * 
+ *
  * Valid Time: Most essential time characteristic of any data. That point in
  * time when a given piece of data correctly represents or is expected to
  * represent some atmospheric state. This term has usually been applied to model
  * data. Applied liberally, this definition means that for observational data,
  * the valid time is the same as the observation time.
- * 
+ *
  * Initial Time: This term applies to data with a forecast component... most
  * often model data. This is the time most representative of the data that went
  * into initializing the model. It is also called the analysis time or model run
  * time.
- * 
+ *
  * Reference Time: This term serves as a unifying concept between data that has
  * an forecast component and data that does not. For data that has a forecast
  * component, the reference time is the same as the initial time. For data that
  * has no forecast component, the reference time is the same as the observation
  * time.
- * 
+ *
  * Forecast Time: This is the length of time between the reference time and the
  * valid time.
- * 
+ *
  * Valid Period: Often, a piece of data describes some atmospheric state not at
  * a single point in time, but over some period. Rainfall, for example, is not
  * usually reported as an instantaneous rate, but rather an accumulation over
  * some amount of time. The valid period is the range of valid times over which
  * such an accumulation is done.
- * 
- * 
+ *
+ *
  * @author chammack
  */
 @Embeddable
@@ -125,7 +128,7 @@ import com.raytheon.uf.common.time.util.TimeUtil;
 @DynamicSerialize
 public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     /**
-     * 
+     *
      */
     private static final long serialVersionUID = 1L;
 
@@ -144,6 +147,14 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
         }
 
     };
+
+    /**
+     * levelValue when level is not defined
+     *
+     * It's nice if this matches
+     * com.raython.uf.common.dataplugin.level/Level.INVALID_VALUE
+     */
+    private static final double NO_LEVEL = -999999.0;
 
     /** The reference time */
     @Column(name = "refTime", nullable = false)
@@ -169,7 +180,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     /** Data flags */
     public enum FLAG {
         NO_VALID_PERIOD, FCST_USED, PERIOD_USED
-    };
+    }
 
     /** The set of flags set on the time */
     @Column
@@ -185,14 +196,15 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     @DynamicSerializeElement
     @XmlAttribute
     @Transient
-    protected Double levelValue = -2.0;
+    protected Double levelValue = NO_LEVEL;
 
-    private static Pattern datePattern = Pattern.compile(TimeUtil.DATE_STRING);
+    private static final Pattern datePattern = Pattern
+            .compile(TimeUtil.DATE_STRING);
 
-    private static Pattern periodPattern = Pattern.compile("\\[("
+    private static final Pattern periodPattern = Pattern.compile("\\[("
             + TimeUtil.DATE_STRING + ")--(" + TimeUtil.DATE_STRING + ")\\]");
 
-    private static Pattern fcstPattern = Pattern
+    private static final Pattern fcstPattern = Pattern
             .compile("\\((\\d{1,20}(:\\d\\d)?)\\)");
 
     public DataTime(Date date) {
@@ -263,7 +275,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     /**
      * Constructor for case of data without a forecast component. Associated
      * with a single point in time
-     * 
+     *
      * @param refTime
      *            the reference time
      */
@@ -277,7 +289,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     /**
      * Constructor for case of data without a forecast component and the valid
      * period has no necessary connection to the reference time
-     * 
+     *
      * @param refTime
      *            the reference time
      * @param validPeriod
@@ -295,7 +307,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     /**
      * Constructor for case of data without a forecast component and the valid
      * period has no necessary connection to the reference time
-     * 
+     *
      * @param refTime
      *            the reference time
      * @param validPeriod
@@ -313,7 +325,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     /**
      * Constructor for the case of data with a forecast component associated
      * with a single point in time.
-     * 
+     *
      * @param refTime
      *            the reference time
      * @param fcstTime
@@ -331,7 +343,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     /**
      * Constructor for the case of data with a forecast component and valid
      * period that has no necessary connection to valid time
-     * 
+     *
      * @param refTime
      *            the reference time
      * @param fcstTime
@@ -419,7 +431,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     }
 
     /**
-     * 
+     *
      * @return get the matching valid time
      */
     public long getMatchValid() {
@@ -431,18 +443,13 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     }
 
     public void setLevelValue(Double levelValue) {
-        this.levelValue = levelValue == null ? -2.0 : levelValue;
+        this.levelValue = levelValue == null ? NO_LEVEL : levelValue;
     }
 
     public boolean isSpatial() {
-        return this.levelValue >= -1.0;
+        return this.levelValue > NO_LEVEL;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
     @Override
     public boolean equals(Object obj) {
         return equals(obj, false);
@@ -464,18 +471,18 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
         Date rt2 = new Date(rhs.refTime.getTime());
 
         if (ignoreSpatial) {
-            return (rt1.equals(rt2) && (fcstTime == rhs.fcstTime) && validPeriod
-                    .equals(rhs.validPeriod));
+            return (rt1.equals(rt2) && (fcstTime == rhs.fcstTime)
+                    && validPeriod.equals(rhs.validPeriod));
         } else {
             return (rt1.equals(rt2) && (fcstTime == rhs.fcstTime)
-                    && validPeriod.equals(rhs.validPeriod) && levelValue
-                        .equals(rhs.levelValue));
+                    && validPeriod.equals(rhs.validPeriod)
+                    && levelValue.equals(rhs.levelValue));
         }
     }
 
     /**
      * Returns true if the left hand side is greater than the right hand side
-     * 
+     *
      * @param rhs
      *            the right hand side
      * @return true if left hand side is greater than
@@ -486,7 +493,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
 
     /**
      * Returns the datatime string in D2D legend format
-     * 
+     *
      * @return the legend time string
      */
     public String getLegendString() {
@@ -498,21 +505,22 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
             return ("");
         }
 
-        StringBuffer legendBuffer = new StringBuffer();
+        StringBuilder legendBuilder = new StringBuilder();
 
         // Get the valid time we will use
         Date validTime;
         if ((utilityFlags.contains(FLAG.NO_VALID_PERIOD))) {
             validTime = validPeriod.getEnd();
         } else {
-            validTime = new Date(refTime.getTime() + (((long) fcstTime) * 1000));
+            validTime = new Date(
+                    refTime.getTime() + (((long) fcstTime) * 1000));
         }
 
         // Encode the perturbation index in the time.
         long p = fcstTime % 60;
 
         if (p > 0) {
-            legendBuffer.append("Perturbation " + p + " ");
+            legendBuilder.append("Perturbation " + p + " ");
         }
 
         NumberFormat nf = NumberFormat.getInstance();
@@ -539,13 +547,14 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
 
             if (cal.get(Calendar.MINUTE) == 0) {
                 minute = "";
-                if ((fcstTimeInSec > 864000) && ((fcstTimeInSec % 86400) == 0)) {
+                if ((fcstTimeInSec > 864000)
+                        && ((fcstTimeInSec % 86400) == 0)) {
                     forcastTime = nf2.format(fcstTimeInSec / 86400);
                     forcastTimeUnit = "DAYS";
                 }
             }
 
-            legendBuffer.append(String.format("%s.%s%s %3s%s ", day, hour,
+            legendBuilder.append(String.format("%s.%s%s %3s%s ", day, hour,
                     minute, forcastTime, forcastTimeUnit));
 
         }
@@ -560,30 +569,30 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
             // Get minutes remaining after hours
             m = m % 60;
             if (m == 0) {
-                legendBuffer.append(h + "hrs ");
+                legendBuilder.append(h + "hrs ");
             } else {
-                legendBuffer.append(h + ":" + m + " ");
+                legendBuilder.append(h + ":" + m + " ");
             }
 
             if (validPeriod.getStart().equals(validTime)) {
-                legendBuffer.append("Begn ");
+                legendBuilder.append("Begn ");
             } else if (validPeriod.getEnd().equals(validTime)) {
-                legendBuffer.append("Endg ");
+                legendBuilder.append("Endg ");
             } else {
-                legendBuffer.append("Incl ");
+                legendBuilder.append("Incl ");
             }
         }
 
-        legendBuffer.append(DATE_FORMAT.get().format(validTime));
+        legendBuilder.append(DATE_FORMAT.get().format(validTime));
 
-        this.legend = legendBuffer.toString();
+        this.legend = legendBuilder.toString();
         return this.legend;
 
     }
 
     /**
      * Return true if the date is null
-     * 
+     *
      * @return true if the date is null
      */
     public boolean isNull() {
@@ -594,11 +603,6 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
         return false;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see java.lang.Comparable#compareTo(java.lang.Object)
-     */
     @Override
     public int compareTo(DataTime o) {
         return DEFAULT_COMPARATOR.compare(this, o);
@@ -630,7 +634,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
 
     /**
      * States if the DataTime is visible
-     * 
+     *
      * @return
      */
     public boolean isVisible() {
@@ -640,7 +644,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     /**
      * Set whether the dataTime is visible or not, if not visible, data at this
      * datatime should not be displayed
-     * 
+     *
      * @param visible
      */
     public void setVisible(boolean visible) {
@@ -681,7 +685,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
 
     /**
      * Returns the DataTime in a URI formatted way
-     * 
+     *
      * @return
      */
     public String getURIString() {
@@ -707,7 +711,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
 
     /**
      * Returns the DataTime in a display friendly format
-     * 
+     *
      * @return
      */
     public String getDisplayString() {
@@ -728,24 +732,18 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
             builder.append(validPeriodString.replaceAll("_", " "));
         }
 
+        if (isSpatial()) {
+            builder.append(" ").append(levelValue);
+        }
+
         return builder.toString();
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see java.lang.Object#toString()
-     */
     @Override
     public String toString() {
         return getDisplayString();
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see java.lang.Object#hashCode()
-     */
     @Override
     public int hashCode() {
         HashCodeBuilder hashBuilder = new HashCodeBuilder();
@@ -758,11 +756,6 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
         return hashBuilder.toHashCode();
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see java.lang.Object#clone()
-     */
     @Override
     public DataTime clone() {
         boolean hasForecast = utilityFlags.contains(FLAG.FCST_USED)
@@ -770,15 +763,15 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
         boolean hasTimePeriod = utilityFlags.contains(FLAG.PERIOD_USED);
         DataTime rval = null;
         if (hasForecast && hasTimePeriod) {
-            rval = new DataTime(this.getRefTimeAsCalendar(),
-                    this.getFcstTime(), this.getValidPeriod().clone());
+            rval = new DataTime(this.getRefTimeAsCalendar(), this.getFcstTime(),
+                    this.getValidPeriod().clone());
         } else {
             if (hasForecast) {
                 rval = new DataTime(this.getRefTimeAsCalendar(),
                         this.getFcstTime());
             } else if (hasTimePeriod) {
-                rval = new DataTime(this.getRefTimeAsCalendar(), this
-                        .getValidPeriod().clone());
+                rval = new DataTime(this.getRefTimeAsCalendar(),
+                        this.getValidPeriod().clone());
             } else {
                 rval = new DataTime(this.getRefTimeAsCalendar());
             }

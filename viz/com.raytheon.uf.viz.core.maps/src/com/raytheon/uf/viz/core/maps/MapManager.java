@@ -54,6 +54,8 @@ import com.raytheon.viz.ui.VizWorkbenchManager;
  * Jan 12, 2009            randerso     Initial creation
  * May 07, 2018  6600      bsteffen     Fix double firing of resource list listeners.
  * May 31, 2018  6562      tgurney      Unload maps specified in unload list
+ * Aug 19, 2021  8638      reblum       Allow suppressing of msg if map overlay
+ *                                      fails to load.
  *
  * </pre>
  *
@@ -102,12 +104,29 @@ public class MapManager {
      *         initialized or null if no map found with the specified name
      */
     public ResourcePair loadMapByName(final String mapName) {
+        return loadMapByName(mapName, false);
+    }
+
+    /**
+     * Load a map into the specified target by name
+     *
+     * @param mapName
+     *            name of map to be loaded
+     * @param suppressProblem
+     *            flag indicating whether the log msg will be suppressed
+     * @return the map resource pair that was added to the descriptor and
+     *         initialized or null if no map found with the specified name
+     */
+    public ResourcePair loadMapByName(final String mapName,
+            boolean suppressProblem) {
         String mapPath = MapStore.findMapPath(mapName);
         if (mapPath != null) {
             return loadMap(mapPath);
         } else {
-            statusHandler.handle(Priority.PROBLEM,
-                    "Map \"" + mapName + "\" not found.");
+            if (!suppressProblem) {
+                statusHandler.handle(Priority.PROBLEM,
+                        "Map \"" + mapName + "\" not found.");
+            }
             return null;
         }
     }
