@@ -23,6 +23,11 @@
         at different localization levels will be combined. 
     -->
 <DerivedParameter unit="hPa" name="Pressure" abbreviation="P">
+    <!-- RCP is Radar Computed Pressure, see RadarGridExtension.resolvePluginStaticData(...)
+         RCP is a performance optimization for calculating pressures at tilt heights -->
+    <Method models="radar-.*" name="Alias" levels="S,TILT">
+        <Field abbreviation="RCP" />
+    </Method>
     <Method levels="PV5" name="Slice">
         <Field level="3D" abbreviation="pV" />
         <ConstantField value="0.000005" />
