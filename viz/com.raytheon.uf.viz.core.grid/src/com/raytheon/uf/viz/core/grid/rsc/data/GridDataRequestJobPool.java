@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -38,42 +38,45 @@ import org.eclipse.core.runtime.jobs.Job;
  * possible. This causes runners that are not being displayed to frequently get
  * bumped to the back of the queue, which is desired since the user does not
  * need that data yet.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
  * Oct 29, 2014  3668     bsteffen    Initial creation
  * May 14, 2015  4079     bsteffen    Move to core.grid
- * 
+ * Sep 09, 2021  8651     njensen     Added shutdown hook
+ *
  * </pre>
- * 
+ *
  * @author bsteffen
- * @version 1.0
  */
 public class GridDataRequestJobPool {
 
-    private static final int POOL_SIZE = Integer.getInteger(
-            "grid.request.pool.size", 10);
-    
+    private static final int POOL_SIZE = Integer
+            .getInteger("grid.request.pool.size", 10);
+
     private static final GridDataRequestJobPool instance = new GridDataRequestJobPool();
 
     public static void schedule(GridDataRequestRunner runner) {
         instance.scheduleRunner(runner);
     }
 
-    protected LinkedBlockingQueue<Job> jobQueue = new LinkedBlockingQueue<Job>();
+    protected LinkedBlockingQueue<Job> jobQueue = new LinkedBlockingQueue<>();
 
     protected List<GridDataRequestRunner> runners = new LinkedList<>();
-    
-    private GridDataRequestJobPool(){
-        for (int i = 0; i <POOL_SIZE; i++) {
+
+    protected volatile boolean shutdown = false;
+
+    private GridDataRequestJobPool() {
+        for (int i = 0; i < POOL_SIZE; i++) {
             jobQueue.add(new GridDataRequestJob());
         }
+        addShutdownHook();
     }
-    
+
     protected void scheduleRunner(GridDataRequestRunner runner) {
         synchronized (runners) {
             if (runners.isEmpty() || !(runners.get(0) == runner)) {
@@ -82,31 +85,42 @@ public class GridDataRequestJobPool {
             }
         }
         Job job = jobQueue.poll();
-        if (job != null) {
+        if (job != null && !shutdown) {
             job.schedule();
         }
     }
-    
-    protected void reschedule(GridDataRequestRunner runner){
+
+    protected void reschedule(GridDataRequestRunner runner) {
         synchronized (runners) {
-            if(!runners.contains(runner)){
+            if (!runners.contains(runner)) {
                 runners.add(runner);
             }
         }
     }
-    
-    protected GridDataRequestRunner getNextRunner(){
+
+    protected GridDataRequestRunner getNextRunner() {
         synchronized (runners) {
-            if(runners.isEmpty()){
+            if (runners.isEmpty() || shutdown) {
                 return null;
-            }else{
+            } else {
                 return runners.remove(0);
             }
         }
     }
-    
-    
-    private class GridDataRequestJob extends Job{
+
+    protected void addShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            @Override
+            public void run() {
+                shutdown = true;
+                for (Job job : jobQueue) {
+                    job.cancel();
+                }
+            }
+        }));
+    }
+
+    private class GridDataRequestJob extends Job {
 
         public GridDataRequestJob() {
             super("Requesting Grid Data");
@@ -116,8 +130,8 @@ public class GridDataRequestJobPool {
         protected IStatus run(IProgressMonitor monitor) {
             jobQueue.offer(this);
             GridDataRequestRunner runner = getNextRunner();
-            while(runner != null){
-                if(runner.processOneRequest()){
+            while (runner != null) {
+                if (runner.processOneRequest()) {
                     reschedule(runner);
                 }
                 runner = getNextRunner();
@@ -125,5 +139,5 @@ public class GridDataRequestJobPool {
             return Status.OK_STATUS;
         }
     }
-    
+
 }
