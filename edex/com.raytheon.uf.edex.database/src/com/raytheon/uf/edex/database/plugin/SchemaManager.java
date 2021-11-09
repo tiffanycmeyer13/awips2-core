@@ -84,6 +84,7 @@ import com.raytheon.uf.edex.database.dao.IDaoConfigFactory;
  * Jun 20, 2016  5679     rjpeter      Add admin database account.
  * Dec 08, 2016  3440     njensen      Cleanup error message
  * Feb 26, 2019  6140     tgurney      Hibernate 5 upgrade
+ * Aug 20, 2020  82093    dfriedman    Support alternate schema names
  * Apr 21, 2021  7849     mapeters     Inject/use Spring app context
  *
  * </pre>
@@ -121,7 +122,7 @@ public class SchemaManager
             "^create (?:table |index |sequence )(?:[A-Za-z_0-9]*\\.)?(.+?)(?: .*)?$");
 
     private final Pattern createIndexTableNamePattern = Pattern
-            .compile("^create index %table%.+? on (.+?) .*$");
+            .compile("^create index %table%.+? on (?:[^ ]*\\.)?([^\\.]+?) .*$");
 
     private ApplicationContext applicationContext;
 
