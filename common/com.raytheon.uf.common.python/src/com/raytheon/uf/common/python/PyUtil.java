@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -240,7 +241,7 @@ public class PyUtil {
 
         /* join list of includeDirs while filtering out null or empty values */
         String s = Arrays.stream(includeDirs).filter(Objects::nonNull)
-                .filter(item -> !item.isEmpty())
+                .filter(Predicate.not(String::isEmpty))
                 .collect(Collectors.joining(SEPARATOR));
         if (createDirs) {
             createDirs(s);
