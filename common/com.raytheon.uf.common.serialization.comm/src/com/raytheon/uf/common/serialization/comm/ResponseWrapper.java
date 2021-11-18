@@ -19,6 +19,9 @@
  **/
 package com.raytheon.uf.common.serialization.comm;
 
+import java.lang.reflect.Array;
+import java.util.List;
+
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -30,9 +33,10 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *
  * SOFTWARE HISTORY
  *
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Feb 04, 2021 8337       mchan       Initial creation
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- ---------------------------------
+ * Feb 04, 2021  8337     mchan     Initial creation
+ * Nov 18, 2021  8399     randerso  Fixed handling of array response
  *
  * </pre>
  *
@@ -42,32 +46,43 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 public class ResponseWrapper {
 
     @DynamicSerializeElement
+    private String host;
+
+    @DynamicSerializeElement
     private Object response;
 
     @DynamicSerializeElement
-    private String host;
+    private String arrayClassName;
 
+    /**
+     * ONLY FOR DYNAMIC SERIALIZATION, DO NOT USE!
+     */
     public ResponseWrapper() {
     }
 
+    /**
+     *
+     * @param response
+     *            the request response
+     * @param host
+     *            name of host were request was processed
+     */
     public ResponseWrapper(Object response, String host) {
-        this.response = response;
         this.host = host;
-    }
-
-    public void setResponse(Object response) {
         this.response = response;
+        if (response != null) {
+            Class<?> clazz = response.getClass();
+            if (clazz.isArray()) {
+                this.arrayClassName = clazz.getName();
+            }
+        }
     }
 
     /**
-     * The response to the request.
+     * ONLY FOR DYNAMIC SERIALIZATION, DO NOT USE!
      *
-     * @return response object
+     * @param host
      */
-    public Object getResponse() {
-        return response;
-    }
-
     public void setHost(String host) {
         this.host = host;
     }
@@ -79,6 +94,53 @@ public class ResponseWrapper {
      */
     public String getHost() {
         return host;
+    }
+
+    /**
+     * ONLY FOR DYNAMIC SERIALIZATION, DO NOT USE!
+     *
+     * @param response
+     */
+    public void setResponse(Object response) {
+        this.response = response;
+    }
+
+    /**
+     * The response to the request.
+     *
+     * @return response object
+     * @throws ClassNotFoundException
+     */
+    @SuppressWarnings("rawtypes")
+    public Object getResponse() throws ClassNotFoundException {
+        if (arrayClassName != null && response instanceof List) {
+
+            /* Suppress SonarQube for use of dynamic class loading */
+            @SuppressWarnings("squid:S2658")
+            Class clazz = Class.forName(arrayClassName);
+            Object[] array = (Object[]) Array
+                    .newInstance(clazz.getComponentType(), 0);
+            response = ((List<?>) response).toArray(array);
+        }
+        return response;
+    }
+
+    /**
+     * ONLY FOR DYNAMIC SERIALIZATION, DO NOT USE!
+     *
+     * @return array class name or null if response is not an array
+     */
+    public String getArrayClassName() {
+        return arrayClassName;
+    }
+
+    /**
+     * ONLY FOR DYNAMIC SERIALIZATION, DO NOT USE!
+     *
+     * @param arrayClassName
+     */
+    public void setArrayClassName(String arrayClassName) {
+        this.arrayClassName = arrayClassName;
     }
 
 }

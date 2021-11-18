@@ -23,6 +23,7 @@ import com.raytheon.uf.common.serialization.ExceptionWrapper;
 import com.raytheon.uf.common.serialization.comm.IServerRequest;
 import com.raytheon.uf.common.serialization.comm.RemoteServiceRequest;
 import com.raytheon.uf.common.serialization.comm.RequestWrapper;
+import com.raytheon.uf.common.serialization.comm.ResponseWrapper;
 import com.raytheon.uf.common.serialization.comm.ServiceException;
 import com.raytheon.uf.common.serialization.comm.response.ServerErrorResponse;
 import com.raytheon.uf.viz.core.VizApp;
@@ -77,7 +78,8 @@ import com.raytheon.uf.viz.core.localization.LocalizationManager;
  * Mar 25, 2021  8396     randerso  Temporarily remove logging of processing
  *                                  host until DR #8399 is worked.
  * Apr 13, 2021  8337     randerso  Minor tweaks to log message formats for
- *                                  consistnecy with PyPies request logging.
+ *                                  consistency with PyPies request logging.
+ * Nov 18, 2021  8399     randerso  Restore use of ResponseWrapper
  *
  * </pre>
  *
@@ -315,21 +317,15 @@ public class ThriftClient {
                     wrapper, true);
             long durationInMillis = System.currentTimeMillis() - t0;
 
-            /*
-             * TODO: restore logging of "processed by host" when DR #8399 is
-             * worked
-             */
-            // String processingServerHost = "unknown";
-            // if (response instanceof ResponseWrapper) {
-            // ResponseWrapper responseWrapper = ((ResponseWrapper) response);
-            // processingServerHost = responseWrapper.getHost();
-            // response = responseWrapper.getResponse();
-            // }
-            //
-            // logger.info("Request id[{}] processed by host {}, took {}ms",
-            // requestId, processingServerHost, durationInMillis);
-            logger.info("Request id[{}] took {}ms", requestId,
-                    durationInMillis);
+            String processingServerHost = "unknown";
+            if (response instanceof ResponseWrapper) {
+                ResponseWrapper responseWrapper = ((ResponseWrapper) response);
+                processingServerHost = responseWrapper.getHost();
+                response = responseWrapper.getResponse();
+            }
+
+            logger.info("Request id[{}] processed by host {}, took {}ms",
+                    requestId, processingServerHost, durationInMillis);
 
             if (durationInMillis >= BAD_LOG_TIME && logger.isDebugEnabled()) {
                 StackTraceElement[] stackTrace = Thread.currentThread()
