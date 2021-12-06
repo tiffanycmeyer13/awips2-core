@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -33,20 +33,22 @@ import com.raytheon.viz.core.contours.ContourRenderable;
 
 /**
  * Displays contours from any data source
- * 
+ *
  * Currently implemented using the D2D contouring capability
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
- * Date          Ticket#  Engineer    Description
- * ------------- -------- ----------- --------------------------
- * Jul 11, 2008  1233     chammack    Initial creation
- * Feb 27, 2014  2791     bsteffen    Switch from IDataRecord to DataSource
- * 
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Jul 11, 2008  1233     chammack  Initial creation
+ * Feb 27, 2014  2791     bsteffen  Switch from IDataRecord to DataSource
+ * Dec 06, 2021  8341     randerso  Added use of getResourceId for contour
+ *                                  logging
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1.0
  */
 
 public class GriddedContourDisplay extends ContourRenderable {
@@ -57,15 +59,15 @@ public class GriddedContourDisplay extends ContourRenderable {
 
     protected DataSource source;
 
-    public GriddedContourDisplay(IMapDescriptor descriptor,
+    public GriddedContourDisplay(IMapDescriptor descriptor, String resourceId,
             final GridGeometry2D gridGeometry, final FloatBuffer fb) {
-        this(descriptor, gridGeometry, new GeographicDataSource(fb,
-                gridGeometry));
+        this(descriptor, resourceId, gridGeometry,
+                new GeographicDataSource(fb, gridGeometry));
     }
 
-    public GriddedContourDisplay(IMapDescriptor descriptor,
+    public GriddedContourDisplay(IMapDescriptor descriptor, String resourceId,
             final GridGeometry2D gridGeometry, final DataSource source) {
-        super(descriptor);
+        super(descriptor, resourceId);
         this.gridGeometry = gridGeometry;
         this.source = source;
     }
