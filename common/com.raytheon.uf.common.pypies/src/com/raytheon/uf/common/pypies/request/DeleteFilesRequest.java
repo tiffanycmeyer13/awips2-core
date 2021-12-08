@@ -34,15 +34,13 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Sep 27, 2010            njensen     Initial creation
- * Mar 24  2021   8374     srahimi     Added toString Method for Logging
- *
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
+ * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
  *
  * @author njensen
- *
  */
-
 @DynamicSerialize
 public class DeleteFilesRequest extends AbstractRequest {
 
@@ -97,4 +95,8 @@ public class DeleteFilesRequest extends AbstractRequest {
 
     }
 
+    @Override
+    public RequestType getType() {
+        return RequestType.DELETE;
+    }
 }

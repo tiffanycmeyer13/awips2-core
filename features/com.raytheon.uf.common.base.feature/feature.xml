@@ -224,19 +224,19 @@
          id="javax.measure"
          download-size="0"
          install-size="0"
-         version="1.0.0"/>
+         version="0.0.0"/>
 
    <plugin
          id="javax.vecmath"
          download-size="0"
          install-size="0"
-         version="1.3.1"/>
+         version="0.0.0"/>
 
    <plugin
          id="net.sf.cglib"
          download-size="0"
          install-size="0"
-         version="2.1.3"/>
+         version="0.0.0"/>
 
    <plugin
          id="net.sf.ehcache"
@@ -248,7 +248,7 @@
          id="org.apache.commons.beanutils"
          download-size="0"
          install-size="0"
-         version="1.9.4"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.apache.commons.codec"
@@ -260,19 +260,19 @@
          id="org.apache.commons.collections"
          download-size="0"
          install-size="0"
-         version="3.2.2"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.apache.commons.configuration"
          download-size="0"
          install-size="0"
-         version="1.10.0"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.apache.commons.digester"
          download-size="0"
          install-size="0"
-         version="1.8.1"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.apache.commons.lang"
@@ -296,7 +296,7 @@
          id="org.apache.velocity"
          download-size="0"
          install-size="0"
-         version="1.7.0"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.apache.xml.resolver"
@@ -314,7 +314,7 @@
          id="org.jdom"
          download-size="0"
          install-size="0"
-         version="1.1.3"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.jdom2"
@@ -350,7 +350,7 @@
          id="org.slf4j"
          download-size="0"
          install-size="0"
-         version="1.7.30"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.springframework"
@@ -395,13 +395,13 @@
          id="org.apache.commons.io"
          download-size="0"
          install-size="0"
-         version="2.7.0"/>
+         version="0.0.0"/>
 
    <plugin
          id="ch.qos.logback"
          download-size="0"
          install-size="0"
-         version="1.2.0"/>
+         version="0.0.0"/>
 
    <plugin
          id="com.raytheon.uf.common.topo"
@@ -421,7 +421,7 @@
          id="org.reflections"
          download-size="0"
          install-size="0"
-         version="0.9.9"/>
+         version="0.0.0"/>
 
    <plugin
          id="com.raytheon.uf.common.inventory"
@@ -453,7 +453,7 @@
          id="org.apache.xerces"
          download-size="0"
          install-size="0"
-         version="2.12.1"/>
+         version="0.0.0"/>
 
    <plugin
          id="com.raytheon.uf.common.convert"
@@ -466,13 +466,13 @@
          id="org.checkerframework"
          download-size="0"
          install-size="0"
-         version="3.5.0"/>
+         version="0.0.0"/>
 
    <plugin
          id="org.postgres"
          download-size="0"
          install-size="0"
-         version="42.2.16"/>
+         version="0.0.0"/>
 
    <plugin
          id="javax.persistence"
@@ -491,7 +491,7 @@
          id="org.apache.commons.pool2"
          download-size="0"
          install-size="0"
-         version="2.4.2"/>
+         version="0.0.0"/>
 
    <plugin
          id="com.raytheon.uf.common.auth.util"
@@ -524,7 +524,7 @@
          id="com.google.gson"
          download-size="0"
          install-size="0"
-         version="2.8.9"
+         version="0.0.0"
          unpack="false"/>
 
 </feature>

@@ -30,20 +30,17 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * <pre>
  *
  * SOFTWARE HISTORY
- * Date            Ticket#    Engineer    Description
+ * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Aug 10, 2010               njensen     Initial creation
- * Feb 12, 2013     #1608     randerso    Added support for explicitly deleting grous and datasets
- * Mar 24  2021      8374     srahimi     Added toString Method for Logging
- *
- *
+ * Aug 10, 2010            njensen     Initial creation
+ * Feb 12, 2013 1608       randerso    Added support for explicitly deleting grous and datasets
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
+ * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
  *
  * @author njensen
- *
  */
-
 @DynamicSerialize
 public class DeleteRequest extends AbstractRequest {
 
@@ -80,4 +77,8 @@ public class DeleteRequest extends AbstractRequest {
         return rval.toString();
     }
 
+    @Override
+    public RequestType getType() {
+        return RequestType.DELETE;
+    }
 }

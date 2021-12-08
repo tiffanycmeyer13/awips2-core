@@ -31,17 +31,16 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Jul 20, 2010             njensen     Initial creation
- * Mar 24  2021    8374     srahimi     Added toString for Logging
+ * Jul 20, 2010            njensen     Initial creation
+ * Mar 24  2021 8374       srahimi     Added toString for Logging
+ * Sep 23, 2021 8608       mapeters    Add {@link RequestType}
  *
  *
  *
  * </pre>
  *
  * @author njensen
- *
  */
-
 @DynamicSerialize
 public abstract class AbstractRequest {
 
@@ -63,7 +62,15 @@ public abstract class AbstractRequest {
         rval.append(filename);
         rval.append("]");
         return rval.toString();
+    }
 
+    /**
+     * @return the general type of request this is (e.g. store, retrieve, etc.)
+     */
+    public abstract RequestType getType();
+
+    public enum RequestType {
+        STORE, RETRIEVE, DELETE, COPY, REPACK
     }
 
 }
