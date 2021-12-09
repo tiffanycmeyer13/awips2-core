@@ -180,14 +180,14 @@ public class PyPiesDataStore implements IDataStore {
     @Override
     public void addDataRecord(final IDataRecord dataset,
             IMetadataIdentifier metadataIdentifier) throws StorageException {
-        addDataRecord(dataset, metadataIdentifier, dataset.getProperties());
+        addDataRecord(dataset, metadataIdentifier, dataset.getProps());
     }
 
     @Override
     public void addDataRecord(IDataRecord dataset,
             Collection<IMetadataIdentifier> metadataIdentifiers)
             throws StorageException {
-        addDataRecord(dataset, metadataIdentifiers, dataset.getProperties());
+        addDataRecord(dataset, metadataIdentifiers, dataset.getProps());
     }
 
     @Override

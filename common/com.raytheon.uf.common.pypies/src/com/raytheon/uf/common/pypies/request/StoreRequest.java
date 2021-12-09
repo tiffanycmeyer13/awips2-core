@@ -73,8 +73,9 @@ public class StoreRequest extends AbstractRequest {
         StringBuilder rval = new StringBuilder(super.toString());
         rval.append(", op[");
         rval.append(op);
-        rval.append("], records[");
-        rval.append(records);
+        rval.append("], recordsAndMetadata[");
+        rval.append(recordsAndMetadata);
+        rval.append("]");
         return rval.toString();
 
     }
