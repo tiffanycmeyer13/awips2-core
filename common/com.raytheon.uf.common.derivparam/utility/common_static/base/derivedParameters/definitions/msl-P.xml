@@ -46,11 +46,11 @@
         displayName="MSLP (Eta Reduction)">
         <Field abbreviation="EMSP" level="MSL" />
     </Method>
-    <Method name="Alias" models="HiResW-ARW-East HiResW-ARW-West HiResW-ARW-AK HiResW-ARW-PR HiResW-ARW-SJU"
+    <Method name="Alias" models="HiResW-ARW HiResW-ARW-AK HiResW-ARW-GU HiResW-ARW-HI HiResW-ARW-SJU"
         levels="Surface" displayName="ETA Model MSLP">
         <Field abbreviation="EMSP" level="MSL" />
     </Method>
-    <Method name="Alias" models="HiResW-NMM-East HiResW-NMM-West HiResW-NMM-AK HiResW-NMM-PR HiResW-NMM-SJU"
+    <Method name="Alias" models="HiResW-FV3 HiResW-FV3-AK HiResW-FV3-GU HiResW-FV3-HI HiResW-FV3-SJU"
         levels="Surface" displayName="ETA Model MSLP">
         <Field abbreviation="EMSP" level="MSL" />
     </Method>
