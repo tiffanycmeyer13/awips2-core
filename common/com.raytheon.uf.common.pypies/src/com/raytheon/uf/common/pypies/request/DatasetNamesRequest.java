@@ -31,14 +31,13 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Jul 20, 2010            njensen     Initial creation
- * Mar 24  2021   8374     srahimi     Added toString Method for Logging
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
+ * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
  *
  * @author njensen
- *
  */
-
 @DynamicSerialize
 public class DatasetNamesRequest extends AbstractRequest {
 
@@ -63,4 +62,8 @@ public class DatasetNamesRequest extends AbstractRequest {
 
     }
 
+    @Override
+    public RequestType getType() {
+        return RequestType.RETRIEVE;
+    }
 }

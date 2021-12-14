@@ -32,17 +32,14 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Nov 1,  2011            njensen     Initial creation
- * Mar 24  2021   8374     srahimi     Added toString Method for Logging
- *
- *
+ * Nov 01, 2011            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
+ * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
  *
  * @author njensen
- *
  */
-
 @DynamicSerialize
 public class RepackRequest extends AbstractRequest {
 
@@ -67,4 +64,8 @@ public class RepackRequest extends AbstractRequest {
 
     }
 
+    @Override
+    public RequestType getType() {
+        return RequestType.REPACK;
+    }
 }

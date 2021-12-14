@@ -184,6 +184,8 @@ import tec.uom.se.quantity.Quantities;
  * Apr 16, 2020  8145     randerso     Updated to allow new sample formatting
  * Jul 19, 2021  8462     randerso     Updated to use DataMappingPreferences
  *                                     sample value if defined.
+ * Aug 31, 2021  8651     njensen      Changed ConcurrentHashMaps' visibilities
+ *                                     from private to protected
  *
  * </pre>
  *
@@ -242,16 +244,16 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
     @Deprecated
     protected static final String INTERROGATE_DIRECTION = "direction";
 
-    private final GridDataRequestRunner requestRunner;
+    protected final GridDataRequestRunner requestRunner;
 
-    private final Map<DataTime, List<PluginDataObject>> pdoMap = new ConcurrentHashMap<>();
+    protected final Map<DataTime, List<PluginDataObject>> pdoMap = new ConcurrentHashMap<>();
 
-    private final Map<DataTime, List<IRenderable>> renderableMap = new ConcurrentHashMap<>();
+    protected final Map<DataTime, List<IRenderable>> renderableMap = new ConcurrentHashMap<>();
 
     /**
      * This is a local cache of data that is used when sampling or reprojected.
      */
-    private final Map<DataTime, List<GeneralGridData>> dataMap = new ConcurrentHashMap<>();
+    protected final Map<DataTime, List<GeneralGridData>> dataMap = new ConcurrentHashMap<>();
 
     /**
      * StylePreferences from the styleManager appropriate for the display type
@@ -556,7 +558,6 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
      */
     public IRenderable createRenderable(IGraphicsTarget target,
             GeneralGridData data) throws VizException {
-
         IRenderable renderable = null;
 
         GridGeometry2D gridGeometry = data.getGridGeometry();
