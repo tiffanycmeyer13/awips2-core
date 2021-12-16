@@ -31,16 +31,18 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * PyPies groups request
  *
  * <pre>
- * * * SOFTWARE HISTORY
+ *
+ * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Aug 16, 2010                njensen     Initial creation
- * Mar 24  2021      8374      srahimi     Added toString Method for Logging
+ * Aug 16, 2010            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
+ * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
+ *
  * </pre>
  *
  * @author njensen
  */
-
 @DynamicSerialize
 public class GroupsRequest extends AbstractRequest {
 
@@ -78,4 +80,8 @@ public class GroupsRequest extends AbstractRequest {
 
     }
 
+    @Override
+    public RequestType getType() {
+        return RequestType.RETRIEVE;
+    }
 }

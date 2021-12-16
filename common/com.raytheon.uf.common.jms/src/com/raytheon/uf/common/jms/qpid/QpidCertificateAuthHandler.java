@@ -41,6 +41,7 @@ import com.raytheon.uf.common.jms.JmsSslConfiguration;
  * Jan 31, 2017  6083     bsteffen    Initial creation
  * Feb 02, 2017  6085     bsteffen    Extract certificate lookup to JmsSslConfiguration
  * Jul 17, 2019  7724     mrichardson Upgrade Qpid to Qpid Proton.
+ * Oct 29, 2021  8667     mapeters    Updated exception handling
  *
  * </pre>
  *

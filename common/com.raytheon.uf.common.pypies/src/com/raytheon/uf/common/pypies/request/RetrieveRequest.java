@@ -31,18 +31,15 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Jul 8, 2010            njensen     Initial creation
- * Nov 14, 2013  2393     bclement    removed get all interpolated
- * Mar 24 2021   8374     srahimi     Added toString to standardize Pypies log message
- *
- *
+ * Jul 8, 2010             njensen     Initial creation
+ * Nov 14, 2013 2393       bclement    removed get all interpolated
+ * Mar 24, 2021 8374       srahimi     Added toString to standardize Pypies log message
+ * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
  *
  * @author njensen
- *
  */
-
 @DynamicSerialize
 public class RetrieveRequest extends AbstractRequest {
 
@@ -93,4 +90,8 @@ public class RetrieveRequest extends AbstractRequest {
 
     }
 
+    @Override
+    public RequestType getType() {
+        return RequestType.RETRIEVE;
+    }
 }

@@ -22,7 +22,7 @@ package com.raytheon.uf.common.pypies.request;
 import java.util.List;
 
 import com.raytheon.uf.common.datastorage.IDataStore.StoreOp;
-import com.raytheon.uf.common.datastorage.records.IDataRecord;
+import com.raytheon.uf.common.datastorage.records.RecordAndMetadata;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -34,17 +34,14 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * May 27, 2010             njensen     Initial creation
- * Mar 24, 2021    8374     srahimi     Added toString Method
- *
- *
+ * May 27, 2010            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString Method
+ * Sep 23, 2021 8608       mapeters    Add {@link #getType()}, handle metadata ids
  *
  * </pre>
  *
  * @author njensen
- *
  */
-
 @DynamicSerialize
 public class StoreRequest extends AbstractRequest {
 
@@ -52,7 +49,7 @@ public class StoreRequest extends AbstractRequest {
     private StoreOp op;
 
     @DynamicSerializeElement
-    private List<IDataRecord> records;
+    private List<RecordAndMetadata> recordsAndMetadata;
 
     public StoreOp getOp() {
         return op;
@@ -62,12 +59,13 @@ public class StoreRequest extends AbstractRequest {
         this.op = op;
     }
 
-    public List<IDataRecord> getRecords() {
-        return records;
+    public List<RecordAndMetadata> getRecordsAndMetadata() {
+        return recordsAndMetadata;
     }
 
-    public void setRecords(List<IDataRecord> records) {
-        this.records = records;
+    public void setRecordsAndMetadata(
+            List<RecordAndMetadata> recordsAndMetadata) {
+        this.recordsAndMetadata = recordsAndMetadata;
     }
 
     @Override
@@ -75,10 +73,15 @@ public class StoreRequest extends AbstractRequest {
         StringBuilder rval = new StringBuilder(super.toString());
         rval.append(", op[");
         rval.append(op);
-        rval.append("], records[");
-        rval.append(records);
+        rval.append("], recordsAndMetadata[");
+        rval.append(recordsAndMetadata);
+        rval.append("]");
         return rval.toString();
 
     }
 
+    @Override
+    public RequestType getType() {
+        return RequestType.STORE;
+    }
 }
