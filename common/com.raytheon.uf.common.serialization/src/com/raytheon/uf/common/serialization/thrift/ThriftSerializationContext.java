@@ -46,8 +46,6 @@ import org.apache.thrift.protocol.TMessage;
 import org.apache.thrift.protocol.TSet;
 import org.apache.thrift.protocol.TStruct;
 import org.apache.thrift.protocol.TType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.raytheon.uf.common.serialization.BaseSerializationContext;
 import com.raytheon.uf.common.serialization.CriticalSerializationException;
@@ -60,6 +58,8 @@ import com.raytheon.uf.common.serialization.thrift.exception.FieldDeserializatio
 import com.raytheon.uf.common.serialization.thrift.exception.ListDeserializationException;
 import com.raytheon.uf.common.serialization.thrift.exception.MapDeserializationException;
 import com.raytheon.uf.common.serialization.thrift.exception.SetDeserializationException;
+import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.UFStatus;
 
 import net.sf.cglib.beans.BeanMap;
 import net.sf.cglib.reflect.FastClass;
@@ -84,31 +84,34 @@ import net.sf.cglib.reflect.FastClass;
  *
  * <pre>
  * SOFTWARE HISTORY
- * Date          Ticket#  Engineer    Description
- * ------------- -------- ----------- --------------------------
- * Aug 12, 2008  1448     chammack    Initial creation
- * Jun 17, 2010  5091     njensen     Optimized primitive arrays
- * Mar 01, 2011           njensen     Restructured deserializeArray()
- * Sep 14, 2012  1169     djohnson    Add ability to write another object into
- *                                    the stream directly.
- * Sep 28, 2012  1195     djohnson    Add ability to specify adapter at field
- *                                    level.
- * Nov 02, 2012  1302     djohnson    No more field level adapters.
- * Apr 25, 2013  1954     bsteffen    Size Collections better.
- * Jul 23, 2013  2215     njensen     Updated for thrift 0.9.0
- * Nov 26, 2013  2537     bsteffen    Add support for void type lists which are
- *                                    sometimes created by python.
- * Jun 24, 2014  3271     njensen     Better safety checks and error msgs
- * Jul 25, 2014  3445     bclement    added castNumber()
- * Jun 15, 2015  4561     njensen     Major cleanup, added read and ignore methods
- * Jun 17, 2015  4564     njensen     Added date/time conversion in deserializeField()
- * Jul 16, 2015  4561     njensen     Improved read and ignore of collection types
- * Oct 19, 2017  6316     njensen     Improved serialization error message
- * Jun 28, 2019  7888     tgurney     Check deserialized integers for
- *                                    overflow/underflow
- * Jul 12, 2019  7888     tgurney     Do not check integer for truncation if it
- *                                    would assigned to a Number or Object field
- * Jan 21, 2021  8319     randerso    Updated for thrift 0.13.0
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Aug 12, 2008  1448     chammack  Initial creation
+ * Jun 17, 2010  5091     njensen   Optimized primitive arrays
+ * Mar 01, 2011           njensen   Restructured deserializeArray()
+ * Sep 14, 2012  1169     djohnson  Add ability to write another object into the
+ *                                  stream directly.
+ * Sep 28, 2012  1195     djohnson  Add ability to specify adapter at field
+ *                                  level.
+ * Nov 02, 2012  1302     djohnson  No more field level adapters.
+ * Apr 25, 2013  1954     bsteffen  Size Collections better.
+ * Jul 23, 2013  2215     njensen   Updated for thrift 0.9.0
+ * Nov 26, 2013  2537     bsteffen  Add support for void type lists which are
+ *                                  sometimes created by python.
+ * Jun 24, 2014  3271     njensen   Better safety checks and error msgs
+ * Jul 25, 2014  3445     bclement  added castNumber()
+ * Jun 15, 2015  4561     njensen   Major cleanup, added read and ignore methods
+ * Jun 17, 2015  4564     njensen   Added date/time conversion in
+ *                                  deserializeField()
+ * Jul 16, 2015  4561     njensen   Improved read and ignore of collection types
+ * Oct 19, 2017  6316     njensen   Improved serialization error message
+ * Jun 28, 2019  7888     tgurney   Check deserialized integers for
+ *                                  overflow/underflow
+ * Jul 12, 2019  7888     tgurney   Do not check integer for truncation if it
+ *                                  would assigned to a Number or Object field
+ * Jan 21, 2021  8319     randerso  Updated for thrift 0.13.0
+ * Jan 11, 2022  8341     randerso  Changed to use UFStatus
  *
  * </pre>
  *
@@ -122,8 +125,8 @@ public class ThriftSerializationContext extends BaseSerializationContext {
     /** The tag that is used to indicate the value of an enumeration */
     protected static final String ENUM_VALUE_TAG = "__enumValue__";
 
-    protected static final Logger log = LoggerFactory
-            .getLogger(ThriftSerializationContext.class);
+    protected static final IUFStatusHandler log = UFStatus
+            .getHandler(ThriftSerializationContext.class);
 
     /**
      * An integer that indicates no entries have been read from a map, list, or
@@ -739,7 +742,7 @@ public class ThriftSerializationContext extends BaseSerializationContext {
                 // an enum
                 try {
                     TField enumField = protocol.readFieldBegin();
-                    if (!enumField.name.equals(ENUM_VALUE_TAG)) {
+                    if (!ENUM_VALUE_TAG.equals(enumField.name)) {
                         throw new SerializationException(
                                 "Expected to find enum payload.  Found: "
                                         + enumField.name);
@@ -1418,7 +1421,8 @@ public class ThriftSerializationContext extends BaseSerializationContext {
             Field field = null;
             try {
                 field = rval.getDeclaredField(fieldName);
-            } catch (NoSuchFieldException e) {
+            } catch (@SuppressWarnings("squid:S1166")
+            NoSuchFieldException e) {
                 // try super class
                 rval = rval.getSuperclass();
                 continue;

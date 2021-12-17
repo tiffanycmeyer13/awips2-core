@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -27,39 +27,41 @@ import org.apache.thrift.transport.TIOStreamTransport;
 import org.apache.thrift.transport.TMemoryInputTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.raytheon.uf.common.serialization.DynamicSerializationManager;
 import com.raytheon.uf.common.serialization.IDeserializationContext;
 import com.raytheon.uf.common.serialization.ISerializationContext;
 import com.raytheon.uf.common.serialization.ISerializationContextBuilder;
 import com.raytheon.uf.common.serialization.SerializationException;
+import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.UFStatus;
 
 /**
  * Build a Thrift Serialization context
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
- * Date         Ticket#     Engineer    Description
- * ------------ ----------  ----------- --------------------------
- * Aug 12, 2008             chammack    Initial creation
- * Jul 23, 2013  2215       njensen     Updated for thrift 0.9.0
- * Aug 06, 2013  2228       njensen     Added buildDeserializationContext(byte[], dsm)
- * May 27, 2021  8470       lsingh      Upgraded to Thrift 0.14.1. Added
- *                                      exception handling and TConfiguration support.
- * 
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Aug 12, 2008           chammack  Initial creation
+ * Jul 23, 2013  2215     njensen   Updated for thrift 0.9.0
+ * Aug 06, 2013  2228     njensen   Added buildDeserializationContext(byte[],
+ *                                  dsm)
+ * May 27, 2021  8470     lsingh    Upgraded to Thrift 0.14.1. Added exception
+ *                                  handling and TConfiguration support.
+ * Jan 11, 2022  8341     randerso  Changed to use UFStatus
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1.0
  */
 
 public class ThriftSerializationContextBuilder
         implements ISerializationContextBuilder {
 
-    protected static final Logger log = LoggerFactory
-            .getLogger(ThriftSerializationContextBuilder.class);
+    protected static final IUFStatusHandler log = UFStatus
+            .getHandler(ThriftSerializationContextBuilder.class);
 
     /**
      * Thrift Configuration. This needs to be passed into all Thrift transport

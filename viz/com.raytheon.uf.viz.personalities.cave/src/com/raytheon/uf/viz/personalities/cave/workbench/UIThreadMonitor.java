@@ -28,7 +28,9 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.progress.UIJob;
 
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
 import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
 
 /**
@@ -48,6 +50,7 @@ import com.raytheon.uf.common.status.UFStatus;
  * Feb 05, 2021  8339     mchan     Initial creation
  * Feb 25, 2021  8339     randerso  Moved to com.raytheon.uf.viz.personalities.
  *                                  cave.workbench
+ * Dec 16, 2021  8341     randerso  Changed to use performance logging
  *
  * </pre>
  *
@@ -107,7 +110,7 @@ public class UIThreadMonitor {
                 for (StackTraceElement traceElement : stackTrace) {
                     stackTraceBuilder.append("\tat " + traceElement + "\n");
                 }
-                statusHandler.info(stackTraceBuilder.toString());
+                perfLog.log(stackTraceBuilder.toString());
             }
 
             if (!canceled) {
@@ -119,6 +122,9 @@ public class UIThreadMonitor {
 
     private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(UIThreadMonitor.class);
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("UIThreadMonitor");
 
     private static final long DEFAULT_RESPONSE_THRESHOLD = 500L;
 
