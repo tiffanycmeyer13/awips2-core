@@ -75,7 +75,7 @@ public class PersistSrv {
     }
 
     private final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("HDF5:");
+            .getHandler("HDF5");
 
     private PersistSrv() {
     }

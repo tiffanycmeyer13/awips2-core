@@ -53,7 +53,7 @@ import com.raytheon.viz.core.contours.ContourSupport.ContourGroup;
 public class ContourManagerJob extends Job {
 
     private static final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("ContourManagerJob:");
+            .getHandler("ContourManagerJob");
 
     private static ContourManagerJob instance;
 

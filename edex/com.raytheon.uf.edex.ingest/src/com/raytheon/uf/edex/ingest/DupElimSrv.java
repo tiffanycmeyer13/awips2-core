@@ -57,7 +57,7 @@ public class DupElimSrv {
             .getHandler(DupElimSrv.class);
 
     private final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("DupElim:");
+            .getHandler("DupElim");
 
     /**
      * Checks the passed pdos against database for existence. If duplicates

@@ -154,7 +154,7 @@ public class ContourSupport {
             .getHandler(ContourSupport.class);
 
     private static final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("ContourSupport:");
+            .getHandler("ContourSupport");
 
     /*
      * By default contour any data source that is passed in. This is much more

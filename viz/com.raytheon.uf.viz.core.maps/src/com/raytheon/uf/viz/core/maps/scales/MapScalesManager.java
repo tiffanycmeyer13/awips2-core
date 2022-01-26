@@ -86,7 +86,7 @@ public class MapScalesManager {
             .getHandler(MapScalesManager.class);
 
     private static final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("MapScalesManager:");
+            .getHandler("MapScalesManager");
 
     private static final String DEFAULT_SCALES_DIR = "bundles"
             + IPathManager.SEPARATOR + "scales";

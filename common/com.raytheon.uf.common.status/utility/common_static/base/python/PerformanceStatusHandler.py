@@ -25,7 +25,7 @@ from com.raytheon.uf.common.status import PerformanceStatus
 # *_perf.log file using the same format as Java code.
 #
 # Example usage:
-#    perfLog = PerformanceStatusHandler("MyFunction:")
+#    perfLog = PerformanceStatusHandler("MyFunction")
 #    t0 = time.perf_counter()
 #
 #    # perform action to be timed
