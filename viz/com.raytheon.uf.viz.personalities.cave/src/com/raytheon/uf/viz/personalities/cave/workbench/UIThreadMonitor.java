@@ -51,7 +51,6 @@ import com.raytheon.uf.common.status.UFStatus;
  * Feb 25, 2021  8339     randerso  Moved to com.raytheon.uf.viz.personalities.
  *                                  cave.workbench
  * Dec 16, 2021  8341     randerso  Changed to use performance logging
- * Feb 01, 2022  8339     randerso  Move Startup message to the perfLog
  *
  * </pre>
  *
@@ -170,7 +169,7 @@ public class UIThreadMonitor {
         pingJob.schedule();
 
         monitorJob.schedule(RESPONSE_THRESHOLD.toMillis());
-        perfLog.log("UIThreadMonitor started. Threshold is "
+        statusHandler.info("UIThreadMonitor started. Threshold is "
                 + RESPONSE_THRESHOLD.toMillis() + " ms, ping interval is "
 
                 + PING_INTERVAL.toMillis() + " ms");
