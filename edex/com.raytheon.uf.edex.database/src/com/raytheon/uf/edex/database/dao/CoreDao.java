@@ -1004,7 +1004,6 @@ public class CoreDao extends AbstractDao {
         long start = System.currentTimeMillis();
         List<?> queryResult = supplyInTransaction(() -> {
             Criteria crit = getCurrentSession().createCriteria(daoClass);
-            Criteria crit = getCurrentSession().createCriteria(daoClass);
             for (Criterion cr : criterion) {
                 crit.add(cr);
             }
