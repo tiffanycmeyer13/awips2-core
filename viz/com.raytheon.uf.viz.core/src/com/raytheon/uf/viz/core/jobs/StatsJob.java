@@ -50,7 +50,7 @@ import com.raytheon.uf.common.status.PerformanceStatus;
 public class StatsJob extends Job {
 
     private static final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("StatsJob:");
+            .getHandler("StatsJob");
 
     private NetworkStatistics stats;
 

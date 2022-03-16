@@ -15,8 +15,9 @@ import org.apache.thrift.protocol.TStruct;
 import org.apache.thrift.protocol.TType;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.UFStatus;
 
 /**
  * This software was developed and / or modified by Raytheon Company,
@@ -70,6 +71,7 @@ import org.slf4j.LoggerFactory;
  * Jun 28, 2021  8470     lsingh    Updated for thrift 0.14.1, overrode
  *                                  getMinSerializedSize() to add support for
  *                                  FLOAT.
+ * Jan 11, 2022  8341     randerso  Changed to use UFStatus
  *
  * </pre>
  *
@@ -93,8 +95,8 @@ public class SelfDescribingBinaryProtocol extends TBinaryProtocol {
 
     public static final byte FLOAT = 64;
 
-    protected static final Logger log = LoggerFactory
-            .getLogger(SelfDescribingBinaryProtocol.class);
+    protected static final IUFStatusHandler log = UFStatus
+            .getHandler(SelfDescribingBinaryProtocol.class);
 
     /**
      * This is to ensure a safety check because if the stream has bad bytes at
@@ -595,7 +597,7 @@ public class SelfDescribingBinaryProtocol extends TBinaryProtocol {
         switch (type) {
         // AWIPS FLOAT
         case FLOAT:
-            return 4; 
+            return 4;
         default:
             return super.getMinSerializedSize(type);
         }

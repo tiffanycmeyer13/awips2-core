@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -29,7 +29,9 @@ import com.raytheon.uf.common.dataplugin.PluginDataObject;
 import com.raytheon.uf.common.dataplugin.PluginException;
 import com.raytheon.uf.common.dataplugin.annotations.DataURIUtil;
 import com.raytheon.uf.common.dataplugin.request.GetPluginRecordMapRequest;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
 import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.viz.core.exception.NoPluginException;
@@ -40,7 +42,7 @@ import com.raytheon.uf.viz.core.requests.ThriftClient;
 /**
  * Factory implementation for creation and manipulation of PluginDataObjects
  * based on dataURIs
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
  * Date         Ticket#     Engineer    Description
@@ -53,13 +55,17 @@ import com.raytheon.uf.viz.core.requests.ThriftClient;
  * May 15, 2013 1869        bsteffen    Move uri map creation to DataURIUtil.
  * May 16, 2013 1869        bsteffen    Rewrite dataURI property mappings.
  * Sep 03, 2014 3356        njensen     Load classes through BundleNameClassLocator
- * 
+ * Dec 16, 2021 8341        randerso    Changed to use performance logging
+ *
  * </pre>
- * 
+ *
  */
 public class RecordFactory implements IPluginClassMapper {
-    private static final transient IUFStatusHandler statusHandler = UFStatus
+    private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(RecordFactory.class);
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("RecordFactory");
 
     /** The singleton instance */
     private static RecordFactory instance = new RecordFactory();
@@ -71,7 +77,7 @@ public class RecordFactory implements IPluginClassMapper {
 
     /**
      * Gets the singleton instance of the RecordFactory
-     * 
+     *
      * @return The singleton instance of the RecordFactory
      */
     public static RecordFactory getInstance() {
@@ -90,14 +96,15 @@ public class RecordFactory implements IPluginClassMapper {
         if (defMap == null) {
             synchronized (this) {
                 if (defMap == null) {
-                    Map<String, Class<PluginDataObject>> map = new HashMap<String, Class<PluginDataObject>>();
+                    Map<String, Class<PluginDataObject>> map = new HashMap<>();
                     GetPluginRecordMapRequest req = new GetPluginRecordMapRequest();
                     try {
                         Map<String, String> pluginRecordMap = (Map<String, String>) ThriftClient
                                 .sendRequest(req);
                         long t0 = System.currentTimeMillis();
-                        BundleNameClassLocator locator = new BundleNameClassLocator(Activator
-                                .getDefault().getBundle().getBundleContext());
+                        BundleNameClassLocator locator = new BundleNameClassLocator(
+                                Activator.getDefault().getBundle()
+                                        .getBundleContext());
                         for (Map.Entry<String, String> entry : pluginRecordMap
                                 .entrySet()) {
                             String pluginName = entry.getKey();
@@ -107,10 +114,11 @@ public class RecordFactory implements IPluginClassMapper {
                                     Class<PluginDataObject> clazz = (Class<PluginDataObject>) locator
                                             .loadClass(record);
                                     map.put(pluginName, clazz);
-                                } catch (ClassNotFoundException e) {
+                                } catch (@SuppressWarnings("squid:S1166")
+                                ClassNotFoundException e) {
                                     String msg = "Can't find record class for "
                                             + pluginName
-                                            + " plugin - alerts on "
+                                            + " plugin - new data notifications for "
                                             + pluginName
                                             + " data will be ignored";
                                     statusHandler.handle(Priority.DEBUG, msg);
@@ -118,9 +126,9 @@ public class RecordFactory implements IPluginClassMapper {
                             }
                         }
                         long t1 = System.currentTimeMillis();
-                        statusHandler.debug("RecordFactory took " + (t1 - t0)
-                                + " ms to load " + map.size()
-                                + " PluginDataObject classes");
+                        perfLog.logDuration(String.format(
+                                "Loading [%d] PluginDataObject classes",
+                                map.size()), (t1 - t0));
                     } catch (Exception e) {
                         statusHandler.handle(Priority.WARN,
                                 "Failed to load plugin record definitions", e);
@@ -134,16 +142,16 @@ public class RecordFactory implements IPluginClassMapper {
 
     /**
      * Returns a collection of all supported plugins
-     * 
+     *
      * @return a collection of supported plugins
      */
     public Collection<String> getSupportedPlugins() {
-        return new TreeSet<String>(getDefMap().keySet());
+        return new TreeSet<>(getDefMap().keySet());
     }
 
     /**
      * Creates a map of the fields and values that compose a given dataURI
-     * 
+     *
      * @param dataURI
      *            The dataURI to create the map for
      * @return The map of fields and values from the dataURI
@@ -171,15 +179,15 @@ public class RecordFactory implements IPluginClassMapper {
                 }
                 cause = cause.getCause();
             }
-            throw new VizException("Unable to create property map for "
-                    + dataURI, e);
+            throw new VizException(
+                    "Unable to create property map for " + dataURI, e);
         }
     }
 
     /**
      * Gets the record class associated with the give plugin. The record class
      * is extracted from the plugin.xml provided in the EDEX plugin client jar
-     * 
+     *
      * @param pluginName
      *            The name of the plugin
      * @return The record class
@@ -194,15 +202,15 @@ public class RecordFactory implements IPluginClassMapper {
             retVal = map.get(pluginName);
         }
         if (retVal == null) {
-            throw new NoPluginException("Can't find record class for "
-                    + pluginName + " plugin");
+            throw new NoPluginException(
+                    "Can't find record class for " + pluginName + " plugin");
         }
         return retVal;
     }
 
     /**
      * Creates a partially populated PluginDataObject from the given dataURI
-     * 
+     *
      * @param dataURI
      *            The dataURI used for populating the object
      * @return A PluginDataObject populated from the provided dataURI
@@ -217,7 +225,7 @@ public class RecordFactory implements IPluginClassMapper {
     /**
      * Creates a partially populated PluginDataObject from the given a map of
      * attributes
-     * 
+     *
      * @param map
      *            The map used for populating the object
      * @return A PluginDataObject populated from the provided dataURI
@@ -226,8 +234,8 @@ public class RecordFactory implements IPluginClassMapper {
      */
     public PluginDataObject loadRecordFromMap(Map<String, Object> map)
             throws VizException {
-        Class<PluginDataObject> pdoClass = getPluginClass((String) map
-                .get("pluginName"));
+        Class<PluginDataObject> pdoClass = getPluginClass(
+                (String) map.get("pluginName"));
         if (pdoClass == null) {
             throw new VizException(
                     "Unable to load record from dataURI, PDO class for plugin ("
@@ -239,7 +247,7 @@ public class RecordFactory implements IPluginClassMapper {
 
     /**
      * Populates a record type object from map
-     * 
+     *
      * @param map
      * @param type
      * @return a PluginDataObject populated from the map
@@ -251,12 +259,12 @@ public class RecordFactory implements IPluginClassMapper {
         try {
             record = type.newInstance();
         } catch (Exception e) {
-            throw new VizException("Unable to create new record for type: "
-                    + type, e);
+            throw new VizException(
+                    "Unable to create new record for type: " + type, e);
         }
         try {
-            DataURIUtil
-                    .populatePluginDataObject((PluginDataObject) record, map);
+            DataURIUtil.populatePluginDataObject((PluginDataObject) record,
+                    map);
         } catch (PluginException e) {
             throw new VizException(e);
         }

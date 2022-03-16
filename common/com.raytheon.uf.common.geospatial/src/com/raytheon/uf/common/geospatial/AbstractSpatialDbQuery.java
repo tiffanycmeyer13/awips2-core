@@ -22,16 +22,19 @@ package com.raytheon.uf.common.geospatial;
 import java.util.List;
 import java.util.Map;
 
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
+
 import com.raytheon.uf.common.dataquery.requests.RequestConstraint;
 import com.raytheon.uf.common.dataquery.responses.DbQueryResponse;
 import com.raytheon.uf.common.geospatial.request.SpatialDbQueryRequest;
 import com.raytheon.uf.common.serialization.comm.RequestRouter;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
 import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBReader;
 
 /**
  * Spatial query class, converts query request into an sql string
@@ -44,6 +47,7 @@ import org.locationtech.jts.io.WKBReader;
  * ------------- -------- --------- --------------------------------------
  * Dec 06, 2010           mschenke  Initial creation
  * Aug 07, 2018  6642     randerso  Made executeRequest() a public method
+ * Dec 16, 2021  8341     randerso  Changed to use performance logging
  *
  * </pre>
  *
@@ -51,8 +55,11 @@ import org.locationtech.jts.io.WKBReader;
  */
 
 public abstract class AbstractSpatialDbQuery extends AbstractSpatialQuery {
-    private static final IUFStatusHandler statusHandler = UFStatus
-            .getHandler(AbstractSpatialDbQuery.class);
+    protected final IUFStatusHandler statusHandler = UFStatus
+            .getHandler(this.getClass());
+
+    protected final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler(this.getClass().getSimpleName());
 
     /** dbname for maps **/
     public static final String MAPS_DB = "maps";
@@ -89,8 +96,8 @@ public abstract class AbstractSpatialDbQuery extends AbstractSpatialQuery {
         request.setSearchMode(mode);
         SpatialQueryResult[] sqrs = executeRequest(request);
 
-        statusHandler.handle(Priority.INFO, "SpatialQuery took: "
-                + (System.currentTimeMillis() - t0) + "ms");
+        perfLog.logDuration(String.format("%s query of [%s]", mode, dataSet),
+                (System.currentTimeMillis() - t0));
         return sqrs;
     }
 

@@ -36,14 +36,12 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * ------------ ---------- ----------- --------------------------
  * Jul 27, 2015  1574       nabowle     Initial creation
  * Feb 24, 2016  5389       nabowle     oldestDate is now oldestDateMap.
- * Mar 24 2021   8374       srahimi     Added toString to standardize log message
- *
- *
+ * Mar 24, 2021  8374       srahimi     Added toString to standardize log message
+ * Sep 23, 2021  8608       mapeters    Add {@link #getType()}
  *
  * </pre>
  *
  * @author nabowle
- *
  */
 @DynamicSerialize
 public class DeleteOrphansRequest extends AbstractRequest {
@@ -100,4 +98,8 @@ public class DeleteOrphansRequest extends AbstractRequest {
         return rval.toString();
     }
 
+    @Override
+    public RequestType getType() {
+        return RequestType.DELETE;
+    }
 }

@@ -27,9 +27,11 @@ import com.raytheon.uf.common.message.WsId;
 import com.raytheon.uf.common.serialization.comm.IRequestHandler;
 import com.raytheon.uf.common.serialization.comm.IServerRequest;
 import com.raytheon.uf.common.serialization.comm.RequestWrapper;
+import com.raytheon.uf.common.serialization.comm.ResponseWrapper;
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
+import com.raytheon.uf.common.util.SystemUtil;
 import com.raytheon.uf.edex.auth.AuthManagerFactory;
 import com.raytheon.uf.edex.auth.req.AbstractPrivilegedRequestHandler;
 import com.raytheon.uf.edex.auth.resp.AuthorizationResponse;
@@ -60,6 +62,7 @@ import com.raytheon.uf.edex.requestsrv.logging.RequestLogger;
  *                                   request is a RequestWrapper
  * Mar 25, 2021  8396      randerso  Temporarily remove use of ResponseWrapper
  *                                   until DR #8399 is worked.
+ * Nov 18, 2021  8399      randerso  Restore use of ResponseWrapper
  *
  * </pre>
  *
@@ -102,14 +105,14 @@ public class RequestServiceExecutor {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Object execute(IServerRequest request) throws Exception {
-        boolean isRequestWrapper = false;
+        boolean isRequestWrapped = false;
         boolean subjectSet = false;
         String wsidPString = null;
 
         try {
             if (request instanceof RequestWrapper) {
-                isRequestWrapper = true;
                 // Check for wrapped request and get actual request to execute
+                isRequestWrapped = true;
                 RequestWrapper wrapper = (RequestWrapper) request;
                 WsId wsid = wrapper.getWsId();
                 wsidPString = wsid.toPrettyString();
@@ -144,12 +147,11 @@ public class RequestServiceExecutor {
                                 .constructNotAuthorized(privReq,
                                         authResp.getResponseMessage());
 
-                        /* TODO: restore when DR #8399 is worked */
-                        // return isRequestWrapper
-                        // ? new ResponseWrapper(response,
-                        // SystemUtil.getHostName())
-                        // : response;
-                        return response;
+                        /* if request was wrapped, wrap response */
+                        return isRequestWrapped
+                                ? new ResponseWrapper(response,
+                                        SystemUtil.getHostName())
+                                : response;
                     }
 
                     /*
@@ -164,12 +166,11 @@ public class RequestServiceExecutor {
                             .constructSuccessfulExecution(
                                     privHandler.handleRequest(privReq), null);
 
-                    /* TODO: restore when DR #8399 is worked */
-                    // return isRequestWrapper
-                    // ? new ResponseWrapper(response,
-                    // SystemUtil.getHostName())
-                    // : response;
-                    return response;
+                    /* if request was wrapped, wrap response */
+                    return isRequestWrapped
+                            ? new ResponseWrapper(response,
+                                    SystemUtil.getHostName())
+                            : response;
                 } catch (ClassCastException e) {
                     throw new AuthException(
                             "Roles can only be defined for requests/handlers of AbstractPrivilegedRequest/Handler, request was "
@@ -178,7 +179,7 @@ public class RequestServiceExecutor {
 
                 } catch (Throwable t) {
                     statusHandler.handle(Priority.PROBLEM,
-                            "Error occured while performing privileged request "
+                            "Error occurred while performing privileged request "
                                     + request,
                             t);
                     throw t;
@@ -189,11 +190,10 @@ public class RequestServiceExecutor {
 
             Object response = handler.handleRequest(request);
 
-            /* TODO: restore when DR #8399 is worked */
-            // return isRequestWrapper
-            // ? new ResponseWrapper(response, SystemUtil.getHostName())
-            // : response;
-            return response;
+            /* if request was wrapped, wrap response */
+            return isRequestWrapped
+                    ? new ResponseWrapper(response, SystemUtil.getHostName())
+                    : response;
         } finally {
             if (subjectSet) {
                 AuthManagerFactory.getInstance().getPermissionsManager()
