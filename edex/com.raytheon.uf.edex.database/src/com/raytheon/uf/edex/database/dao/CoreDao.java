@@ -53,6 +53,8 @@ import com.raytheon.uf.common.dataplugin.persist.PersistableDataObject;
 import com.raytheon.uf.common.dataquery.db.QueryParam;
 import com.raytheon.uf.common.dataquery.db.QueryResult;
 import com.raytheon.uf.common.dataquery.db.QueryResultRow;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.edex.database.DataAccessLayerException;
 import com.raytheon.uf.edex.database.processor.IDatabaseProcessor;
 import com.raytheon.uf.edex.database.query.DatabaseQuery;
@@ -110,12 +112,16 @@ import com.raytheon.uf.edex.database.query.DatabaseQuery;
  *                                  that don't have aliases
  * Nov 04, 2019  7960     mapeters  Added {@link #createAll}
  * Apr 14, 2021  7849     mapeters  Extract functionality to new superclass
+ * Feb 23, 2022  8608     mapeters  Added perfLog
  *
  * </pre>
  *
  * @author bphillip
  */
 public class CoreDao extends AbstractDao {
+
+    protected final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler(getClass().getSimpleName() + ":");
 
     protected static final Pattern MAPPED_SQL_PATTERN = Pattern.compile(
             "select (.+?) FROM .*",
