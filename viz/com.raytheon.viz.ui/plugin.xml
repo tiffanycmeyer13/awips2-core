@@ -626,4 +626,13 @@
             class="com.raytheon.viz.ui.tools.HideEmptyToolBarProcessor">
       </processor>
    </extension>
+   <extension
+         point="org.eclipse.ui.editors">
+      <editor
+            class="com.raytheon.viz.ui.editor.ComboEditor"
+            default="false"
+            id="com.raytheon.viz.ui.editor.ComboEditor"
+            name="Combo">
+      </editor>
+   </extension>
 </plugin>

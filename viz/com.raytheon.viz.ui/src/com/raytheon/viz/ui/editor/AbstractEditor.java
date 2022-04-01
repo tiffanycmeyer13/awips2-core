@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -38,6 +38,7 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.EditorPart;
+import org.locationtech.jts.geom.Coordinate;
 
 import com.raytheon.uf.viz.core.AbstractTimeMatcher;
 import com.raytheon.uf.viz.core.IDisplayPane;
@@ -47,6 +48,7 @@ import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeT
 import com.raytheon.uf.viz.core.VizApp;
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
 import com.raytheon.uf.viz.core.drawables.AbstractRenderableDisplay;
+import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.exception.VizException;
@@ -58,18 +60,17 @@ import com.raytheon.viz.ui.IRenameablePart;
 import com.raytheon.viz.ui.color.BackgroundColor;
 import com.raytheon.viz.ui.color.IBackgroundColorChangedListener;
 import com.raytheon.viz.ui.input.InputManager;
-import com.raytheon.viz.ui.panes.PaneManager;
+import com.raytheon.viz.ui.panes.AbstractPaneManager;
 import com.raytheon.viz.ui.perspectives.AbstractCAVEPerspectiveManager;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
 import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
-import org.locationtech.jts.geom.Coordinate;
 
 /**
  * Provides the basis for editors in viz
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer   Description
  * ------------- -------- ---------- -------------------------------------------
  * Oct 10, 2006           chammack   Initial Creation.
@@ -84,9 +85,10 @@ import org.locationtech.jts.geom.Coordinate;
  *                                   visible shell.
  * Feb 24, 2021  88438    smanoj     Add right-click menu option "Sample" for
  *                                   Turbulence and Icing in NsharpEditor.
- * 
+ * Apr 01, 2022  8790     mapeters   Move makeCompatible() here from UiUtil
+ *
  * </pre>
- * 
+ *
  * @author chammack
  */
 public abstract class AbstractEditor extends EditorPart
@@ -158,7 +160,7 @@ public abstract class AbstractEditor extends EditorPart
     /**
      * Validates the editor input on init, default implementation checks to make
      * sure renderable displays are not null
-     * 
+     *
      * @param input
      *            the input for the editor
      * @throws PartInitException
@@ -172,6 +174,7 @@ public abstract class AbstractEditor extends EditorPart
             for (IRenderableDisplay display : input.getRenderableDisplays()) {
                 if (display == null) {
                     valid = false;
+                    break;
                 }
             }
         }
@@ -212,7 +215,7 @@ public abstract class AbstractEditor extends EditorPart
 
         initDisplays();
 
-        PaneManager paneManager = editorInput.getPaneManager();
+        AbstractPaneManager paneManager = editorInput.getPaneManager();
         if (paneManager == null) {
             editorInput.setPaneManager(getNewPaneManager());
         }
@@ -270,7 +273,7 @@ public abstract class AbstractEditor extends EditorPart
 
     /**
      * Contribute perspective specific actions
-     * 
+     *
      * This should occur on startup and also when the perspective changes
      */
     protected void contributePerspectiveActions() {
@@ -307,14 +310,14 @@ public abstract class AbstractEditor extends EditorPart
 
     /**
      * Get the pane manager to use for this editor
-     * 
+     *
      * @return
      */
-    protected abstract PaneManager getNewPaneManager();
+    protected abstract AbstractPaneManager getNewPaneManager();
 
     /**
      * Add any custom mouse handlers in this function
-     * 
+     *
      * @param manager
      */
     protected void addCustomHandlers(InputManager manager) {
@@ -344,9 +347,9 @@ public abstract class AbstractEditor extends EditorPart
 
     /**
      * Set the title of the tab
-     * 
+     *
      * @deprecated Use setPartName(String) instead
-     * 
+     *
      * @param title
      */
     @Deprecated
@@ -400,7 +403,7 @@ public abstract class AbstractEditor extends EditorPart
     /**
      * Use getSite().getService(MPart.class).setCloseable(false) instead because
      * that method will remove the close button from the UI.
-     * 
+     *
      * @deprecated
      */
     @Deprecated
@@ -520,6 +523,73 @@ public abstract class AbstractEditor extends EditorPart
     }
 
     /**
+     * Prepare this editor to have the given renderable displays loaded to it,
+     * and return whether or not we successfully made ourself compatible.
+     *
+     * @param displays
+     *            the displays to be loaded to this editor (one per pane), if
+     *            possible
+     * @return true if this editor is now compatible to have the displays loaded
+     *         to it, false otherwise
+     */
+    public boolean makeCompatible(IRenderableDisplay... displays) {
+        /*
+         * First check if the given displays' descriptors are compatible with
+         * this editor's existing descriptors. Return false if any are not
+         * compatible.
+         */
+        for (int i = 0; i < displays.length; i++) {
+            /*
+             * Compare matching indices/panes if possible. Fall back to the
+             * first pane's descriptor if not, since the descriptors should all
+             * match anyway and the first one will be used to add any new panes
+             * that are needed to match the number of displays to load.
+             */
+            IDescriptor currentDesc;
+            if (i < getDisplayPanes().length) {
+                currentDesc = getDisplayPanes()[i].getDescriptor();
+            } else {
+                currentDesc = getDisplayPanes()[0].getDescriptor();
+            }
+            IDescriptor newDesc = displays[i].getDescriptor();
+            if (!currentDesc.isCompatible(newDesc)) {
+                return false;
+            }
+        }
+        if (this instanceof IMultiPaneEditor) {
+            /*
+             * If we are a multi-pane editor, add panes to this editor to match
+             * the number of displays, if need be.
+             */
+            if (getDisplayPanes().length < displays.length) {
+                /*
+                 * Use a clean copy of the first pane to add new panes.
+                 *
+                 * TODO: Clearing anything that was previously loaded in the
+                 * first pane seems bad though and createNewDisplay() already
+                 * strips the cloned display down to only system/background
+                 * resources.
+                 */
+                getDisplayPanes()[0].clear();
+                IRenderableDisplay display = getDisplayPanes()[0]
+                        .getRenderableDisplay();
+                for (int i = 1; i < displays.length; ++i) {
+                    addPane(display.createNewDisplay());
+                }
+            }
+            return true;
+        } else if (getDisplayPanes().length == displays.length) {
+            /*
+             * If we are not a multi-pane editor, we can't add panes, so the
+             * number of panes/displays must already match (I'd guess both
+             * lengths have to be 1, but I'm not sure.)
+             */
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Listen to changes in the display and the resources and fire a property
      * change event when resources change so that the eclipse platform can
      * accuratly track the editor dirty state.
@@ -557,13 +627,7 @@ public abstract class AbstractEditor extends EditorPart
         }
 
         protected void fireDirtyPropertyChange() {
-            VizApp.runAsync(new Runnable() {
-
-                @Override
-                public void run() {
-                    firePropertyChange(ISaveablePart.PROP_DIRTY);
-                }
-            });
+            VizApp.runAsync(() -> firePropertyChange(ISaveablePart.PROP_DIRTY));
         }
 
     }

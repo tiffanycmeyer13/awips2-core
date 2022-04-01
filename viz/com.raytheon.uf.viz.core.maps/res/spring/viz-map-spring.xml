@@ -1,0 +1,13 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="mapDescRegistered" class="com.raytheon.uf.viz.core.DescriptorMap" factory-method="registerPaneCreator">
+        <constructor-arg value="com.raytheon.uf.viz.core.map.MapDescriptor" />
+        <constructor-arg>
+            <bean class="com.raytheon.uf.viz.core.maps.display.MapPaneCreator" />
+        </constructor-arg>
+    </bean>
+
+</beans>

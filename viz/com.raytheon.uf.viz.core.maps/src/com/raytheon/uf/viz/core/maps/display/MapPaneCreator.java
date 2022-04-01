@@ -1,0 +1,60 @@
+/**
+ * This software was developed and / or modified by Raytheon Company,
+ * pursuant to Contract EA133W-17-CQ-0082 with the US Government.
+ *
+ * U.S. EXPORT CONTROLLED TECHNICAL DATA
+ * This software product contains export-restricted data whose
+ * export/transfer/disclosure is restricted by U.S. law. Dissemination
+ * to non-U.S. persons whether in the United States or abroad requires
+ * an export license or other authorization.
+ *
+ * Contractor Name:        Raytheon Company
+ * Contractor Address:     2120 South 72nd Street, Suite 900
+ *                         Omaha, NE 68124
+ *                         402.291.0100
+ *
+ * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
+ * further licensing information.
+ **/
+package com.raytheon.uf.viz.core.maps.display;
+
+import java.util.List;
+
+import org.eclipse.swt.widgets.Composite;
+
+import com.raytheon.uf.viz.core.IDisplayPaneContainer;
+import com.raytheon.uf.viz.core.IPane;
+import com.raytheon.uf.viz.core.IPaneCreator;
+import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.uf.viz.core.exception.VizException;
+import com.raytheon.uf.viz.core.rsc.ResourceType;
+
+/**
+ *
+ * Creates and provides info about map panes.
+ *
+ * <pre>
+ *
+ * SOFTWARE HISTORY
+ *
+ * Date         Ticket#    Engineer    Description
+ * ------------ ---------- ----------- --------------------------
+ * Mar 23, 2022 8790       mapeters    Initial creation
+ *
+ * </pre>
+ *
+ * @author mapeters
+ */
+public class MapPaneCreator implements IPaneCreator {
+
+    @Override
+    public IPane createPane(IDisplayPaneContainer paneContainer, Composite comp,
+            IRenderableDisplay display, List<IPane> panes) throws VizException {
+        return new MapPane(paneContainer, comp, display);
+    }
+
+    @Override
+    public ResourceType getResourceType() {
+        return ResourceType.PLAN_VIEW;
+    }
+}

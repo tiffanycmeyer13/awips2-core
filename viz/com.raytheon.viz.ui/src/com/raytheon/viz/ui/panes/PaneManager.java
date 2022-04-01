@@ -20,14 +20,11 @@
 
 package com.raytheon.viz.ui.panes;
 
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
@@ -36,35 +33,26 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.locationtech.jts.geom.Coordinate;
-import org.opengis.coverage.grid.GridEnvelope;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
-import com.raytheon.uf.viz.core.IExtent;
-import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener;
-import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
-import com.raytheon.uf.viz.core.PixelExtent;
 import com.raytheon.uf.viz.core.VizApp;
-import com.raytheon.uf.viz.core.datastructure.LoopProperties;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.exception.VizException;
 import com.raytheon.uf.viz.core.rsc.AbstractVizResource;
-import com.raytheon.uf.viz.core.rsc.IInputHandler;
 import com.raytheon.viz.ui.color.IBackgroundColorChangedListener.BGColorMode;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
-import com.raytheon.viz.ui.input.InputAdapter;
-import com.raytheon.viz.ui.input.InputManager;
 
 /**
  * Manages panes. If virtual cursor is not desired, override InputAdapter
- * functions functions
+ * functions
  *
  * <pre>
  *
@@ -85,22 +73,20 @@ import com.raytheon.viz.ui.input.InputManager;
  * Jul 08, 2020  80637    tjensen   Reset display bounds on clear
  * Jun 07, 2021  8453     randerso  Make 2 panel display left/right vs
  *                                  top/bottom
+ * Apr 01, 2022  8790     mapeters  Abstract out some functionality to new
+ *                                  AbstractPaneManager
  *
  * </pre>
  *
  * @author bgonzale
- *
  */
-public class PaneManager extends InputAdapter implements IMultiPaneEditor {
+public class PaneManager extends AbstractPaneManager {
 
     private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(PaneManager.class);
 
-    /** The map input manager */
-    protected InputManager inputManager;
-
     /** The display pane */
-    protected List<VizDisplayPane> displayPanes;
+    protected final List<VizDisplayPane> displayPanes = new ArrayList<>();
 
     /** The pane that currently has the active focus */
     protected IDisplayPane activatedPane;
@@ -111,26 +97,11 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
     /** The pane that is currently used as the basis for the mouse cursor */
     protected IDisplayPane currentMouseHoverPane;
 
-    protected IDisplayPaneContainer paneContainer;
-
     private int displayedPaneCount = 0;
-
-    protected Composite composite;
-
-    private final Set<ISelectedPanesChangedListener> listeners;
 
     protected IDisplayPane[] lastHandledPanes = null;
 
-    public PaneManager() {
-        inputManager = new InputManager(this);
-
-        // Add us as input handler, virtual cursor
-        inputManager.registerMouseHandler(this, InputPriority.PART);
-
-        displayPanes = new ArrayList<>();
-        listeners = new HashSet<>();
-    }
-
+    @Override
     public void initializeComponents(IDisplayPaneContainer container,
             Composite comp) {
         displayPanes.clear();
@@ -155,12 +126,9 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
                 }
                 if (!displayPanes.isEmpty()) {
                     waiting = true;
-                    VizApp.runAsync(new Runnable() {
-                        @Override
-                        public void run() {
-                            adjustPaneLayout(displayedPaneCount);
-                            waiting = false;
-                        }
+                    VizApp.runAsync(() -> {
+                        adjustPaneLayout();
+                        waiting = false;
                     });
                 }
             }
@@ -182,14 +150,11 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
         pane.addListener(SWT.MouseExit, inputManager);
         pane.addListener(SWT.MouseEnter, inputManager);
 
-        pane.addListener(SWT.MouseEnter, new Listener() {
-            @Override
-            public void handleEvent(Event event) {
-                currentMouseHoverPane = activatedPane = pane;
-            }
-        });
+        pane.addListener(SWT.MouseEnter,
+                event -> currentMouseHoverPane = activatedPane = pane);
     }
 
+    @Override
     public void setFocus() {
         IDisplayPane pane = getActiveDisplayPane();
         if (pane != null) {
@@ -208,7 +173,7 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
             if (pane == getSelectedPane(IMultiPaneEditor.IMAGE_ACTION)) {
                 setSelectedPane(IMultiPaneEditor.IMAGE_ACTION, null);
             }
-            adjustPaneLayout(displayedPaneCount);
+            adjustPaneLayout();
             if (pane == activatedPane) {
                 activatedPane = null;
             }
@@ -225,17 +190,19 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
             ((GridData) glPane.getCanvas().getParent()
                     .getLayoutData()).exclude = false;
             setSelectedPane(IMultiPaneEditor.IMAGE_ACTION, null);
-            adjustPaneLayout(displayedPaneCount);
+            adjustPaneLayout();
         }
         refresh();
     }
 
-    protected void adjustPaneLayout(int paneCount) {
+    protected void adjustPaneLayout() {
         if (composite == null || composite.isDisposed()) {
             return;
         }
-        int numColums = (int) Math.ceil(Math.sqrt(paneCount));
-        int numRows = (int) Math.ceil(paneCount / (double) numColums);
+
+        int[] numRowsColumns = getNumRowsColumns();
+        int numRows = numRowsColumns[0];
+        int numColums = numRowsColumns[1];
         GridLayout gl = new GridLayout(numColums, true);
         int width = composite.getBounds().width;
         int height = composite.getBounds().height;
@@ -270,147 +237,9 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
         return rDisplays.toArray(new IRenderableDisplay[rDisplays.size()]);
     }
 
-    /**
-     * Translate a current (x,y) screen coordinate to world coordinates.
-     *
-     * The container using this manager should not call this method as it will
-     * become recursive
-     *
-     * @param x
-     *            a visible x screen coordinate
-     * @param y
-     *            a visible y screen coordinate
-     * @return the lat lon value of the cooordinate
-     */
-    @Override
-    public Coordinate translateClick(double x, double y) {
-        IDisplayPane pane = getActiveDisplayPane();
-        // Convert the screen coordinates to grid space
-        double[] world = pane.screenToGrid(x, y, 0);
-        GridEnvelope ge = pane.getDescriptor().getGridGeometry().getGridRange();
-        IExtent extent = new PixelExtent(ge);
-        // Verify grid space is within the extent, otherwiser return null
-        if (world == null || !extent.contains(world)) {
-            return null;
-        }
-        // use descriptor to convert pixel world to CRS world space
-        world = pane.getDescriptor().pixelToWorld(world);
-        // Check for null
-        if (world == null) {
-            return null;
-        }
-        return new Coordinate(world[0], world[1], world[2]);
-    }
-
-    /**
-     * Translate a world coordinate to screen coordinates (x,y).
-     *
-     * The container using this manager should not call this method as it will
-     * become recursive
-     *
-     * @param c
-     *            Coordinate to convert
-     * @return the world coordinates for the display
-     */
-    @Override
-    public double[] translateInverseClick(Coordinate c) {
-        if (c == null) {
-            return null;
-        }
-        IDisplayPane pane = getActiveDisplayPane();
-        double[] grid = pane.getDescriptor()
-                .worldToPixel(new double[] { c.x, c.y, c.z });
-        if (grid == null) {
-            return null;
-        }
-        return pane.gridToScreen(grid);
-    }
-
-    @Override
-    public void registerMouseHandler(IInputHandler handler,
-            InputPriority priority) {
-        inputManager.registerMouseHandler(handler, priority);
-    }
-
-    /**
-     * Register a mouse handler to a map
-     *
-     * @param handler
-     *            the handler to register
-     */
-    @Override
-    public void registerMouseHandler(IInputHandler handler) {
-        inputManager.registerMouseHandler(handler);
-    }
-
-    /**
-     * Unregister a mouse handler to a map
-     *
-     * @param handler
-     *            the handler to unregister
-     */
-    @Override
-    public void unregisterMouseHandler(IInputHandler handler) {
-        inputManager.unregisterMouseHandler(handler);
-    }
-
-    /**
-     * Take a screen shot of each display pane
-     *
-     * @return the screen shots
-     */
-    public BufferedImage[] screenshots() {
-        IDisplayPane[] panes = getDisplayPanes();
-        List<BufferedImage> images = new ArrayList<>();
-        for (IDisplayPane pane : panes) {
-            if (pane.isVisible()) {
-                images.add(pane.getTarget().screenshot());
-            }
-        }
-        return images.toArray(new BufferedImage[0]);
-    }
-
-    public BufferedImage screenshot() {
-        if (composite == null || composite.isDisposed()) {
-            return null;
-        }
-        int numColums = (int) Math.sqrt(displayedPaneCount);
-        int numRows = (int) Math.ceil(displayedPaneCount / (double) numColums);
-
-        BufferedImage[] screens = screenshots();
-        BufferedImage retval = new BufferedImage(
-                screens[0].getWidth() * numColums,
-                screens[0].getHeight() * numRows, screens[0].getType());
-
-        int column = 0;
-        int row = 0;
-        int shotHeight = screens[0].getHeight();
-        int shotWidth = screens[0].getWidth();
-
-        for (BufferedImage currentPane : screens) {
-            retval.createGraphics().drawImage(currentPane, shotWidth * column,
-                    shotHeight * row, null);
-            ++column;
-            if (column == numColums) {
-                column = 0;
-                ++row;
-            }
-        }
-        return retval;
-    }
-
     @Override
     public IDisplayPane[] getDisplayPanes() {
         return displayPanes.toArray(new VizDisplayPane[displayPanes.size()]);
-    }
-
-    /**
-     * Returns the mouse manager
-     *
-     * @return
-     */
-    public InputManager getMouseManager() {
-        return inputManager;
     }
 
     @Override
@@ -534,7 +363,7 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
         }
 
         setSelectedPane(IMultiPaneEditor.IMAGE_ACTION, null);
-        adjustPaneLayout(displayedPaneCount);
+        adjustPaneLayout();
         return pane;
     }
 
@@ -607,7 +436,7 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
             setSelectedPane(IMultiPaneEditor.IMAGE_ACTION, null);
         }
 
-        adjustPaneLayout(displayedPaneCount);
+        adjustPaneLayout();
     }
 
     /**
@@ -638,16 +467,6 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
     }
 
     @Override
-    public LoopProperties getLoopProperties() {
-        return paneContainer.getLoopProperties();
-    }
-
-    @Override
-    public void setLoopProperties(LoopProperties loopProperties) {
-        paneContainer.setLoopProperties(loopProperties);
-    }
-
-    @Override
     public int displayedPaneCount() {
         return displayedPaneCount;
     }
@@ -669,36 +488,6 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
         displayedPaneCount = 0;
         selectedPanes = null;
         composite = null;
-    }
-
-    @Override
-    public void addRenderableDisplayChangedListener(
-            IRenderableDisplayChangedListener displayChangedListener) {
-        // no-op
-    }
-
-    @Override
-    public void notifyRenderableDisplayChangedListeners(IDisplayPane pane,
-            IRenderableDisplay display, DisplayChangeType type) {
-        // no-op
-    }
-
-    @Override
-    public void removeRenderableDisplayChangedListener(
-            IRenderableDisplayChangedListener displayChangedListener) {
-        // no-op
-    }
-
-    @Override
-    public void addSelectedPaneChangedListener(
-            ISelectedPanesChangedListener listener) {
-        listeners.add(listener);
-    }
-
-    @Override
-    public void removeSelectedPaneChangedListener(
-            ISelectedPanesChangedListener listener) {
-        listeners.remove(listener);
     }
 
     /**
@@ -750,5 +539,4 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
         }
         return false;
     }
-
 }
