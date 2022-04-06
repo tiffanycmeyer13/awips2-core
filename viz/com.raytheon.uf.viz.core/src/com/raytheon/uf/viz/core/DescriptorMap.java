@@ -19,14 +19,20 @@
  **/
 package com.raytheon.uf.viz.core;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IConfigurationElement;
 import org.eclipse.core.runtime.IExtension;
 import org.eclipse.core.runtime.IExtensionPoint;
 import org.eclipse.core.runtime.IExtensionRegistry;
 import org.eclipse.core.runtime.Platform;
+
+import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.UFStatus;
+import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 
 /**
  * Contains information about all available descriptors
@@ -37,6 +43,8 @@ import org.eclipse.core.runtime.Platform;
  * ------------ ---------- ----------- --------------------------
  * Dec 19, 2007            njensen     Initial creation
  * Apr 01, 2022 8790       mapeters    Added pane creators
+ * Apr 22, 2022 8791       mapeters    Register pane creators through eclipse
+ *                                     extensions, add convenience methods
  *
  * </pre>
  *
@@ -44,13 +52,12 @@ import org.eclipse.core.runtime.Platform;
  */
 public class DescriptorMap {
 
-    private static Map<String, String> descToEditorMap;
+    private static final IUFStatusHandler statusHandler = UFStatus
+            .getHandler(DescriptorMap.class);
 
-    private static final Map<String, IPaneCreator> descToPaneCreatorMap = new HashMap<>();
-
+    private static final Map<String, DescriptorInfo> descInfoMap;
     static {
-        // TODO register these via spring as well so everything's in one spot
-        descToEditorMap = new HashMap<>();
+        Map<String, DescriptorInfo> tempDescInfoMap = new HashMap<>();
 
         // Construct the resource mapping from Eclipse plugins
         IExtensionRegistry registry = Platform.getExtensionRegistry();
@@ -65,28 +72,114 @@ public class DescriptorMap {
                 for (IConfigurationElement element : config) {
                     String descClass = element.getAttribute("class");
                     String descEditor = element.getAttribute("editor");
+                    IPaneCreator paneCreator = null;
+                    if (element.getAttribute("paneCreator") != null) {
+                        try {
+                            paneCreator = (IPaneCreator) element
+                                    .createExecutableExtension("paneCreator");
+                        } catch (CoreException e) {
+                            statusHandler.error(
+                                    "Error registering pane creator for "
+                                            + descClass
+                                            + "; it won't support loading to a Combo Editor.",
+                                    e);
+                        }
+                    }
 
                     if (descClass == null) {
                         // Not constructable
                         continue;
                     }
 
-                    descToEditorMap.put(descClass, descEditor);
+                    DescriptorInfo descInfo = new DescriptorInfo(descEditor,
+                            paneCreator);
+                    tempDescInfoMap.put(descClass, descInfo);
                 }
             }
         }
+        descInfoMap = Collections.unmodifiableMap(tempDescInfoMap);
     }
 
+    /**
+     * Private constructor to prevent instantiation since everything is static.
+     */
+    private DescriptorMap() {
+    }
+
+    /**
+     * Get the default editor ID to load the given descriptor type to.
+     *
+     * @param descClass
+     *            the descriptor type
+     * @return the default editor ID (may be null)
+     */
     public static String getEditorId(String descClass) {
-        return descToEditorMap.get(descClass);
+        if (descClass == null) {
+            return null;
+        }
+        DescriptorInfo descInfo = descInfoMap.get(descClass);
+        return descInfo == null ? null : descInfo.editorId;
     }
 
-    public static IPaneCreator registerPaneCreator(String descClass,
-            IPaneCreator creator) {
-        return descToPaneCreatorMap.put(descClass, creator);
+    /**
+     * Get the default editor ID to load the given display to.
+     *
+     * @param display
+     *            the renderable display to load
+     * @return the default editor ID (may be null)
+     */
+    public static String getEditorId(IRenderableDisplay display) {
+        String descClass = getDescClassName(display);
+        if (descClass == null) {
+            return null;
+        }
+        return getEditorId(descClass);
     }
 
+    /**
+     * Get an object for creating combo editor panes that can display
+     * descriptors of the given type.
+     *
+     * @param descClass
+     *            the descriptor type
+     * @return the combo editor pane creator (may be null)
+     */
     public static IPaneCreator getPaneCreator(String descClass) {
-        return descToPaneCreatorMap.get(descClass);
+        if (descClass == null) {
+            return null;
+        }
+        DescriptorInfo descInfo = descInfoMap.get(descClass);
+        return descInfo == null ? null : descInfo.paneCreator;
+    }
+
+    /**
+     * Get an object for creating combo editor panes that can display the given
+     * renderable display.
+     *
+     * @param display
+     *            the renderable display
+     * @return the combo editor pane creator (may be null)
+     */
+    public static IPaneCreator getPaneCreator(IRenderableDisplay display) {
+        return getPaneCreator(getDescClassName(display));
+    }
+
+    private static String getDescClassName(IRenderableDisplay display) {
+        if (display == null || display.getDescriptor() == null) {
+            return null;
+        }
+        return display.getDescriptor().getClass().getName();
+    }
+
+    private static class DescriptorInfo {
+
+        private final String editorId;
+
+        private final IPaneCreator paneCreator;
+
+        private DescriptorInfo(String editorId, IPaneCreator paneCreator) {
+            this.editorId = editorId;
+            this.paneCreator = paneCreator;
+        }
     }
 }

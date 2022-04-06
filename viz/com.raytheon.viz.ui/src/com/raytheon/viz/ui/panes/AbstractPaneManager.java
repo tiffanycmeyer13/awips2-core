@@ -35,8 +35,12 @@ import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
 import com.raytheon.uf.viz.core.PixelExtent;
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
+import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.uf.viz.core.drawables.ResourcePair;
+import com.raytheon.uf.viz.core.rsc.AbstractVizResource;
 import com.raytheon.uf.viz.core.rsc.IInputHandler;
+import com.raytheon.uf.viz.core.rsc.ResourceList;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
 import com.raytheon.viz.ui.input.InputAdapter;
@@ -52,6 +56,7 @@ import com.raytheon.viz.ui.input.InputManager;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 22, 2022 8790       mapeters    Initial creation (abstracted from PaneManager)
+ * Apr 22, 2022 8791       mapeters    Abstract out background resource sharing to here
  *
  * </pre>
  *
@@ -284,5 +289,101 @@ public abstract class AbstractPaneManager extends InputAdapter
         int numColums = (int) Math.ceil(Math.sqrt(paneCount));
         int numRows = (int) Math.ceil(paneCount / (double) numColums);
         return new int[] { numRows, numColums };
+    }
+
+    /**
+     * Update the display being added to share background resources with a
+     * compatible pre-existing canvas, if possible.
+     *
+     * @param newDisplay
+     *            the new display to update
+     * @param currentCanvases
+     *            the pre-existing canvases to reuse resources from
+     */
+    protected static void shareBackgroundResources(
+            IRenderableDisplay newDisplay,
+            List<? extends IDisplayPane> currentCanvases) {
+        if (!newDisplay.isSwapping()) {
+            List<ResourcePair> backgroundRpsToAdd = new ArrayList<>();
+            for (IDisplayPane currentCanvas : currentCanvases) {
+                if (!newDisplay.getDescriptor()
+                        .isCompatible(currentCanvas.getDescriptor())) {
+                    continue;
+                }
+                for (ResourcePair rp : currentCanvas.getDescriptor()
+                        .getResourceList()) {
+                    if (rp.getProperties().isMapLayer()) {
+                        backgroundRpsToAdd.add(rp);
+                    }
+                }
+            }
+            if (!backgroundRpsToAdd.isEmpty()) {
+                ResourceList rl = newDisplay.getDescriptor().getResourceList();
+                rl.removeIf(rp -> rp.getProperties().isMapLayer());
+                rl.addAll(backgroundRpsToAdd);
+            }
+        }
+    }
+
+    /**
+     * When removing the given canvas, update any shared background resources
+     * that reference it to instead reference one of the remaining canvases that
+     * also contain it.
+     *
+     * @param removedCanvas
+     *            the removed canvas to remove all references to
+     * @param remainingCanvases
+     *            the remaining canvases
+     */
+    protected static void unshareBackgroundResources(IDisplayPane removedCanvas,
+            List<? extends IDisplayPane> remainingCanvases) {
+        if (removedCanvas.getRenderableDisplay() != null
+                && !removedCanvas.getRenderableDisplay().isSwapping()) {
+            IDescriptor descriptor = removedCanvas.getDescriptor();
+            if (descriptor != null) {
+                for (ResourcePair rp : descriptor.getResourceList()) {
+                    if (rp.getProperties().isMapLayer()) {
+                        AbstractVizResource<?, ?> resource = rp.getResource();
+                        if (resource != null
+                                && resource.getDescriptor() == descriptor) {
+                            resetDescriptor(rp, remainingCanvases);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Set the descriptor for a resource pair to one of the descriptors in the
+     * remaining canvases. The descriptor is only changed if the resource is
+     * already in one of the canvases. If none of the canvases contain the
+     * resource then it is not changed.
+     *
+     * @param rp
+     *            the resource pair to reset the descriptor of
+     * @param remainingCanvases
+     *            the remaining canvases in the pane container
+     * @return true if the descriptor was changed, false otherwise
+     */
+    private static boolean resetDescriptor(ResourcePair rp,
+            List<? extends IDisplayPane> remainingCanvases) {
+        for (IDisplayPane remainingCanvas : remainingCanvases) {
+            if (remainingCanvas.getDescriptor().getResourceList()
+                    .contains(rp)) {
+                /*
+                 * Because the resource is already on the descriptor it is safe
+                 * to assume that the descriptor is the correct type for the
+                 * resource. There is no way to tell the compiler that we know
+                 * the generics are compatible except an unchecked cast.
+                 */
+                @SuppressWarnings("unchecked")
+                AbstractVizResource<?, IDescriptor> resource = (AbstractVizResource<?, IDescriptor>) rp
+                        .getResource();
+                resource.setDescriptor(remainingCanvas.getDescriptor());
+                return true;
+            }
+        }
+        return false;
     }
 }

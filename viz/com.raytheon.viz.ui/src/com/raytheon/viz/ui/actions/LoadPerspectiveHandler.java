@@ -57,10 +57,7 @@ import com.raytheon.uf.common.localization.LocalizationFile;
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
-import com.raytheon.uf.viz.core.DescriptorMap;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
-import com.raytheon.uf.viz.core.drawables.IDescriptor;
-import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
 import com.raytheon.uf.viz.core.procedures.Bundle;
 import com.raytheon.uf.viz.core.procedures.Procedure;
@@ -68,7 +65,6 @@ import com.raytheon.uf.viz.core.procedures.ProcedureXmlManager;
 import com.raytheon.viz.ui.BundleLoader;
 import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.VizWorkbenchManager;
-import com.raytheon.viz.ui.dialogs.ICloseCallback;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 
 /**
@@ -91,6 +87,7 @@ import com.raytheon.viz.ui.editor.AbstractEditor;
  * Dec 21, 2015  5191     bsteffen    Updated layout handling for Eclipse 4.
  * Feb 11, 2016  5242     dgilling    Remove calls to deprecated Localization APIs.
  * Jun 22, 2017  4818     mapeters    Changed setCloseCallback to addCloseCallback
+ * Apr 22, 2022  8791     mapeters    Update determination of editor type to load to
  *
  * </pre>
  *
@@ -114,18 +111,15 @@ public class LoadPerspectiveHandler
                 || dialog.isDisposed()) {
             dialog = new OpenPerspectiveFileListDlg(shell,
                     SavePerspectiveHandler.PERSPECTIVES_DIR);
-            dialog.addCloseCallback(new ICloseCallback() {
-                @Override
-                public void dialogClosed(Object returnValue) {
-                    if (returnValue instanceof LocalizationFile) {
-                        loadFromLocalization((LocalizationFile) returnValue);
-                    } else if (returnValue instanceof Path) {
-                        Path filePath = (Path) returnValue;
-                        if (dialog.importIntoLocalization()) {
-                            importIntoLocalization(filePath, event);
-                        }
-                        loadFromFileSystem(filePath);
+            dialog.addCloseCallback(returnValue -> {
+                if (returnValue instanceof LocalizationFile) {
+                    loadFromLocalization((LocalizationFile) returnValue);
+                } else if (returnValue instanceof Path) {
+                    Path filePath = (Path) returnValue;
+                    if (dialog.importIntoLocalization()) {
+                        importIntoLocalization(filePath, event);
                     }
+                    loadFromFileSystem(filePath);
                 }
             });
             dialog.open();
@@ -238,13 +232,8 @@ public class LoadPerspectiveHandler
         return obj;
     }
 
-    private void loadBundle(Bundle bundle) throws VizException {
-        IRenderableDisplay renderableDisplay = bundle.getDisplays()[0];
-        IDescriptor bundleDescriptor = renderableDisplay.getDescriptor();
-        String bundleEditorId = DescriptorMap
-                .getEditorId(bundleDescriptor.getClass().getName());
-        AbstractEditor editor = UiUtil.createOrOpenEditor(bundleEditorId,
-                bundle.getDisplays());
+    private void loadBundle(Bundle bundle) {
+        AbstractEditor editor = UiUtil.createOrOpenEditorForBundle(bundle);
 
         BundleLoader.loadTo(editor, bundle);
     }
@@ -271,7 +260,7 @@ public class LoadPerspectiveHandler
     }
 
     public static void loadProcedureToScreen(Procedure procedure,
-            IWorkbenchWindow window) throws VizException {
+            IWorkbenchWindow window) {
         IWorkbenchPage page = window.getActivePage();
 
         // close existing containers
@@ -304,7 +293,7 @@ public class LoadPerspectiveHandler
                 // There is a view part specified
                 IViewPart part = UiUtil.findView(window, b.getView(), false);
 
-                if (part != null && part instanceof IDisplayPaneContainer) {
+                if (part instanceof IDisplayPaneContainer) {
                     BundleLoader.loadTo((IDisplayPaneContainer) part, b);
                 }
             }
@@ -323,8 +312,8 @@ public class LoadPerspectiveHandler
         List<MArea> areas = modelService.findElements(perspective,
                 IPageLayout.ID_EDITOR_AREA, MArea.class, null);
         if (areas.isEmpty()) {
-            statusHandler
-                    .warn("Unable to restore layout because of missing area with id of: "
+            statusHandler.warn(
+                    "Unable to restore layout because of missing area with id of: "
                             + IPageLayout.ID_EDITOR_AREA);
             return;
         }
@@ -345,7 +334,6 @@ public class LoadPerspectiveHandler
             String relative = info.getString(IWorkbenchConstants.TAG_RELATIVE);
             if (relative == null) {
                 editorArea.getChildren().add(stack);
-                continue;
             } else {
                 Integer relationship = info
                         .getInteger(IWorkbenchConstants.TAG_RELATIONSHIP);
@@ -425,8 +413,7 @@ public class LoadPerspectiveHandler
      * @throws VizException
      */
     @Deprecated
-    public static void loadTo(final IDisplayPaneContainer container, Bundle b)
-            throws VizException {
+    public static void loadTo(final IDisplayPaneContainer container, Bundle b) {
         new BundleLoader(container, b).run();
     }
 

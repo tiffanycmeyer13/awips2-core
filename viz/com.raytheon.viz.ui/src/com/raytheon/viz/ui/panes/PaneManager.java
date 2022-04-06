@@ -40,11 +40,8 @@ import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.VizApp;
-import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
-import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.exception.VizException;
-import com.raytheon.uf.viz.core.rsc.AbstractVizResource;
 import com.raytheon.viz.ui.color.IBackgroundColorChangedListener.BGColorMode;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
@@ -75,6 +72,7 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  *                                  top/bottom
  * Apr 01, 2022  8790     mapeters  Abstract out some functionality to new
  *                                  AbstractPaneManager
+ * Apr 22, 2022  8791     mapeters  Abstract out background resource sharing
  *
  * </pre>
  *
@@ -302,29 +300,7 @@ public class PaneManager extends AbstractPaneManager {
 
     protected IDisplayPane addPane(IRenderableDisplay renderableDisplay,
             Composite canvasComp) {
-
-        if (renderableDisplay != null && !renderableDisplay.isSwapping()) {
-            if (!displayPanes.isEmpty()) {
-                for (ResourcePair rp : renderableDisplay.getDescriptor()
-                        .getResourceList()) {
-                    if (rp.getProperties().isMapLayer()) {
-                        renderableDisplay.getDescriptor().getResourceList()
-                                .remove(rp);
-                    }
-                }
-
-                for (IDisplayPane gp : displayPanes) {
-                    for (ResourcePair rp : gp.getDescriptor()
-                            .getResourceList()) {
-                        if (rp.getProperties().isMapLayer()) {
-                            renderableDisplay.getDescriptor().getResourceList()
-                                    .add(rp);
-                        }
-                    }
-                }
-
-            }
-        }
+        shareBackgroundResources(renderableDisplay, displayPanes);
 
         VizDisplayPane pane = null;
         try {
@@ -410,21 +386,7 @@ public class PaneManager extends AbstractPaneManager {
         }
 
         // Undo map sharing that was done in addPane
-        if (pane.getRenderableDisplay() != null
-                && !pane.getRenderableDisplay().isSwapping()) {
-            IDescriptor descriptor = pane.getDescriptor();
-            if (descriptor != null) {
-                for (ResourcePair rp : descriptor.getResourceList()) {
-                    if (rp.getProperties().isMapLayer()) {
-                        AbstractVizResource<?, ?> resource = rp.getResource();
-                        if (resource != null
-                                && resource.getDescriptor() == descriptor) {
-                            resetDescriptor(rp);
-                        }
-                    }
-                }
-            }
-        }
+        unshareBackgroundResources(pane, displayPanes);
 
         pane.dispose();
 
@@ -437,33 +399,6 @@ public class PaneManager extends AbstractPaneManager {
         }
 
         adjustPaneLayout();
-    }
-
-    /**
-     * Set the descriptor for a resource pair to one of the descriptors in
-     * displayPanes. The descriptor is only changed if the resource is already
-     * in one of the panes. If none of the panes contain the resource then it is
-     * not changed.
-     *
-     * @return true if the descriptor was changed.
-     */
-    private boolean resetDescriptor(ResourcePair rp) {
-        for (IDisplayPane remainingPane : displayPanes) {
-            if (remainingPane.getDescriptor().getResourceList().contains(rp)) {
-                /*
-                 * Because the resource is already on the descriptor it is safe
-                 * to assume that the descriptor is the correct type for the
-                 * resource. There is no way to tell the compiler that we know
-                 * the generics are compatible except an unchecked cast.
-                 */
-                @SuppressWarnings("unchecked")
-                AbstractVizResource<?, IDescriptor> resource = (AbstractVizResource<?, IDescriptor>) rp
-                        .getResource();
-                resource.setDescriptor(remainingPane.getDescriptor());
-                return true;
-            }
-        }
-        return false;
     }
 
     @Override

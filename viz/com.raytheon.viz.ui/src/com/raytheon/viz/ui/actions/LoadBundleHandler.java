@@ -19,9 +19,7 @@
  **/
 package com.raytheon.viz.ui.actions;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -58,6 +56,7 @@ import com.raytheon.viz.ui.editor.AbstractEditor;
  * Mar 09, 2018  6731     bsteffen    Close empty editors when data is not loaded.
  * Apr 01, 2022  8790     mapeters    Update determination of editor type to load
  *                                    bundle in
+ * Apr 22, 2022  8791     mapeters    Further update determination of editor type
  *
  * </pre>
  *
@@ -99,7 +98,7 @@ public class LoadBundleHandler extends AbstractHandler {
             boolean hasData = hasDataResource(bundle);
 
             AbstractEditor editor = UiUtil.createOrOpenEditor(
-                    getEditorType(event, bundle), bundle.getDisplays());
+                    getEditorTypeInfo(event, bundle), bundle.getDisplays());
             if (hasData) {
                 /*
                  * If the editor is newly created from the bundle then the
@@ -172,7 +171,7 @@ public class LoadBundleHandler extends AbstractHandler {
         }
     }
 
-    protected EditorTypeInfo getEditorType(ExecutionEvent event,
+    protected EditorTypeInfo getEditorTypeInfo(ExecutionEvent event,
             Bundle bundle) {
         if (this.editorType != null) {
             return new EditorTypeInfo(editorType, true);
@@ -182,30 +181,25 @@ public class LoadBundleHandler extends AbstractHandler {
                 return new EditorTypeInfo(editorType, true);
             }
         }
-        String editorType = bundle.getEditor();
-        if (editorType != null) {
-            return new EditorTypeInfo(editorType, true);
+        String editorId = bundle.getEditor();
+        if (editorId != null) {
+            return new EditorTypeInfo(editorId, true);
         } else {
-            List<String> descs = new ArrayList<>();
             for (IRenderableDisplay display : bundle.getDisplays()) {
-                String desc = display.getDescriptor().getClass().getName();
-                descs.add(desc);
-            }
-            for (String desc : descs) {
-                String descEditorType = DescriptorMap.getEditorId(desc);
-                if (descEditorType != null) {
-                    if (editorType == null) {
-                        editorType = descEditorType;
-                    } else if (!editorType.equals(descEditorType)) {
+                String descEditorId = DescriptorMap.getEditorId(display);
+                if (descEditorId != null) {
+                    if (editorId == null) {
+                        editorId = descEditorId;
+                    } else if (!editorId.equals(descEditorId)) {
                         /*
                          * If this happens there are no reasonable guesses, just
                          * let UIUtil figure it out.
                          */
-                        return null;
+                        return new EditorTypeInfo(null, false);
                     }
                 }
             }
-            return new EditorTypeInfo(editorType, false);
+            return new EditorTypeInfo(editorId, false);
         }
     }
 

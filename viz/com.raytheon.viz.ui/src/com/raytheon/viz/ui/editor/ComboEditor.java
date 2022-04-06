@@ -23,10 +23,11 @@ import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorSite;
 import org.eclipse.ui.PartInitException;
 
+import com.raytheon.uf.viz.core.DescriptorMap;
 import com.raytheon.uf.viz.core.IDisplayPane;
+import com.raytheon.uf.viz.core.IInsetMapDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IPane;
 import com.raytheon.uf.viz.core.IPane.CanvasType;
-import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.viz.ui.EditorUtil;
 import com.raytheon.viz.ui.panes.ComboPaneManager;
@@ -49,12 +50,15 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 23, 2022 8790       mapeters    Initial creation
+ * Apr 22, 2022 8791       mapeters    Implement IInsetMapDisplayPaneContainer,
+ *                                     update makeCompatible
  *
  * </pre>
  *
  * @author mapeters
  */
-public class ComboEditor extends VizMultiPaneEditor {
+public class ComboEditor extends VizMultiPaneEditor
+        implements IInsetMapDisplayPaneContainer {
 
     @Override
     public void init(IEditorSite site, IEditorInput input)
@@ -88,32 +92,113 @@ public class ComboEditor extends VizMultiPaneEditor {
     }
 
     @Override
-    public boolean makeCompatible(IRenderableDisplay... displays) {
+    public boolean makeCompatible(IRenderableDisplay... newDisplays) {
         if (this != EditorUtil.getActiveEditor()) {
             // Only load to if active
             return false;
         }
 
-        IDisplayPane loadCanvas = getSelectedPane(LOAD_ACTION);
-        if (loadCanvas != null && displays.length == 1) {
-            if (!loadCanvas.getDescriptor()
-                    .isCompatible(displays[0].getDescriptor())) {
-                replacePane(loadCanvas, displays[0]);
+        /*
+         * A null pane creator indicates that a display isn't compatible with
+         * combo editor, so check all displays for that.
+         */
+        for (IRenderableDisplay display : newDisplays) {
+            if (DescriptorMap.getPaneCreator(display) == null) {
+                return false;
             }
-        } else {
-            IDisplayPane[] canvases = getDisplayPanes();
-            for (int i = 0; i < displays.length && i < canvases.length; i++) {
-                IDescriptor currentDesc = canvases[i].getDescriptor();
-                IDescriptor newDesc = displays[i].getDescriptor();
-                if (!currentDesc.isCompatible(newDesc)) {
-                    replacePane(canvases[i], newDesc.getRenderableDisplay());
+        }
+
+        if (newDisplays.length == 1) {
+            /*
+             * If loading only one display, either load to the selected Load
+             * pane if there is one, or load to all panes.
+             */
+            IRenderableDisplay newDisplay = newDisplays[0];
+            IDisplayPane loadCanvas = getSelectedPane(LOAD_ACTION);
+            if (loadCanvas != null) {
+                // Ensure Load pane is compatible
+                if (!loadCanvas.getDescriptor()
+                        .isCompatible(newDisplay.getDescriptor())) {
+                    replacePane(loadCanvas, getBackgroundDisplay(newDisplay));
+                }
+            } else {
+                /*
+                 * TODO We should probably only load to panes that are already
+                 * compatible if possible. The code that loads the actual data
+                 * displays will need updating for that as well.
+                 */
+                // Ensure all panes are compatible
+                IDisplayPane[] currentCanvases = getDisplayPanes();
+                for (IDisplayPane currentCanvas : currentCanvases) {
+                    if (!currentCanvas.getDescriptor()
+                            .isCompatible(newDisplay.getDescriptor())) {
+                        replacePane(currentCanvas,
+                                getBackgroundDisplay(newDisplay));
+                    }
                 }
             }
-            for (int i = canvases.length; i < displays.length; ++i) {
-                addPane(displays[i]);
+        } else {
+            /*
+             * Ignore selected Load pane if multiple displays, just load the n
+             * displays to the first n panes, adding panes if necessary.
+             */
+            IDisplayPane[] currentCanvases = getDisplayPanes();
+
+            for (int i = 0; i < newDisplays.length; i++) {
+                if (i >= currentCanvases.length) {
+                    /*
+                     * Add new panes for any displays beyond the previous pane
+                     * count
+                     */
+                    addPane(getBackgroundDisplay(newDisplays[i]));
+                } else {
+                    /*
+                     * For displays that match up with an existing pane index,
+                     * ensure the pane is compatible
+                     */
+                    IDisplayPane currentCanvas = currentCanvases[i];
+                    IRenderableDisplay newDisplay = newDisplays[i];
+                    if (!currentCanvas.getDescriptor()
+                            .isCompatible(newDisplay.getDescriptor())) {
+                        replacePane(currentCanvas,
+                                getBackgroundDisplay(newDisplay));
+                    }
+                }
+
             }
         }
         return true;
+    }
+
+    /**
+     * Get a background display (e.g. background map/graph display) for loading
+     * the given data display to.
+     *
+     * @param display
+     *            the renderable display to load onto the background display
+     * @return the background renderable display
+     */
+    private IRenderableDisplay getBackgroundDisplay(
+            IRenderableDisplay display) {
+        /*
+         * First try to create a new background display from a compatible pane,
+         * so that we match its pan/zoom/scale state.
+         */
+        for (IDisplayPane canvas : getPaneManager()
+                .getCanvases(CanvasType.MAIN)) {
+            if (canvas.getDescriptor().isCompatible(display.getDescriptor())) {
+                return canvas.getRenderableDisplay().createNewDisplay();
+            }
+        }
+
+        // Otherwise create a default background display from the given display
+        return DescriptorMap.getPaneCreator(display)
+                .getDefaultBackgroundDisplay(display);
+    }
+
+    @Override
+    public IDisplayPane[] getInsetPanes() {
+        return getPaneManager().getInsetPanes();
     }
 
     @Override

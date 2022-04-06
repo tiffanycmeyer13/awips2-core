@@ -47,10 +47,13 @@ import org.eclipse.ui.views.IViewRegistry;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
+import com.raytheon.uf.viz.core.DescriptorMap;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
+import com.raytheon.uf.viz.core.drawables.AbstractRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.uf.viz.core.procedures.Bundle;
 import com.raytheon.viz.ui.UiUtil.ContainerPart.Container;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.EditorInput;
@@ -78,6 +81,7 @@ import com.raytheon.viz.ui.statusline.VizActionBarAdvisor;
  * Mar 12, 2018 6757       njensen     Copy active editor's loop properties for new editor
  * Apr 01, 2022 8790       mapeters    Update determination of editor type to open, move
  *                                     makeCompatible() to editor hierarchy
+ * Apr 22, 2022 8791       mapeters    Further update determination of editor type to open
  *
  * </pre>
  *
@@ -89,6 +93,8 @@ public class UiUtil {
 
     protected static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(UiUtil.class);
+
+    private static final String DEFAULT_MAP_EDITOR_ID = "com.raytheon.viz.ui.glmap.GLMapEditor";
 
     public static class ContainerPart {
 
@@ -363,45 +369,10 @@ public class UiUtil {
     }
 
     /**
-     * Gets the currently active window
-     *
-     * @return
+     * @return the currently active window
      */
     public static IWorkbenchWindow getCurrentWindow() {
         return VizWorkbenchManager.getInstance().getCurrentWindow();
-    }
-
-    /**
-     * TODO replace usage with corresponding method that takes EditorTypeInfo
-     *
-     * with the given displays on the active window
-     *
-     *
-     * @param editorId
-     * @param displays
-     * @return the created or opened editor
-     */
-    public static AbstractEditor createOrOpenEditor(String editorId,
-            IRenderableDisplay... displays) {
-        return createOrOpenEditor(getCurrentWindow(), editorId, displays);
-    }
-
-    /**
-     * TODO replace usage with corresponding method that takes EditorTypeInfo
-     *
-     * Given the editor id and the renderable displays, create or open an editor
-     * with the given displays on the specified window
-     *
-     * @param windowToLoadTo
-     * @param editorId
-     * @param displays
-     * @return the created or opened editor
-     */
-    public static AbstractEditor createOrOpenEditor(
-            IWorkbenchWindow windowToLoadTo, String editorId,
-            IRenderableDisplay... displays) {
-        return createOrOpenEditor(windowToLoadTo,
-                new EditorTypeInfo(editorId, true), displays);
     }
 
     /**
@@ -417,41 +388,43 @@ public class UiUtil {
      */
     public static AbstractEditor createOrOpenEditor(
             EditorTypeInfo editorTypeInfo, IRenderableDisplay... displays) {
-        return createOrOpenEditor(getCurrentWindow(), editorTypeInfo, displays);
+        return createOrOpenEditor(editorTypeInfo, false, displays);
     }
 
     /**
      * Given the editor type info and the renderable displays, create or open an
-     * editor with the given displays on the specified window
+     * editor with the given displays on the active window.
      *
-     * @param windowToLoadTo
-     *            workbench window to create/open editor in
      * @param editorTypeInfo
      *            info used to help determine the type of editor to open (e.g.
-     *            map, cross section, combo)
+     *            map, cross section, combo) - must not be null, although its
+     *            contained editor ID can be
+     * @param tryPerspectiveManagerOnCreate
+     *            if we need to create a new editor, try having the active
+     *            perspective manager open its default editor and see if it's
+     *            the appropriate editor type first, otherwise close it and fall
+     *            back to {@link #createEditor}
      * @param displays
      *            the displays to load to the editor, one per pane
      * @return the created or opened editor
      */
-    private static AbstractEditor createOrOpenEditor(
-            IWorkbenchWindow windowToLoadTo, EditorTypeInfo editorTypeInfo,
+    public static AbstractEditor createOrOpenEditor(
+            EditorTypeInfo editorTypeInfo,
+            boolean tryPerspectiveManagerOnCreate,
             IRenderableDisplay... displays) {
         String editorId = editorTypeInfo.getEditorId();
         if (editorId == null) {
-            editorId = "com.raytheon.viz.ui.glmap.GLMapEditor";
-        }
-        if (windowToLoadTo == null) {
-            windowToLoadTo = getCurrentWindow();
+            editorId = DEFAULT_MAP_EDITOR_ID;
         }
 
         // Check the current editor first
-        IEditorPart ep = EditorUtil.getActiveEditor(windowToLoadTo);
+        IEditorPart ep = EditorUtil.getActiveEditor();
         LoopProperties loopProps = null;
         if (ep instanceof AbstractEditor) {
             AbstractEditor currentEditor = (AbstractEditor) ep;
             /*
-             * copy the current editor's loop properties in case we open a new
-             * editor
+             * Copy the current editor's loop properties in case we open a new
+             * editor at the end of this method
              */
             loopProps = new LoopProperties(currentEditor.getLoopProperties());
             if (currentEditor.getEditorSite().getId().equals(editorId)
@@ -462,7 +435,7 @@ public class UiUtil {
             }
         }
 
-        IWorkbenchPage activePage = windowToLoadTo.getActivePage();
+        IWorkbenchPage activePage = getCurrentWindow().getActivePage();
         IEditorReference[] references = {};
         if (activePage != null) {
             references = activePage.getEditorReferences();
@@ -502,10 +475,57 @@ public class UiUtil {
         }
 
         /*
+         * This part allows the perspective manager to make an editor which may
+         * have some customizations.
+         */
+        if (tryPerspectiveManagerOnCreate) {
+            AbstractVizPerspectiveManager mgr = VizPerspectiveListener
+                    .getInstance().getActivePerspectiveManager();
+            if (mgr != null) {
+                AbstractEditor editor = mgr.openNewEditor();
+                if (editor == null) {
+                    return null;
+                } else if (editorId.equals(editor.getEditorSite().getId())) {
+                    return editor;
+                } else {
+                    activePage.closeEditor(editor, false);
+                }
+            }
+        }
+
+        /*
          * If we get here, an editor of the desired type doesn't exist or has a
          * different number of panes. Construct a new one.
          */
-        return createEditor(windowToLoadTo, editorId, loopProps, displays);
+        return createEditor(getCurrentWindow(), editorId, loopProps, displays);
+    }
+
+    /**
+     * Create or open an editor that supports the given bundle then being loaded
+     * to it. This does not load the bundle.
+     *
+     * @param bundle
+     *            the bundle to create or open an editor for
+     * @return the editor to load the bundle to
+     */
+    public static AbstractEditor createOrOpenEditorForBundle(Bundle bundle) {
+        String editorId = bundle.getEditor();
+        /*
+         * Editor ID is strict if it's in the bundle, it's not if it's just
+         * determined from the descriptor type.
+         */
+        boolean strictEditorId = editorId != null;
+        AbstractRenderableDisplay[] displays = bundle.getDisplays();
+        if (editorId == null && displays != null && displays.length > 0) {
+            editorId = DescriptorMap.getEditorId(displays[0]);
+        }
+
+        EditorTypeInfo editorTypeInfo = new EditorTypeInfo(editorId,
+                strictEditorId);
+        AbstractEditor editor = UiUtil.createOrOpenEditor(editorTypeInfo,
+                displays);
+
+        return editor;
     }
 
     /**
@@ -538,7 +558,7 @@ public class UiUtil {
             String editorId, LoopProperties loopProps,
             IRenderableDisplay... displays) {
         if (editorId == null) {
-            editorId = "com.raytheon.viz.ui.glmap.GLMapEditor";
+            editorId = DEFAULT_MAP_EDITOR_ID;
         }
         if (windowToLoadTo == null) {
             windowToLoadTo = getCurrentWindow();

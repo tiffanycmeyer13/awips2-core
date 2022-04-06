@@ -18,10 +18,12 @@
  **/
 package com.raytheon.uf.viz.core;
 
+import java.util.Map;
+
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Listener;
 
-import com.raytheon.uf.viz.core.rsc.ResourceType;
+import com.raytheon.uf.viz.core.IPane.CanvasType;
 
 /**
  *
@@ -31,7 +33,7 @@ import com.raytheon.uf.viz.core.rsc.ResourceType;
  *
  * A pane implementation may contain multiple canvases, such as a cross section
  * pane containing the main graph canvas and the inset map canvas, whereas a map
- * pane just has a single map canvas.
+ * pane just has a single map canvas. All panes must have a main canvas.
  *
  * <pre>
  *
@@ -40,6 +42,8 @@ import com.raytheon.uf.viz.core.rsc.ResourceType;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 22, 2022 8790       mapeters    Initial creation
+ * Apr 22, 2022 8791       mapeters    Remove getResourceType; add getMainCanvas(),
+ *                                     getCanvasMap(), and CanvasType.SECONDARY_INSET
  *
  * </pre>
  *
@@ -51,7 +55,7 @@ public interface IPane {
      * Enum indicating the general type/position of a display canvas.
      */
     public enum CanvasType {
-        MAIN, INSET
+        MAIN, INSET, SECONDARY_INSET
     }
 
     /**
@@ -74,11 +78,6 @@ public interface IPane {
     boolean containsCanvas(IDisplayPane canvas);
 
     /**
-     * @return the general resource type of the main canvas in this pane
-     */
-    ResourceType getResourceType();
-
-    /**
      * Get the type of the active canvas in this pane. This is only applicable
      * if this pane as a whole is active.
      *
@@ -95,6 +94,27 @@ public interface IPane {
      *         this pane
      */
     IDisplayPane getCanvas(CanvasType type);
+
+    /**
+     * Get the main canvas in this pane.
+     *
+     * This is just a convenience method that calls
+     * {@link #getCanvas(CanvasType.MAIN)}, since all panes must have a main
+     * canvas.
+     *
+     * @return the main canvas in this pane
+     */
+    default IDisplayPane getMainCanvas() {
+        return getCanvas(CanvasType.MAIN);
+    }
+
+    /**
+     * Get an unmodifiable mapping of canvas types to canvases that are in this
+     * pane.
+     *
+     * @return the unmodifiable canvas map
+     */
+    Map<CanvasType, IDisplayPane> getCanvasMap();
 
     /**
      * Refresh this pane.

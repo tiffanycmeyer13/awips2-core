@@ -24,12 +24,9 @@ import org.eclipse.swt.widgets.Composite;
 
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
-import com.raytheon.uf.viz.core.rsc.ResourceType;
 
 /**
- *
- * Interface for creating an editor pane and providing information about the
- * pane that it creates.
+ * Interface for creating an editor pane of a particular type.
  *
  * <pre>
  *
@@ -38,6 +35,9 @@ import com.raytheon.uf.viz.core.rsc.ResourceType;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 23, 2022 8790       mapeters    Initial creation
+ * Apr 22, 2022 8791       mapeters    Added getDefaultBackgroundDisplay,
+ *                                     removed getResourceType
+ *
  *
  * </pre>
  *
@@ -56,17 +56,25 @@ public interface IPaneCreator {
      *            the display to initially render in the pane
      * @param panes
      *            the other panes that are already in the pane container
-     * @return
+     * @return the created pane
      * @throws VizException
      */
     IPane createPane(IDisplayPaneContainer paneContainer, Composite comp,
             IRenderableDisplay display, List<IPane> panes) throws VizException;
 
     /**
-     * Get the general resource type of the main canvas in the pane that this
-     * creates.
+     * Determine the default background display (e.g. the background map or
+     * graph) that a pane should be initially created with to support the given
+     * display then being loaded to it.
      *
-     * @return the main canvas resource type
+     * This determines the "default" display in that it doesn't take into
+     * account the current state (e.g. pan/zoom/scale) of panes of the same type
+     * in the same editor.
+     *
+     * @param display
+     *            the display to be loaded, to determine the background display
+     *            from
+     * @return the default background display to create the pane with
      */
-    ResourceType getResourceType();
+    IRenderableDisplay getDefaultBackgroundDisplay(IRenderableDisplay display);
 }

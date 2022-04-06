@@ -25,8 +25,8 @@ import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
-import com.raytheon.uf.viz.core.rsc.ResourceType;
 import com.raytheon.viz.ui.panes.AbstractPane;
+import com.raytheon.viz.ui.panes.VizDisplayPane;
 
 /**
  *
@@ -40,14 +40,13 @@ import com.raytheon.viz.ui.panes.AbstractPane;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 22, 2022 8790       mapeters    Initial creation
+ * Apr 22, 2022 8791       mapeters    Abstract out a lot of functionality
  *
  * </pre>
  *
  * @author mapeters
  */
 public class MapPane extends AbstractPane {
-
-    private IDisplayPane canvas;
 
     /**
      * Constructor.
@@ -63,23 +62,9 @@ public class MapPane extends AbstractPane {
     public MapPane(IDisplayPaneContainer paneContainer, Composite composite,
             IRenderableDisplay renderableDisplay) throws VizException {
         super(composite);
-        this.canvas = new MapCanvas(paneContainer, composite,
+        IDisplayPane canvas = new VizDisplayPane(paneContainer, composite,
                 renderableDisplay);
-    }
-
-    @Override
-    public boolean isVisible() {
-        return canvas.isVisible();
-    }
-
-    @Override
-    public void setVisible(boolean visible) {
-        canvas.setVisible(visible);
-    }
-
-    @Override
-    public boolean containsCanvas(IDisplayPane canvas) {
-        return this.canvas == canvas;
+        addCanvas(CanvasType.MAIN, canvas);
     }
 
     @Override
@@ -88,40 +73,7 @@ public class MapPane extends AbstractPane {
     }
 
     @Override
-    public IDisplayPane getCanvas(CanvasType type) {
-        if (type == CanvasType.MAIN) {
-            return canvas;
-        }
-        return null;
-    }
-
-    @Override
-    public void refresh() {
-        canvas.refresh();
-    }
-
-    @Override
-    public void setFocus() {
-        canvas.setFocus();
-    }
-
-    @Override
-    public void clear() {
-        canvas.clear();
-    }
-
-    @Override
-    public ResourceType getResourceType() {
-        return ResourceType.PLAN_VIEW;
-    }
-
-    @Override
-    public void dispose() {
-        canvas.dispose();
-    }
-
-    @Override
     public void registerHandlers(Listener listener) {
-        canvas.addListener(listener);
+        getMainCanvas().addListener(listener);
     }
 }

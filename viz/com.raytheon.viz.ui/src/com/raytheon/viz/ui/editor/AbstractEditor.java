@@ -86,6 +86,9 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  * Feb 24, 2021  88438    smanoj     Add right-click menu option "Sample" for
  *                                   Turbulence and Icing in NsharpEditor.
  * Apr 01, 2022  8790     mapeters   Move makeCompatible() here from UiUtil
+ * Apr 22, 2022  8791     mapeters   Update setColor to correctly use canvases arg,
+ *                                   update addCompatible to add correct number of
+ *                                   panes if editor already has multiple panes
  *
  * </pre>
  *
@@ -390,11 +393,11 @@ public abstract class AbstractEditor extends EditorPart
         setColor(getDisplayPanes(), newColor);
     }
 
-    protected void setColor(IDisplayPane[] panes, RGB newColor) {
-        for (IDisplayPane pane : getDisplayPanes()) {
-            IRenderableDisplay disp = pane.getRenderableDisplay();
-            if (disp != null) {
-                disp.setBackgroundColor(newColor);
+    protected void setColor(IDisplayPane[] canvases, RGB newColor) {
+        for (IDisplayPane canvas : canvases) {
+            IRenderableDisplay display = canvas.getRenderableDisplay();
+            if (display != null) {
+                display.setBackgroundColor(newColor);
             }
         }
         this.refresh();
@@ -538,6 +541,7 @@ public abstract class AbstractEditor extends EditorPart
          * this editor's existing descriptors. Return false if any are not
          * compatible.
          */
+        IDisplayPane[] currentCanvases = getDisplayPanes();
         for (int i = 0; i < displays.length; i++) {
             /*
              * Compare matching indices/panes if possible. Fall back to the
@@ -546,10 +550,10 @@ public abstract class AbstractEditor extends EditorPart
              * that are needed to match the number of displays to load.
              */
             IDescriptor currentDesc;
-            if (i < getDisplayPanes().length) {
-                currentDesc = getDisplayPanes()[i].getDescriptor();
+            if (i < currentCanvases.length) {
+                currentDesc = currentCanvases[i].getDescriptor();
             } else {
-                currentDesc = getDisplayPanes()[0].getDescriptor();
+                currentDesc = currentCanvases[0].getDescriptor();
             }
             IDescriptor newDesc = displays[i].getDescriptor();
             if (!currentDesc.isCompatible(newDesc)) {
@@ -561,7 +565,7 @@ public abstract class AbstractEditor extends EditorPart
              * If we are a multi-pane editor, add panes to this editor to match
              * the number of displays, if need be.
              */
-            if (getDisplayPanes().length < displays.length) {
+            if (currentCanvases.length < displays.length) {
                 /*
                  * Use a clean copy of the first pane to add new panes.
                  *
@@ -570,15 +574,15 @@ public abstract class AbstractEditor extends EditorPart
                  * strips the cloned display down to only system/background
                  * resources.
                  */
-                getDisplayPanes()[0].clear();
-                IRenderableDisplay display = getDisplayPanes()[0]
+                currentCanvases[0].clear();
+                IRenderableDisplay display = currentCanvases[0]
                         .getRenderableDisplay();
-                for (int i = 1; i < displays.length; ++i) {
+                for (int i = currentCanvases.length; i < displays.length; ++i) {
                     addPane(display.createNewDisplay());
                 }
             }
             return true;
-        } else if (getDisplayPanes().length == displays.length) {
+        } else if (currentCanvases.length == displays.length) {
             /*
              * If we are not a multi-pane editor, we can't add panes, so the
              * number of panes/displays must already match (I'd guess both

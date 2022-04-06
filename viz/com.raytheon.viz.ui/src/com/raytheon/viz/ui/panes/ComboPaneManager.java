@@ -19,6 +19,7 @@
 package com.raytheon.viz.ui.panes;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -41,15 +42,14 @@ import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.viz.core.DescriptorMap;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
+import com.raytheon.uf.viz.core.IInsetMapDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IPane;
 import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.IPaneCreator;
 import com.raytheon.uf.viz.core.VizApp;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
-import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.exception.VizException;
-import com.raytheon.uf.viz.core.rsc.AbstractVizResource;
 import com.raytheon.viz.ui.color.IBackgroundColorChangedListener.BGColorMode;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
@@ -70,12 +70,15 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 22, 2022 8790       mapeters    Initial creation
+ * Apr 22, 2022 8791       mapeters    Implement IInsetMapDisplayPaneContainer,
+ *                                     abstract out background resource sharing
  *
  * </pre>
  *
  * @author mapeters
  */
-public class ComboPaneManager extends AbstractPaneManager {
+public class ComboPaneManager extends AbstractPaneManager
+        implements IInsetMapDisplayPaneContainer {
 
     private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(ComboPaneManager.class);
@@ -122,11 +125,8 @@ public class ComboPaneManager extends AbstractPaneManager {
      */
     private void registerHandlers(IPane pane) {
         pane.registerHandlers(inputManager);
-        for (CanvasType type : CanvasType.values()) {
-            IDisplayPane canvas = pane.getCanvas(type);
-            if (canvas != null) {
-                canvas.addListener(SWT.MouseEnter, event -> activePane = pane);
-            }
+        for (IDisplayPane canvas : pane.getCanvasMap().values()) {
+            canvas.addListener(SWT.MouseEnter, event -> activePane = pane);
         }
     }
 
@@ -184,8 +184,7 @@ public class ComboPaneManager extends AbstractPaneManager {
         CanvasType canvasType = activePane != null
                 ? activePane.getActiveCanvasType()
                 : CanvasType.MAIN;
-        return panes.stream().map(pane -> pane.getCanvas(canvasType))
-                .filter(Objects::nonNull).toArray(IDisplayPane[]::new);
+        return getCanvases(canvasType);
     }
 
     @Override
@@ -243,10 +242,16 @@ public class ComboPaneManager extends AbstractPaneManager {
 
     @Override
     public void setSelectedPane(String action, IDisplayPane canvas) {
-        IPane pane = getPane(canvas);
-        if (canvas != null && pane == null) {
-            throw new IllegalArgumentException(
-                    "setSelectedPane called with canvas not in this IMultiPaneEditor");
+        IPane pane;
+        if (canvas == null) {
+            pane = null;
+        } else {
+            pane = getPane(canvas);
+            if (pane == null) {
+                throw new IllegalArgumentException(
+                        "setSelectedPane called with canvas not in this IMultiPaneEditor");
+            }
+
         }
 
         selectedPanes.put(action, pane);
@@ -283,41 +288,16 @@ public class ComboPaneManager extends AbstractPaneManager {
 
     private IDisplayPane addPane(IRenderableDisplay renderableDisplay,
             Composite canvasComp, int index) {
-        String descClass = renderableDisplay.getDescriptor().getClass()
-                .getName();
-        IPaneCreator paneCreator = DescriptorMap.getPaneCreator(descClass);
+        IPaneCreator paneCreator = DescriptorMap
+                .getPaneCreator(renderableDisplay);
         if (paneCreator == null) {
             throw new IllegalArgumentException(
                     "Unable to add pane for unknown descriptor type: "
-                            + descClass);
+                            + renderableDisplay.getDescriptor());
         }
 
-        if (renderableDisplay != null && !renderableDisplay.isSwapping()) {
-            List<ResourcePair> backgroundRpsToAdd = new ArrayList<>();
-            for (IPane pane : panes) {
-                if (pane.getResourceType() != paneCreator.getResourceType()) {
-                    continue;
-                }
-                IDisplayPane mainCanvas = pane.getCanvas(CanvasType.MAIN);
-                for (ResourcePair rp : mainCanvas.getDescriptor()
-                        .getResourceList()) {
-                    if (rp.getProperties().isMapLayer()) {
-                        backgroundRpsToAdd.add(rp);
-                    }
-                }
-            }
-            if (!backgroundRpsToAdd.isEmpty()) {
-                for (ResourcePair rp : renderableDisplay.getDescriptor()
-                        .getResourceList()) {
-                    if (rp.getProperties().isMapLayer()) {
-                        renderableDisplay.getDescriptor().getResourceList()
-                                .remove(rp);
-                    }
-                }
-                renderableDisplay.getDescriptor().getResourceList()
-                        .addAll(backgroundRpsToAdd);
-            }
-        }
+        shareBackgroundResources(renderableDisplay,
+                Arrays.asList(getCanvases(CanvasType.MAIN)));
 
         IPane pane = null;
         try {
@@ -331,14 +311,14 @@ public class ComboPaneManager extends AbstractPaneManager {
         IDisplayPane newCanvas = null;
         if (pane != null) {
             try {
-                newCanvas = pane.getCanvas(CanvasType.MAIN);
+                // TODO also bg canvas?
+                newCanvas = pane.getMainCanvas();
 
                 if (activePane == null) {
                     activePane = pane;
                 }
                 if (!panes.isEmpty()) {
-                    IDisplayPane existingCanvas = panes.get(0)
-                            .getCanvas(CanvasType.MAIN);
+                    IDisplayPane existingCanvas = panes.get(0).getMainCanvas();
                     newCanvas.getRenderableDisplay().setBackgroundColor(
                             existingCanvas.getRenderableDisplay()
                                     .getBackgroundColor());
@@ -397,58 +377,14 @@ public class ComboPaneManager extends AbstractPaneManager {
          * Undo background layer sharing (e.g. map/graph outline) that was done
          * in addPane
          */
-        IDisplayPane canvas = pane.getCanvas(CanvasType.MAIN);
-        if (canvas.getRenderableDisplay() != null
-                && !canvas.getRenderableDisplay().isSwapping()) {
-            IDescriptor descriptor = canvas.getDescriptor();
-            if (descriptor != null) {
-                for (ResourcePair rp : descriptor.getResourceList()) {
-                    if (rp.getProperties().isMapLayer()) {
-                        AbstractVizResource<?, ?> resource = rp.getResource();
-                        if (resource != null
-                                && resource.getDescriptor() == descriptor) {
-                            resetDescriptor(rp, panes);
-                        }
-                    }
-                }
-            }
-        }
+        unshareBackgroundResources(pane.getMainCanvas(),
+                Arrays.asList(getCanvases(CanvasType.MAIN)));
 
         pane.dispose();
 
         if (layout) {
             adjustPaneLayout();
         }
-    }
-
-    /**
-     * Set the descriptor for a resource pair to one of the descriptors in
-     * displayPanes. The descriptor is only changed if the resource is already
-     * in one of the panes. If none of the panes contain the resource then it is
-     * not changed.
-     *
-     * @return true if the descriptor was changed.
-     */
-    private boolean resetDescriptor(ResourcePair rp,
-            List<IPane> remainingPanes) {
-        for (IPane remainingPane : remainingPanes) {
-            IDescriptor desc = remainingPane.getCanvas(CanvasType.MAIN)
-                    .getDescriptor();
-            if (desc.getResourceList().contains(rp)) {
-                /*
-                 * Because the resource is already on the descriptor it is safe
-                 * to assume that the descriptor is the correct type for the
-                 * resource. There is no way to tell the compiler that we know
-                 * the generics are compatible except an unchecked cast.
-                 */
-                @SuppressWarnings("unchecked")
-                AbstractVizResource<?, IDescriptor> resource = (AbstractVizResource<?, IDescriptor>) rp
-                        .getResource();
-                resource.setDescriptor(desc);
-                return true;
-            }
-        }
-        return false;
     }
 
     @Override
@@ -463,7 +399,7 @@ public class ComboPaneManager extends AbstractPaneManager {
         }
         IPane pane = panes.get(0);
         showPane(pane);
-        pane.getCanvas(CanvasType.MAIN).getRenderableDisplay()
+        pane.getMainCanvas().getRenderableDisplay()
                 .setBounds(composite.getBounds());
         pane.clear();
     }
@@ -481,7 +417,7 @@ public class ComboPaneManager extends AbstractPaneManager {
         if (pane == null) {
             return null;
         }
-        return pane.getCanvas(CanvasType.MAIN);
+        return pane.getMainCanvas();
     }
 
     /**
@@ -508,9 +444,15 @@ public class ComboPaneManager extends AbstractPaneManager {
         removePane(pane, false);
         IDisplayPane newCanvas = addPane(display, index);
 
+        // TODO should we retain all, e.g. image?
         for (String selectedAction : selectedActions) {
             setSelectedPane(selectedAction, newCanvas);
         }
+    }
+
+    @Override
+    public IDisplayPane[] getInsetPanes() {
+        return getCanvases(CanvasType.INSET);
     }
 
     private void adjustPaneLayout() {

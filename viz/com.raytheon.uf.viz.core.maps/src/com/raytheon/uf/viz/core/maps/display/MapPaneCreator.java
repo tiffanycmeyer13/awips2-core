@@ -22,16 +22,17 @@ import java.util.List;
 
 import org.eclipse.swt.widgets.Composite;
 
+import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IPane;
 import com.raytheon.uf.viz.core.IPaneCreator;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
-import com.raytheon.uf.viz.core.rsc.ResourceType;
+import com.raytheon.uf.viz.core.maps.scales.MapScalesManager;
 
 /**
- *
- * Creates and provides info about map panes.
+ * {@link IPaneCreator} implementation for creating map panes.
  *
  * <pre>
  *
@@ -40,12 +41,17 @@ import com.raytheon.uf.viz.core.rsc.ResourceType;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 23, 2022 8790       mapeters    Initial creation
+ * Apr 22, 2022 8791       mapeters    Added getDefaultBackgroundDisplay,
+ *                                     removed getResourceType
  *
  * </pre>
  *
  * @author mapeters
  */
 public class MapPaneCreator implements IPaneCreator {
+
+    private static final IUFStatusHandler statusHandler = UFStatus
+            .getHandler(MapPaneCreator.class);
 
     @Override
     public IPane createPane(IDisplayPaneContainer paneContainer, Composite comp,
@@ -54,7 +60,25 @@ public class MapPaneCreator implements IPaneCreator {
     }
 
     @Override
-    public ResourceType getResourceType() {
-        return ResourceType.PLAN_VIEW;
+    public IRenderableDisplay getDefaultBackgroundDisplay(
+            IRenderableDisplay display) {
+        /*
+         * Map data displays don't include the background maps here, so need to
+         * get those separately.
+         */
+        IRenderableDisplay bgDisplay = null;
+        try {
+            bgDisplay = MapScalesManager.getInstance().findEditorScale()
+                    .getScaleBundle().getDisplays()[0];
+        } catch (Exception e) {
+            statusHandler.error("Error loading default background map display",
+                    e);
+        }
+
+        if (bgDisplay == null) {
+            bgDisplay = MapScalesManager.getInstance()
+                    .getLastResortScaleDisplay();
+        }
+        return bgDisplay;
     }
 }
