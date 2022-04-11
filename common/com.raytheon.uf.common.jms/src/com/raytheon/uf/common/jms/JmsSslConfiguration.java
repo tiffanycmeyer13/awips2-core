@@ -23,7 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import com.raytheon.uf.common.comm.ssl.AbstractSslConfiguration;
+import com.raytheon.uf.common.comm.ssl.SslConfiguration;
 
 /**
  *
@@ -41,16 +41,14 @@ import com.raytheon.uf.common.comm.ssl.AbstractSslConfiguration;
  * Jul 17, 2019  7724     mrichardson Upgrade Qpid to Qpid Proton.
  * Mar 05, 2021  7899     tbucher     getPassword() uses new JMSPasswordUtil class
  * Oct 29, 2021  8667     mapeters    Abstracted a lot out to {@link AbstractSslConfiguration}
+ * Apr 12, 2022  8677     tgurney     Remove password method overrides and key
+ *                                    store type arguments
  *
  * </pre>
  *
  * @author bsteffen
  */
-public class JmsSslConfiguration extends AbstractSslConfiguration {
-
-    private static final String KEY_STORE_TYPE = "jks";
-
-    private static final String KEY_STORE_EXT = ".jks";
+public class JmsSslConfiguration extends SslConfiguration {
 
     private static final String CERTIFICATE_DIR = "QPID_SSL_CERT_DB";
 
@@ -71,8 +69,7 @@ public class JmsSslConfiguration extends AbstractSslConfiguration {
      *            contains a different name.
      */
     public JmsSslConfiguration(String defaultClientName) {
-        super(defaultClientName, CERTIFICATE_NAME, getCertDbPath(),
-                KEY_STORE_TYPE, KEY_STORE_EXT);
+        super(defaultClientName, CERTIFICATE_NAME, getCertDbPath());
     }
 
     private static Path getCertDbPath() {
@@ -88,7 +85,8 @@ public class JmsSslConfiguration extends AbstractSslConfiguration {
             }
             if (certDB == null) {
                 throw new IllegalStateException(
-                        "Unable to load ssl certificates for jms ssl. Consider setting the environmental variable: "
+                        "Could not find the JMS SSL certificate directory. "
+                                + "Consider setting the environment variable: "
                                 + CERTIFICATE_DIR);
             }
         } else {
@@ -96,19 +94,4 @@ public class JmsSslConfiguration extends AbstractSslConfiguration {
         }
         return certDB;
     }
-
-    public String getPassword() throws Exception {
-        return JMSPasswordUtil.getJMSPassword();
-    }
-
-    @Override
-    public String getKeyStorePassword() throws Exception {
-        return getPassword();
-    }
-
-    @Override
-    public String getTrustStorePassword() throws Exception {
-        return getPassword();
-    }
-
 }

@@ -60,6 +60,8 @@ import io.netty.handler.proxy.ProxyHandler;
  * May 27, 2021 8469       dgilling    Pass broker REST service port through
  *                                     JMSConnectionInfo.
  * Aug 06, 2021 22528      smoorthy    Add proxy handler extension to ConnectionFactory
+ * Apr 12, 2022 8677       tgurney     Minor changes to SSL configuration API.
+ *                                     Minor refactoring
  * </pre>
  *
  * @author tgurney
@@ -77,43 +79,52 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
         String url = QpidUFConnectionFactory.getConnectionURL(connectionInfo);
         this.connectionFactory = new JmsConnectionFactory(url);
 
-
         String proxyAddr = connectionInfo.getProxyAddress();
 
-        if (proxyAddr != null) { //add proxy extension to the Connection Factory
-            String proxyHost = null;
-            int proxyPort = 0;
-            try {
-                URI proxyURI = new URI(proxyAddr);
-                proxyHost = proxyURI.getHost();
-                proxyPort = proxyURI.getPort();
-            } catch (URISyntaxException e) {
-                throw new JMSConfigurationException("Problem processing proxy address string", e.getCause());
-            }
-
-            //get user credentials
-            AuthScope authScope = new AuthScope(proxyHost, proxyPort, AuthScope.ANY_REALM,
-                    AuthSchemes.BASIC);
-            UsernamePasswordCredentials creds = (UsernamePasswordCredentials) HttpClient.getInstance().getCredentials(authScope);
-            String username = creds.getUserName();
-            String password = creds.getPassword();
-
-
-            //add the proxy handler extension
-            String host = proxyHost;
-            int port = proxyPort;
-            this.connectionFactory.setExtension(JmsConnectionExtensions.PROXY_HANDLER_SUPPLIER.toString(), (connection, remote) -> {
-                SocketAddress proxyAddress = new InetSocketAddress(host, port); //443
-                Supplier<ProxyHandler> proxyHandlerFactory = () -> {
-                    return new HttpProxyHandlerSslExt(proxyAddress, username, password );
-                };
-                return proxyHandlerFactory;
-            });
+        if (proxyAddr != null) {
+            addProxyExtension(proxyAddr);
         }
-
 
         this.jmsAdmin = new QpidBrokerRestImpl(connectionInfo.getHost(),
                 connectionInfo.getVhost(), connectionInfo.getServicePort());
+    }
+
+    private void addProxyExtension(String proxyAddr)
+            throws JMSConfigurationException {
+        // add proxy extension to the Connection Factory
+        String proxyHost = null;
+        int proxyPort = 0;
+        try {
+            URI proxyURI = new URI(proxyAddr);
+            proxyHost = proxyURI.getHost();
+            proxyPort = proxyURI.getPort();
+        } catch (URISyntaxException e) {
+            throw new JMSConfigurationException(
+                    "Problem processing proxy address string", e);
+        }
+
+        // get user credentials
+        AuthScope authScope = new AuthScope(proxyHost, proxyPort,
+                AuthScope.ANY_REALM, AuthSchemes.BASIC);
+        UsernamePasswordCredentials creds = (UsernamePasswordCredentials) HttpClient
+                .getInstance().getCredentials(authScope);
+        String username = creds.getUserName();
+        String password = creds.getPassword();
+
+        // add the proxy handler extension
+        String host = proxyHost;
+        int port = proxyPort;
+        this.connectionFactory.setExtension(
+                JmsConnectionExtensions.PROXY_HANDLER_SUPPLIER.toString(),
+                (connection, remote) -> {
+                    SocketAddress proxyAddress = new InetSocketAddress(host,
+                            port); // 443
+                    Supplier<ProxyHandler> proxyHandlerFactory = () -> {
+                        return new HttpProxyHandlerSslExt(proxyAddress,
+                                username, password);
+                    };
+                    return proxyHandlerFactory;
+                });
     }
 
     @Override
@@ -175,7 +186,7 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
         Path trustStorePath = sslConfig.getJavaTrustStoreFile();
         Path keyStorePath = sslConfig.getJavaKeyStoreFile();
         try {
-            String password = sslConfig.getPassword();
+            String password = sslConfig.getStorePassword();
 
             uriBuilder.addParameter("transport.trustStoreLocation",
                     trustStorePath.toString());
