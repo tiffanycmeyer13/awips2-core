@@ -24,7 +24,9 @@ import java.util.Iterator;
 import java.util.List;
 
 import com.raytheon.uf.common.dataplugin.PluginDataObject;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
 import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.common.time.DataTime;
@@ -50,6 +52,7 @@ import com.raytheon.uf.viz.core.grid.rsc.AbstractGridResource;
  * Oct 29, 2014 3668       bsteffen    replace executor with custom job pool.
  * May 14, 2015 4079       bsteffen    Move to core.grid
  * Aug 31, 2021 8651       njensen     Added method isScheduled(DataTime)
+ * Jan 26, 2022 8741       njensen     Added performance logging
  *
  * </pre>
  *
@@ -58,8 +61,11 @@ import com.raytheon.uf.viz.core.grid.rsc.AbstractGridResource;
  */
 public class GridDataRequestRunner {
 
-    private static final transient IUFStatusHandler statusHandler = UFStatus
+    private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(GridDataRequestRunner.class);
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("GridDataRequestRunner");
 
     private static class GridDataRequest {
 
@@ -113,7 +119,13 @@ public class GridDataRequestRunner {
             return false;
         }
         try {
+            long t0 = System.currentTimeMillis();
             request.gridData = resource.getData(request.time, request.pdos);
+            long t1 = System.currentTimeMillis();
+            if (request.pdos != null || request.gridData != null) {
+                perfLog.logDuration("Getting grid data for " + request.pdos,
+                        t1 - t0);
+            }
             if (request.gridData == null) {
                 /*
                  * need to remove unfulfillable requests to avoid infinite loop.

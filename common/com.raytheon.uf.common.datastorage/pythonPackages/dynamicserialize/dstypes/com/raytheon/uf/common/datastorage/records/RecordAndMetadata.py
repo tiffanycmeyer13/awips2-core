@@ -19,6 +19,13 @@
 ##
 
 # File auto-generated against equivalent DynamicSerialize Java class
+#
+#      SOFTWARE HISTORY
+#
+#     Date            Ticket#       Engineer       Description
+#     ------------    ----------    -----------    --------------------------
+#     Sep 23, 2021    8608          mapeters       Generated
+#
 
 class RecordAndMetadata(object):
 
