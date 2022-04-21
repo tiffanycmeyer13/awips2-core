@@ -16,7 +16,6 @@ Export-Package: com.raytheon.edex.common.request,
  com.raytheon.edex.utility
 Require-Bundle: org.apache.commons.lang3,
  javax.measure,
- net.sf.cglib;visibility:=reexport,
  javax.persistence,
  com.raytheon.uf.common.localization,
  com.raytheon.uf.common.serialization;visibility:=reexport,
