@@ -32,6 +32,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Sep 23, 2021 8608       mapeters    Initial creation
+ * Feb 17, 2022 8608       mapeters    DataId refactored to IDataIdentifier
  *
  * </pre>
  *
@@ -44,7 +45,7 @@ public class MetadataAndDataId {
     private IMetadataIdentifier metaId;
 
     @DynamicSerializeElement
-    private DataId dataId;
+    private IDataIdentifier dataId;
 
     /**
      * Default constructor for serialization.
@@ -52,7 +53,8 @@ public class MetadataAndDataId {
     public MetadataAndDataId() {
     }
 
-    public MetadataAndDataId(IMetadataIdentifier metaId, DataId dataId) {
+    public MetadataAndDataId(IMetadataIdentifier metaId,
+            IDataIdentifier dataId) {
         this.metaId = metaId;
         this.dataId = dataId;
     }
@@ -65,11 +67,11 @@ public class MetadataAndDataId {
         this.metaId = metaId;
     }
 
-    public DataId getDataId() {
+    public IDataIdentifier getDataId() {
         return dataId;
     }
 
-    public void setDataId(DataId dataId) {
+    public void setDataId(IDataIdentifier dataId) {
         this.dataId = dataId;
     }
 

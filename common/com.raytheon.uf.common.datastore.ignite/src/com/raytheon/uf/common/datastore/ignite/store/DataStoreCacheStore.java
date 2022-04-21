@@ -37,6 +37,7 @@ import javax.cache.Cache.Entry;
 import javax.cache.integration.CacheLoaderException;
 import javax.cache.integration.CacheWriterException;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cache.store.CacheStore;
 import org.apache.ignite.lang.IgniteBiInClosure;
@@ -78,6 +79,10 @@ import com.raytheon.uf.common.util.Pair;
  * May 29, 2019  7628     bsteffen  Initial creation
  * Jun 10, 2021  8450     mapeters  Add various logging, improve exception handling
  * Sep 23, 2021  8608     mapeters  Add metadata id handling and auditing
+ * Jan 25, 2022  8608     mapeters  Support write-through appends better
+ * Feb 17, 2022  8608     mapeters  Remove illegal write behind checking, handle new
+ *                                  MetadataSpecificity values, optimize
+ *                                  validateMetadataSpecificity() some
  *
  * </pre>
  *
@@ -276,8 +281,27 @@ public class DataStoreCacheStore
         MetadataMap metadataMap = getMetadataMap(List.of(entry));
         try {
             long totalSizeInBytes = 0L;
-            for (RecordAndMetadata rm : entry.getValue()
-                    .getRecordsAndMetadata()) {
+            DataStoreValue value = entry.getValue();
+            RecordAndMetadata[] lastAppendRms = value
+                    .getLastAppendRecordsAndMetadata();
+            StoreOp storeOp;
+            RecordAndMetadata[] rms;
+            if (!ArrayUtils.isEmpty(lastAppendRms)) {
+                /*
+                 * This method is only used by write-through so we can just
+                 * append the records from the last append operation. The data
+                 * store key is locked the whole time the StoreProcessor runs
+                 * and this write is done for write-through, so this is
+                 * thread-safe.
+                 */
+                rms = lastAppendRms;
+                storeOp = StoreOp.APPEND;
+            } else {
+                rms = value.getRecordsAndMetadata();
+                storeOp = StoreOp.REPLACE;
+            }
+
+            for (RecordAndMetadata rm : rms) {
                 store.addDataRecord(rm.getRecord(), rm.getMetadata());
                 totalSizeInBytes += rm.getRecord().getSizeInBytes();
             }
@@ -287,12 +311,18 @@ public class DataStoreCacheStore
 
             StorageStatus ss;
             synchronized (lock) {
-                ss = store.store(StoreOp.REPLACE);
+                ss = store.store(storeOp);
             }
+
             if (ss.hasExceptions()) {
                 throw ss.getExceptions()[0];
             }
+
+            timer.lap("store");
+
             auditDataStorage(List.of(), List.of(metadataMap), true);
+
+            timer.lap("audit");
         } catch (Exception e) {
             logger.error(
                     "Error occurred writing " + cacheName + " entry: " + path,
@@ -302,8 +332,7 @@ public class DataStoreCacheStore
         }
 
         timer.stop();
-        perfLog.logDuration("Writing " + cacheName + " entry: " + path,
-                timer.getElapsedTime());
+        timer.logLaps("Writing " + cacheName + " entry: " + path, perfLog);
     }
 
     @Override
@@ -334,8 +363,18 @@ public class DataStoreCacheStore
             long totalSizeInBytes = 0L;
             MetadataMap metadataMap = getMetadataMap(cacheEntries);
             for (Entry<? extends DataStoreKey, ? extends DataStoreValue> cacheEntry : cacheEntries) {
-                for (RecordAndMetadata rm : cacheEntry.getValue()
-                        .getRecordsAndMetadata()) {
+                DataStoreValue value = cacheEntry.getValue();
+                if (!ArrayUtils
+                        .isEmpty(value.getLastAppendRecordsAndMetadata())) {
+                    /*
+                     * We don't currently support multiple appends going into a
+                     * single write
+                     */
+                    logger.warn(
+                            "Write behind append operation must be performed as a replace: "
+                                    + cacheEntry.getKey());
+                }
+                for (RecordAndMetadata rm : value.getRecordsAndMetadata()) {
                     totalSizeInBytes += rm.getRecord().getSizeInBytes();
                 }
             }
@@ -371,6 +410,8 @@ public class DataStoreCacheStore
             ++i;
         }
 
+        timer.lap("store");
+
         /*
          * This writeAll method can be called in a synchronous way if write
          * behind falls behind enough, but it still doesn't propagate errors
@@ -379,12 +420,14 @@ public class DataStoreCacheStore
          */
         auditDataStorage(failedStores, successfulStores, false);
 
+        timer.lap("audit");
+
         entries.clear();
 
         timer.stop();
-        perfLog.logDuration(
+        timer.logLaps(
                 "Writing " + numCacheEntries + " " + cacheName + " entries",
-                timer.getElapsedTime());
+                perfLog);
     }
 
     @Override
@@ -401,24 +444,6 @@ public class DataStoreCacheStore
 
     private void auditDataStorage(List<MetadataMap> failedStores,
             List<MetadataMap> successfulStores, boolean synchronous) {
-        // Audit illegal write behinds
-        if (!synchronous) {
-            List<MetadataMap> illegalWriteBehinds = new ArrayList<>();
-            for (MetadataMap metadataMap : failedStores) {
-                if (!metadataMap.isWriteBehindSupported()) {
-                    illegalWriteBehinds.add(metadataMap);
-                }
-            }
-            for (MetadataMap metadataMap : successfulStores) {
-                if (!metadataMap.isWriteBehindSupported()) {
-                    illegalWriteBehinds.add(metadataMap);
-                }
-            }
-            if (!illegalWriteBehinds.isEmpty()) {
-                logger.error("Illegal write behinds: " + illegalWriteBehinds);
-            }
-        }
-
         // Audit metadata specificity
         failedStores.forEach(MetadataMap::validateMetadataSpecificity);
         successfulStores.forEach(MetadataMap::validateMetadataSpecificity);
@@ -502,7 +527,20 @@ public class DataStoreCacheStore
                             okayTraceIds.add(traceId);
                         }
                         break;
-                    case NONE:
+                    case NO_DATA:
+                        /*
+                         * If the metadata doesn't have data, we shouldn't even
+                         * be storing data here. Just report that it failed.
+                         */
+                        failedTraceIds.add(traceId);
+                        break;
+                    case NO_METADATA:
+                        /*
+                         * No metadata, so we don't know what level/specificity
+                         * of data to check for existence. Just report that it
+                         * failed.
+                         */
+                        failedTraceIds.add(traceId);
                         break;
                     default:
                         throw new UnsupportedOperationException(
@@ -594,15 +632,6 @@ public class DataStoreCacheStore
         }
 
         /**
-         * @return true if all contained metadata supports write behind, false
-         *         otherwise
-         */
-        public boolean isWriteBehindSupported() {
-            return getMetadataRecordNamesMaps().stream()
-                    .allMatch(MetadataRecordNamesMap::isWriteBehindSupported);
-        }
-
-        /**
          * @return all trace IDs contained in this metadata map
          */
         public Set<String> extractTraceIds() {
@@ -660,15 +689,6 @@ public class DataStoreCacheStore
         }
 
         /**
-         * @return true if all contained metadata supports write behind, false
-         *         otherwise
-         */
-        public boolean isWriteBehindSupported() {
-            return getMetadataIds().stream()
-                    .allMatch(IMetadataIdentifier::isWriteBehindSupported);
-        }
-
-        /**
          * @return all trace IDs contained in this metadata map
          */
         public Set<String> extractTraceIds() {
@@ -691,28 +711,27 @@ public class DataStoreCacheStore
              * This merges metadata identifiers that are the same except for
              * trace ID.
              */
-            List<MetaIdsAndRecordNames> metaIdsAndRecordNamesList = new ArrayList<>();
+            Map<MetadataIdentifierWrapper, MetaIdsAndRecordNames> metaIdsAndRecordNamesList = new HashMap<>();
             for (Map.Entry<IMetadataIdentifier, Set<String>> entry : getEntries()) {
                 IMetadataIdentifier metaId = entry.getKey();
                 Set<String> recordNames = entry.getValue();
-                boolean merged = false;
-                for (MetaIdsAndRecordNames metaIdsAndRecordNames : metaIdsAndRecordNamesList) {
-                    if (metaIdsAndRecordNames.merge(metaId, recordNames)) {
-                        merged = true;
-                        break;
-                    }
-                }
-                if (!merged) {
-                    metaIdsAndRecordNamesList.add(
+                MetadataIdentifierWrapper metaIdWrapper = new MetadataIdentifierWrapper(
+                        metaId);
+                MetaIdsAndRecordNames metaIdsAndRecordNames = metaIdsAndRecordNamesList
+                        .get(metaIdWrapper);
+                if (metaIdsAndRecordNames == null) {
+                    metaIdsAndRecordNamesList.put(metaIdWrapper,
                             new MetaIdsAndRecordNames(metaId, recordNames));
+                } else {
+                    metaIdsAndRecordNames.add(metaId, recordNames);
                 }
             }
 
             boolean firstGroupSpecificity = true;
-            for (MetaIdsAndRecordNames metaIdsAndRecordNames : metaIdsAndRecordNamesList) {
-                Set<IMetadataIdentifier> metaIds = metaIdsAndRecordNames
-                        .getMetaIds();
-                IMetadataIdentifier sampleMetaId = metaIds.iterator().next();
+            for (MetaIdsAndRecordNames metaIdsAndRecordNames : metaIdsAndRecordNamesList
+                    .values()) {
+                IMetadataIdentifier sampleMetaId = metaIdsAndRecordNames
+                        .getSampleMetaId();
                 switch (sampleMetaId.getSpecificity()) {
                 case GROUP:
                     /*
@@ -735,7 +754,12 @@ public class DataStoreCacheStore
                     }
 
                     break;
-                case NONE:
+                case NO_DATA:
+                    logger.warn(
+                            "Data stored for metadata that claims to not have any associated data: {}, {}",
+                            key, metaIdsAndRecordNames);
+                    break;
+                case NO_METADATA:
                     break;
                 default:
                     throw new UnsupportedOperationException(
@@ -759,29 +783,26 @@ public class DataStoreCacheStore
      */
     private static class MetaIdsAndRecordNames {
 
-        private final Set<IMetadataIdentifier> metaIds = new HashSet<>();
+        private IMetadataIdentifier sampleMetaId;
+
+        private final Set<String> traceIds = new HashSet<>();
 
         private final Set<String> recordNames = new HashSet<>();
 
         public MetaIdsAndRecordNames(IMetadataIdentifier metaId,
                 Set<String> recordNames) {
-            metaIds.add(metaId);
+            sampleMetaId = metaId;
+            traceIds.add(metaId.getTraceId());
             this.recordNames.addAll(recordNames);
         }
 
-        public boolean merge(IMetadataIdentifier metaId,
-                Set<String> recordNames) {
-            IMetadataIdentifier sampleMetaId = metaIds.iterator().next();
-            if (sampleMetaId.equalsIgnoreTraceId(metaId)) {
-                metaIds.add(metaId);
-                this.recordNames.addAll(recordNames);
-                return true;
-            }
-            return false;
+        public void add(IMetadataIdentifier metaId, Set<String> recordNames) {
+            traceIds.add(metaId.getTraceId());
+            this.recordNames.addAll(recordNames);
         }
 
-        public Set<IMetadataIdentifier> getMetaIds() {
-            return Collections.unmodifiableSet(metaIds);
+        public IMetadataIdentifier getSampleMetaId() {
+            return sampleMetaId;
         }
 
         public Set<String> getRecordNames() {
@@ -790,8 +811,38 @@ public class DataStoreCacheStore
 
         @Override
         public String toString() {
-            return "MetaIdsAndRecordNames [metaIds=" + metaIds
-                    + ", recordNames=" + recordNames + "]";
+            return "MetaIdsAndRecordNames [sampleMetaId=" + sampleMetaId
+                    + ", traceIds=" + traceIds + ", recordNames=" + recordNames
+                    + "]";
+        }
+    }
+
+    private static class MetadataIdentifierWrapper {
+
+        private final IMetadataIdentifier metaId;
+
+        public MetadataIdentifierWrapper(IMetadataIdentifier metaId) {
+            this.metaId = metaId;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            MetadataIdentifierWrapper other = (MetadataIdentifierWrapper) obj;
+            return metaId.equalsIgnoreTraceId(other.metaId);
+        }
+
+        @Override
+        public int hashCode() {
+            return metaId.hashCodeIgnoreTraceId();
         }
     }
 }

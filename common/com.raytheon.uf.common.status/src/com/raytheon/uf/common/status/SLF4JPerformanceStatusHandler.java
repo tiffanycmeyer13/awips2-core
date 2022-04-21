@@ -4,24 +4,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Log4j Performance status handler.
- * 
+ * Slf4j Performance status handler.
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Feb 14, 2013   1584     mpduff      Initial creation
  * Jun 27, 2013   2142     njensen     Switched to SLF4J
- * 
+ * Jan 26, 2022   8741     njensen     Renamed class, formerly known as
+ *                                     Log4JPerformanceStatusHandler
+ *
  * </pre>
- * 
+ *
  * @author mpduff
- * @version 1.0
  */
 
-public class Log4JPerformanceStatusHandler implements IPerformanceStatusHandler {
+public class SLF4JPerformanceStatusHandler
+        implements IPerformanceStatusHandler {
+
     /** Logger */
     private final Logger perfLog = LoggerFactory.getLogger("PerformanceLogger");
 
@@ -30,11 +33,11 @@ public class Log4JPerformanceStatusHandler implements IPerformanceStatusHandler 
 
     /**
      * Constructor.
-     * 
+     *
      * @param prefix
      *            Message prefix
      */
-    public Log4JPerformanceStatusHandler(String prefix) {
+    public SLF4JPerformanceStatusHandler(String prefix) {
         this.prefix = prefix;
     }
 
