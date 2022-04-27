@@ -61,7 +61,7 @@ import com.raytheon.uf.common.time.DataTime;
 import com.raytheon.uf.edex.core.dataplugin.PluginRegistry;
 import com.raytheon.uf.edex.database.plugin.PluginDao;
 
-import net.sf.cglib.beans.BeanMap;
+import org.springframework.cglib.beans.BeanMap;
 
 /**
  * Provides an extension to PluginDao that provides access for PointData data
@@ -84,6 +84,7 @@ import net.sf.cglib.beans.BeanMap;
  * Nov 20, 2014  3853     njensen     Improved javadoc of getPointDataDescription()
  * Nov 16, 2017  6367     tgurney     Send timing information to log file
  * Sep 23, 2021  8608     mapeters    Add metadata id handling
+ * Apr 21, 2022  8709     tjensen     Remove net.sf.cglib
  *
  * </pre>
  *
