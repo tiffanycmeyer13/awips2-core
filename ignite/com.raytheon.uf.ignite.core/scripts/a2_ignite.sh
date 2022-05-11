@@ -31,7 +31,6 @@ source ${dir}/setup.env
 
 AWIPS_HOME=${AWIPS_HOME:-`dirname $IGNITE_HOME`}
 JAVA_HOME=${JAVA_HOME:-${AWIPS_HOME}/java}
-EDEX_HOME=${EDEX_HOME:-${AWIPS_HOME}/edex}
 
 DEBUG_PORT=${DEBUG_PORT:-5102}
 
@@ -75,9 +74,9 @@ do
     esac
 done
 
-CLASSPATH=${EDEX_HOME}/lib/plugins/*
+CLASSPATH=${IGNITE_HOME}/lib/plugins/*
 
-for DIRECTORY in ${EDEX_HOME}/lib/dependencies/*
+for DIRECTORY in ${IGNITE_HOME}/lib/dependencies/*
 do
     CLASSPATH+=":$DIRECTORY/*"
 done

@@ -12,9 +12,9 @@
       </encoder>
    </appender>
 
-   <appender name="pypiesFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+   <appender name="performanceFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
       <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-          <fileNamePattern>${IGNITE_HOME}/logs/ignite-pypies-%d{yyyMMdd}.log.gz</fileNamePattern>
+          <fileNamePattern>${IGNITE_HOME}/logs/ignite-performance-%d{yyyMMdd}.log.gz</fileNamePattern>
           <totalSizeCap>5GB</totalSizeCap>
           <maxHistory>60</maxHistory>
       </rollingPolicy>
@@ -23,9 +23,9 @@
       </encoder>
    </appender>
 
-   <appender name="performanceFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+   <appender name="pypiesFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
       <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-          <fileNamePattern>${IGNITE_HOME}/logs/ignite-performance-%d{yyyMMdd}.log.gz</fileNamePattern>
+          <fileNamePattern>${IGNITE_HOME}/logs/ignite-pypies-%d{yyyMMdd}.log.gz</fileNamePattern>
           <totalSizeCap>5GB</totalSizeCap>
           <maxHistory>60</maxHistory>
       </rollingPolicy>
@@ -38,41 +38,24 @@
       <appender-ref ref="file" />
    </appender>
 
-   <appender name="asyncPypiesFile" class="ch.qos.logback.classic.AsyncAppender">
-      <appender-ref ref="pypiesFile" />
-   </appender>
-
    <appender name="asyncPerformanceFile" class="ch.qos.logback.classic.AsyncAppender">
       <appender-ref ref="performanceFile" />
    </appender>
 
-   <!-- PyPiesRequest log -->
-   <appender name="PyPiesRequestLogFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
-      <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-          <fileNamePattern>${IGNITE_HOME}/logs/ignite-pypies-%d{yyyMMdd}.log.gz</fileNamePattern>
-          <totalSizeCap>5GB</totalSizeCap>
-          <maxHistory>60</maxHistory>
-      </rollingPolicy>
-      <encoder>
-         <pattern>%-5p %d %4.4lsn [%t] %c{0}: %m%n</pattern>
-      </encoder>
-   </appender>
-
-   <appender name="AsyncPyPiesRequestLogAppender" class="ch.qos.logback.classic.AsyncAppender">
+   <appender name="asyncPypiesFile" class="ch.qos.logback.classic.AsyncAppender">
       <queueSize>500</queueSize>
-      <appender-ref ref="PyPiesRequestLogFile"/>
+      <appender-ref ref="pypiesFile"/>
    </appender>   
 
    <logger name="PyPiesRequestLogger" level="ALL" additivity="false">
-      <appender-ref ref="AsyncPyPiesRequestLogAppender"/>
+      <appender-ref ref="asyncPypiesFile"/>
+   </logger>
+
+   <logger name="com.raytheon.uf.common.pypies" level="INFO" additivity="false">
+      <appender-ref ref="asyncPypiesFile"/>
    </logger>
 
    <logger name="org.eclipse.jetty" level="ERROR" />
-
-   <logger name="com.raytheon.uf.common.pypies" additivity="false">
-      <level value="INFO"/>
-      <appender-ref ref="asyncPypiesFile"/>
-   </logger>
 
    <logger name="PerformanceLogger" additivity="false">
       <level value="DEBUG"/>
