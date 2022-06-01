@@ -1802,4 +1802,10 @@
     <Level displayName="NTAT" key="NTAT" group="S">
         <DatabaseLevel levelName="NTAT" levelOneValue="0" />
     </Level>
+    <Level displayName="Sigma 0.995" key="SIG0.995">
+        <DatabaseLevel levelName="SIG" levelOneValue="0.995" />
+    </Level>
+    <Level displayName="80FHAG" key="80FHAG">
+        <DatabaseLevel levelName="FHAG" levelOneValue="80.0" />
+    </Level>
 </LevelMappings>
