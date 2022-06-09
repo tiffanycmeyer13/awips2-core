@@ -46,6 +46,7 @@ import com.raytheon.uf.common.jms.JmsSslConfiguration;
  * Oct 11, 2019 7724       tgurney     Initial creation
  * May 27, 2021 8469       dgilling    Pass broker REST service port through
  *                                     JMSConnectionInfo.
+ * Apr 12, 2022 8677       tgurney     Minor changes to SSL configuration API
  * </pre>
  *
  * @author tgurney
@@ -62,6 +63,7 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
             throws JMSConfigurationException {
         String url = QpidUFConnectionFactory.getConnectionURL(connectionInfo);
         this.connectionFactory = new JmsConnectionFactory(url);
+
         this.jmsAdmin = new QpidBrokerRestImpl(connectionInfo.getHost(),
                 connectionInfo.getVhost(), connectionInfo.getServicePort());
     }
@@ -125,7 +127,7 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
         Path trustStorePath = sslConfig.getJavaTrustStoreFile();
         Path keyStorePath = sslConfig.getJavaKeyStoreFile();
         try {
-            String password = sslConfig.getPassword();
+            String password = sslConfig.getStorePassword();
 
             uriBuilder.addParameter("transport.trustStoreLocation",
                     trustStorePath.toString());

@@ -21,7 +21,7 @@ package com.raytheon.uf.common.datastore.ignite;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import com.raytheon.uf.common.comm.ssl.AbstractSslConfiguration;
+import com.raytheon.uf.common.comm.ssl.SslConfiguration;
 
 /**
  *
@@ -35,16 +35,14 @@ import com.raytheon.uf.common.comm.ssl.AbstractSslConfiguration;
  * ------------ ---------- ----------- --------------------------
  * Oct 28, 2021 8667       mapeters    Initial creation (mainly extracted from
  *                                     JmsSslConfiguration)
+ * Apr 12, 2022 8677       tgurney     Remove password method overrides and key
+ *                                     store type arguments
  *
  * </pre>
  *
  * @author mapeters
  */
-public class IgniteSslConfiguration extends AbstractSslConfiguration {
-
-    private static final String KEY_STORE_TYPE = "pkcs12";
-
-    private static final String KEY_STORE_EXT = ".p12";
+public class IgniteSslConfiguration extends SslConfiguration {
 
     private static final String CERTIFICATE_DIR = "IGNITE_SSL_CERT_DB";
 
@@ -57,15 +55,15 @@ public class IgniteSslConfiguration extends AbstractSslConfiguration {
      *            contains a different name.
      */
     public IgniteSslConfiguration(String defaultClientName) {
-        super(defaultClientName, CERTIFICATE_NAME, getCertDbPath(),
-                KEY_STORE_TYPE, KEY_STORE_EXT);
+        super(defaultClientName, CERTIFICATE_NAME, getCertDbPath());
     }
 
     private static Path getCertDbPath() {
         String certDB = System.getenv(CERTIFICATE_DIR);
         if (certDB == null) {
             throw new IllegalStateException(
-                    "Unable to load ssl certificates for ignite ssl. Consider setting the environmental variable: "
+                    "Could not find the Ignite SSL certificate directory. "
+                            + "Consider setting the environment variable: "
                             + CERTIFICATE_DIR);
         }
         return Paths.get(certDB);
@@ -84,16 +82,6 @@ public class IgniteSslConfiguration extends AbstractSslConfiguration {
      */
     public String getJavaTrustStorePath() {
         return getJavaTrustStoreFile().toAbsolutePath().toString();
-    }
-
-    @Override
-    public String getKeyStorePassword() throws Exception {
-        return IgnitePasswordUtils.getIgniteKeyStorePassword();
-    }
-
-    @Override
-    public String getTrustStorePassword() throws Exception {
-        return IgnitePasswordUtils.getIgniteTrustStorePassword();
     }
 
 }
