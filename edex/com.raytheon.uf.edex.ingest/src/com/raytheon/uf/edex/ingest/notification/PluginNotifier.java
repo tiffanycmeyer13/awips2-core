@@ -96,7 +96,7 @@ public class PluginNotifier implements IContextStateProcessor {
             .getHandler(PluginNotifier.class);
 
     private final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("Notification:");
+            .getHandler("Notification");
 
     private static final int DEFAULT_TIME_TO_LIVE = 300_000;
 

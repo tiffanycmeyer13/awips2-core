@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -36,10 +36,10 @@ import com.raytheon.uf.viz.core.requests.ThriftClient;
 
 /**
  * Performs a database query.
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer  Description
  * ------------- -------- --------- --------------------------------------------
  * Jun 05, 2008  875      bphillip  Initial Creation.
@@ -49,9 +49,10 @@ import com.raytheon.uf.viz.core.requests.ThriftClient;
  * Mar 20, 2013  1638     mschenke  Rewrote to use DbQueryRequest under the hood
  *                                  to remove use of ScriptCreator
  * Nov 14, 2016  5976     bsteffen  Remove deprecated method
- * 
+ * Dec 07, 2021  8341     randerso  Added getConstraints() method
+ *
  * </pre>
- * 
+ *
  * @author bphillip
  */
 public class DbQuery {
@@ -71,7 +72,7 @@ public class DbQuery {
 
     /**
      * Performs a query
-     * 
+     *
      * @return The response
      * @throws VizException
      */
@@ -79,7 +80,7 @@ public class DbQuery {
         DbQueryResponse response = (DbQueryResponse) ThriftClient
                 .sendRequest(request);
         List<RequestField> fields = request.getFields();
-        if (fields == null || fields.size() == 0) {
+        if (fields == null || fields.isEmpty()) {
             fields = new ArrayList<>();
             RequestField entity = new RequestField();
             entity.setField(DbQueryResponse.ENTITY_RESULT_KEY);
@@ -93,7 +94,8 @@ public class DbQuery {
             Object[] objs = new Object[fields.size()];
             int i = 0;
             for (RequestField field : fields) {
-                objs[i++] = result.get(field.field);
+                objs[i] = result.get(field.field);
+                i++;
             }
             rval.add(objs);
         }
@@ -118,7 +120,8 @@ public class DbQuery {
         addColumn(distinctField);
     }
 
-    public void addConstraint(String key, ConstraintType operator, Object value) {
+    public void addConstraint(String key, ConstraintType operator,
+            Object value) {
         RequestConstraint constraint = new RequestConstraint();
 
         switch (operator) {
@@ -151,7 +154,7 @@ public class DbQuery {
 
     /**
      * Adds a column to the list
-     * 
+     *
      * @param columnName
      *            A column name
      */
@@ -166,7 +169,7 @@ public class DbQuery {
 
     /**
      * Adds a column to the list
-     * 
+     *
      * @param columnName
      *            A column name
      */
@@ -176,7 +179,7 @@ public class DbQuery {
 
     /**
      * Set the sort order to ascending?
-     * 
+     *
      * @param ascending
      *            - true if ascending, false if descending
      */
@@ -186,12 +189,19 @@ public class DbQuery {
 
     /**
      * Limit the number of rows returned
-     * 
+     *
      * @param maxResults
      *            - the maximum number of rows to return use -999 for all rows
      */
     public void setMaxResults(Integer maxResults) {
         request.setLimit(maxResults);
+    }
+
+    /**
+     * @return the request constraints
+     */
+    public Map<String, RequestConstraint> getConstraints() {
+        return request.getConstraints();
     }
 
 }

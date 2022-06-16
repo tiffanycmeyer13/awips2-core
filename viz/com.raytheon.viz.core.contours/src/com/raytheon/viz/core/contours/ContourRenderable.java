@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -50,21 +50,23 @@ import com.raytheon.viz.core.contours.ContourSupport.ContourGroup;
  *
  * <pre>
  * SOFTWARE HISTORY
- * Date          Ticket#  Engineer    Description
- * ------------- -------- ----------- --------------------------
- * Jul 10, 2008	 1233	  chammack	  Initial creation
- * Jul 18, 2013  2199     mschenke    Made code only smooth data once
- * Aug 23, 2013  2157     dgilling    Remove meteolib dependency.
- * Feb 27, 2014  2791     bsteffen    Switch from IDataRecord to DataSource and
- *                                    reduce loop freezing.
- * Jun 30, 2015 RM14663   kshresth    Font size increased for Contour labels.
- * Jun 27, 2019  65510    ksunil      refactor smoothData call
- * Jul 31, 2019  66719    ksunil      Ignore smoothingDistance of 0 or less.
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Jul 10, 2008  1233     chammack  Initial creation
+ * Jul 18, 2013  2199     mschenke  Made code only smooth data once
+ * Aug 23, 2013  2157     dgilling  Remove meteolib dependency.
+ * Feb 27, 2014  2791     bsteffen  Switch from IDataRecord to DataSource and
+ *                                  reduce loop freezing.
+ * Jun 30, 2015  14663    kshresth  Font size increased for Contour labels.
+ * Jun 27, 2019  65510    ksunil    refactor smoothData call
+ * Jul 31, 2019  66719    ksunil    Ignore smoothingDistance of 0 or less.
+ * Dec 06, 2021  8341     randerso  Added use of getResourceId for contour
+ *                                  logging
  *
  * </pre>
  *
  * @author chammack
- * @version 1.0
  */
 
 public abstract class ContourRenderable implements IRenderable {
@@ -108,19 +110,21 @@ public abstract class ContourRenderable implements IRenderable {
 
     private IFont minMaxFont;
 
+    private String resourceId;
+
     /**
      * Constructor
      *
-     * @param styleRule
      * @param descriptor
-     * @param callback
-     * @param lineStyle
+     * @param resourceId
+     *            to be displayed when logging performance info
      */
-    public ContourRenderable(IMapDescriptor descriptor) {
+    public ContourRenderable(IMapDescriptor descriptor, String resourceId) {
 
         this.descriptor = descriptor;
+        this.resourceId = resourceId;
         uuid = UUID.randomUUID().toString();
-        this.requestMap = new HashMap<String, ContourCreateRequest>();
+        this.requestMap = new HashMap<>();
     }
 
     private DataSource[] getContourData() throws VizException {
@@ -199,13 +203,6 @@ public abstract class ContourRenderable implements IRenderable {
         this.lineStyle = lineStyle;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * com.raytheon.viz.core.drawables.IRenderable#paint(com.raytheon.viz.core
-     * .IGraphicsTarget, com.raytheon.viz.core.drawables.PaintProperties)
-     */
     @Override
     public void paint(IGraphicsTarget target, PaintProperties paintProps)
             throws VizException {
@@ -222,33 +219,35 @@ public abstract class ContourRenderable implements IRenderable {
                 if (font == null) {
                     font = target.getDefaultFont();
 
-                    if (magnification < 1.0f)
+                    if (magnification < 1.0f) {
                         font = target.initializeFont(font.getFontName(),
                                 (float) (font.getFontSize() / 0.9
                                         * magnification),
                                 null);
-                    else
+                    } else {
                         font = target.initializeFont(font.getFontName(),
                                 (float) (font.getFontSize() / 1.05
                                         * magnification),
                                 null);
+                    }
                 }
 
                 if (minMaxFont == null) {
                     minMaxFont = target.getDefaultFont();
 
-                    if (magnification < 1.0f)
+                    if (magnification < 1.0f) {
                         minMaxFont = target.initializeFont(
                                 minMaxFont.getFontName(),
                                 (float) (minMaxFont.getFontSize() / 0.85
                                         * magnification),
                                 new Style[] { Style.BOLD });
-                    else
+                    } else {
                         minMaxFont = target.initializeFont(
                                 minMaxFont.getFontName(),
                                 (float) (minMaxFont.getFontSize() / 1.0
                                         * magnification),
                                 new Style[] { Style.BOLD });
+                    }
                 }
 
                 // To convert from i to zoomLevel, take i + 1.0 / 2 so
@@ -312,7 +311,8 @@ public abstract class ContourRenderable implements IRenderable {
                                     .get(identifier);
                             // create a new request
                             ContourCreateRequest request = new ContourCreateRequest(
-                                    identifier, dataRecord, (i + 1) / 2.0f,
+                                    resourceId, identifier, dataRecord,
+                                    (i + 1) / 2.0f,
                                     paintProps.getView().getExtent(), density,
                                     magnification, gridGeometry, target,
                                     descriptor, contourPrefs, pixelDensity);
@@ -394,7 +394,6 @@ public abstract class ContourRenderable implements IRenderable {
                         if (contourGroup[i] != null
                                 && paintProps.getView().getExtent().intersects(
                                         contourGroup[i].lastUsedPixelExtent)) {
-                            // System.out.println("Painting group at " + i);
                             drawContourGroup(target, contourGroup[i]);
                         } else {
                             // see if we can display a higher level

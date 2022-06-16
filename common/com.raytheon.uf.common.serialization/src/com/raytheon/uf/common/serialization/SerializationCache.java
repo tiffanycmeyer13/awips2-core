@@ -23,9 +23,9 @@ package com.raytheon.uf.common.serialization;
 import java.util.HashMap;
 import java.util.Map;
 
-import net.sf.cglib.beans.BeanMap;
-import net.sf.cglib.beans.BeanMap.Generator;
-import net.sf.cglib.reflect.FastClass;
+import org.springframework.cglib.beans.BeanMap;
+import org.springframework.cglib.beans.BeanMap.Generator;
+import org.springframework.cglib.reflect.FastClass;
 
 /**
  * Provides a cache of cglib/reflection objects
@@ -37,23 +37,23 @@ import net.sf.cglib.reflect.FastClass;
  * Sep 03, 2008  #1448     chammack    Initial creation
  * Jun 16, 2015   4561     njensen     getFastClass() throws more specific
  *                                      exception
+ * Apr 21, 2022  8709      tjensen     Remove net.sf.cglib
  * 
  * </pre>
  * 
  * @author chammack
- * @version 1.0
  */
 
 public class SerializationCache {
 
     /** The beanmap generator cache */
-    private static Map<Class<?>, BeanMap.Generator> generators = new HashMap<Class<?>, BeanMap.Generator>();
+    private static Map<Class<?>, BeanMap.Generator> generators = new HashMap<>();
 
     /** The beanmap cache */
-    private static Map<Class<?>, BeanMap> beanMaps = new HashMap<Class<?>, BeanMap>();
+    private static Map<Class<?>, BeanMap> beanMaps = new HashMap<>();
 
     /** The fastclass cache */
-    private static Map<String, FastClass> classCache = new HashMap<String, FastClass>();
+    private static Map<String, FastClass> classCache = new HashMap<>();
 
     /**
      * protected constructor

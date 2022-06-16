@@ -40,6 +40,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthProtocolState;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.AuthState;
+import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
 import org.apache.http.client.CredentialsProvider;
@@ -110,6 +111,8 @@ import com.raytheon.uf.common.util.rate.TokenBucket;
  * Feb 22, 2016  5306        njensen     Get new HttpClientContext if host or port change
  * Nov 29, 2016  5937        tgurney     Add optional rate limiting to postDynamicSerialize
  * Mar 24, 2017  DR 19830    D. Friedman Retry with delay on connection or 503 errors.
+ * Aug 06, 2021  DR 22528    smoorthy    Added functionality to provide ServerName property in case of Http Proxy Server.
+ *                                       Added method to retrieve credentials based on AuthScope.
  *
  * </pre>
  *
@@ -179,6 +182,10 @@ public class HttpClient {
     private volatile CloseableHttpClient client;
 
     private final HttpClientConfig config;
+
+    /** map of host to ServerName property. Used for the Http Proxy Server*/
+    private Map<String, String> serverNameMap = new ConcurrentHashMap<>();
+
 
     /**
      * The credentials provider takes care of adding the Authorization header
@@ -453,6 +460,13 @@ public class HttpClient {
                 throw new InvalidURIException(
                         "Invalid URI: " + put.getURI().toString());
             }
+
+            //add the ServerName to request header if exists (for the Proxy scenerio)
+            String serverName = serverNameMap.get(host);
+            if (serverName != null) {
+                put.addHeader("Host", serverName);
+            }
+
             ongoing = currentRequestsCount.get(host);
             if (ongoing == null) {
                 ongoing = new AtomicInteger();
@@ -1021,6 +1035,35 @@ public class HttpClient {
                         AuthSchemes.BASIC),
                 new UsernamePasswordCredentials(username, password));
     }
+
+
+    /**
+     * Get credentials based on AuthScope
+     *
+     * @param AuthScope
+     *            Authentication scope information
+     * @return Credentials
+     *            User credentials for a particular AuthScope
+     */
+    public Credentials getCredentials(AuthScope authScope) {
+        return credentialsMap.get(authScope.getHost()).getCredentials(authScope);
+    }
+
+
+    /**
+     * 
+     * Map ServerName attribute for a particular host. 
+     *
+     * @param host
+     *            The host
+     * @param serverName
+     *            The ServerName attribute on the corresponding virtual host node (used for Proxy Server)
+     */
+    public void setHostHeader(String host, String serverName) {
+        this.serverNameMap.put(host, serverName);
+    }
+
+
 
     /**
      * Gets a thread local HttpContext to use for an http or https request.

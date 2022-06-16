@@ -60,7 +60,7 @@ public class IndexSrv {
     private Logger logger = LoggerFactory.getLogger(getClass());
 
     private final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("DataBase:");
+            .getHandler("DataBase");
 
     /** The default constructor */
     public IndexSrv() {
