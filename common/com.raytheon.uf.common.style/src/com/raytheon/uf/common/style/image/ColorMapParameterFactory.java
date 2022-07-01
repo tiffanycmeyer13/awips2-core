@@ -86,6 +86,9 @@ import com.raytheon.uf.common.util.GridUtil;
  * Jun 27, 2019  65510    ksunil      support color fill through XML entries
  * Jul 25, 2019  65809    ksunil      fixed potential cache issue in colormap
  *                                     when fill colors are overridden through XML
+ * Jul 01, 2022  8872     jsebahar    added check to correct array out of bounds
+ *                                     exception for overridden gridImageryStyleRules
+ *                                     specifically colorMapFillExtensions
  * </pre>
  *
  * @author chammack
@@ -234,7 +237,8 @@ public class ColorMapParameterFactory {
                     if (definedMax != null) {
                         double definedDataMax = definedMax;
                         if (displayToData != null) {
-                            definedDataMax = displayToData.convert(definedMax).doubleValue();
+                            definedDataMax = displayToData.convert(definedMax)
+                                    .doubleValue();
                         }
                         if (definedDataMax > max) {
                             max = (float) definedDataMax;
@@ -247,7 +251,8 @@ public class ColorMapParameterFactory {
                     if (definedMin != null) {
                         double definedDataMin = definedMin;
                         if (displayToData != null) {
-                            definedDataMin = displayToData.convert(definedMin).doubleValue();
+                            definedDataMin = displayToData.convert(definedMin)
+                                    .doubleValue();
                         }
                         if (definedDataMin < min) {
                             min = (float) definedDataMin;
@@ -291,9 +296,11 @@ public class ColorMapParameterFactory {
             }
 
             float displayMin = dataToDisplay != null
-                    ? (float) dataToDisplay.convert(colormapMin) : colormapMin;
+                    ? (float) dataToDisplay.convert(colormapMin)
+                    : colormapMin;
             float displayMax = dataToDisplay != null
-                    ? (float) dataToDisplay.convert(colormapMax) : colormapMax;
+                    ? (float) dataToDisplay.convert(colormapMax)
+                    : colormapMax;
 
             if (preferences.getColorbarLabeling() != null) {
                 extractLabelValues(preferences, displayMax, displayMin, params);
@@ -851,6 +858,13 @@ public class ColorMapParameterFactory {
         float[] r = cMap.getRed();
         float[] g = cMap.getGreen();
         float[] b = cMap.getBlue();
+
+        // Protect against array out of bounds exception, "last" is derived from
+        // potential user created styleRules
+        if (last >= cMap.getSize()) {
+            last = cMap.getSize() - 1;
+        }
+
         for (int i = first; i <= last; i++) {
             r[i] = color[0] / Colormapper.MAX_VALUE;
             g[i] = color[1] / Colormapper.MAX_VALUE;
@@ -873,7 +887,8 @@ public class ColorMapParameterFactory {
             try {
                 cMap = ColorMapLoader
                         .loadColorMap(cMapDefaultName + extendedName);
-            } catch (ColorMapException e) {
+            } catch (@SuppressWarnings("squid:S1166")
+            ColorMapException e) {
                 cMap = ColorMapLoader.loadColorMap(cMapDefaultName);
                 for (FillLabelingPreferences fillPrefs : currentFillValues) {
                     cMap = mergeFillColors(cMap,
