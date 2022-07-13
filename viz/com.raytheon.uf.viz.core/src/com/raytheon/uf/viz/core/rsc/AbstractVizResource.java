@@ -85,6 +85,7 @@ import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
  * Jan 31, 2018  5863     mapeters   Add time-agnostic check in remove(DataTime)
  * Feb 18, 2021  8343     mchan      Added performance logging to capture how look
  *                                   took to initialize and paint a resource
+ * Dec 06, 2021  8341     randerso   Added getResourceId for contour logging
  *
  * </pre>
  *
@@ -92,7 +93,7 @@ import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
  */
 public abstract class AbstractVizResource<T extends AbstractResourceData, D extends IDescriptor> {
 
-    protected static final transient IUFStatusHandler statusHandler = UFStatus
+    protected static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(AbstractVizResource.class);
 
     private static final IPerformanceStatusHandler perfLog = PerformanceStatus
@@ -166,17 +167,13 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      */
     private Set<IDisposeListener> disposeListeners;
 
-    private IResourceDataChanged changeListener = new IResourceDataChanged() {
-        @Override
-        public void resourceChanged(ChangeType type, Object object) {
-            if ((type == ChangeType.DATA_REMOVE)
-                    && (object instanceof DataTime)) {
-                remove((DataTime) object);
-            } else {
-                AbstractVizResource.this.resourceDataChanged(type, object);
-            }
-            issueRefresh();
+    private IResourceDataChanged changeListener = (type, object) -> {
+        if ((type == ChangeType.DATA_REMOVE) && (object instanceof DataTime)) {
+            remove((DataTime) object);
+        } else {
+            AbstractVizResource.this.resourceDataChanged(type, object);
         }
+        issueRefresh();
     };
 
     /**
@@ -379,7 +376,6 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      * @throws VizException
      */
     public void project(CoordinateReferenceSystem crs) throws VizException {
-        return;
     }
 
     /**
@@ -392,7 +388,6 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      * @param updateObject
      */
     protected void resourceDataChanged(ChangeType type, Object updateObject) {
-        return;
     }
 
     /**
@@ -918,5 +913,18 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
             statusHandler.handle(Priority.DEBUG, e.getLocalizedMessage(), e);
         }
         return safeResourceName;
+    }
+
+    /**
+     * Get a resource ID to be used for log labeling
+     *
+     * @param time
+     * @return resource ID consisting of the resource name and data time if
+     *         known
+     */
+    public final String getResourceId(DataTime time) {
+        String resourceId = getSafeName().replaceAll(" +", " ")
+                + (time == null ? "" : time);
+        return resourceId;
     }
 }

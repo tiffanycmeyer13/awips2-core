@@ -97,7 +97,7 @@ import com.raytheon.uf.viz.core.rsc.AbstractRequestableResourceData;
 import com.raytheon.uf.viz.core.rsc.AbstractResourceData;
 import com.raytheon.uf.viz.core.rsc.AbstractVizResource;
 import com.raytheon.uf.viz.core.rsc.DisplayType;
-import com.raytheon.uf.viz.core.rsc.IResourceDataChanged;
+import com.raytheon.uf.viz.core.rsc.IResourceDataChanged.ChangeType;
 import com.raytheon.uf.viz.core.rsc.LoadProperties;
 import com.raytheon.uf.viz.core.rsc.RenderingOrderFactory;
 import com.raytheon.uf.viz.core.rsc.RenderingOrderFactory.ResourceOrder;
@@ -186,6 +186,8 @@ import tec.uom.se.quantity.Quantities;
  *                                     sample value if defined.
  * Aug 31, 2021  8651     njensen      Changed ConcurrentHashMaps' visibilities
  *                                     from private to protected
+ * Dec 06, 2021  8341     randerso     Added use of getResourceId for contour
+ *                                     logging
  *
  * </pre>
  *
@@ -269,33 +271,30 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
     protected AbstractGridResource(T resourceData,
             LoadProperties loadProperties) {
         super(resourceData, loadProperties, false);
-        resourceData.addChangeListener(new IResourceDataChanged() {
-            @Override
-            public void resourceChanged(ChangeType type, Object object) {
-                if (type == ChangeType.DATA_UPDATE) {
-                    if (object instanceof PluginDataObject) {
-                        addDataObject((PluginDataObject) object);
-                    } else if (object instanceof PluginDataObject[]) {
-                        for (PluginDataObject pdo : (PluginDataObject[]) object) {
-                            addDataObject(pdo);
-                        }
-                    } else if (object instanceof Object[]) {
-                        for (Object obj : (Object[]) object) {
-                            if (obj instanceof PluginDataObject) {
-                                addDataObject((PluginDataObject) obj);
-                            }
+        resourceData.addChangeListener((type, object) -> {
+            if (type == ChangeType.DATA_UPDATE) {
+                if (object instanceof PluginDataObject) {
+                    addDataObject((PluginDataObject) object);
+                } else if (object instanceof PluginDataObject[]) {
+                    for (PluginDataObject pdo : (PluginDataObject[]) object) {
+                        addDataObject(pdo);
+                    }
+                } else if (object instanceof Object[]) {
+                    for (Object obj : (Object[]) object) {
+                        if (obj instanceof PluginDataObject) {
+                            addDataObject((PluginDataObject) obj);
                         }
                     }
-                } else if (type == ChangeType.CAPABILITY) {
-                    if (object instanceof AbstractCapability) {
-                        AbstractCapability capability = (AbstractCapability) object;
-                        synchronized (renderableMap) {
-                            for (List<IRenderable> renderableList : renderableMap
-                                    .values()) {
-                                for (IRenderable renderable : renderableList) {
-                                    updataRenderableCapabilities(renderable,
-                                            capability);
-                                }
+                }
+            } else if (type == ChangeType.CAPABILITY) {
+                if (object instanceof AbstractCapability) {
+                    AbstractCapability capability = (AbstractCapability) object;
+                    synchronized (renderableMap) {
+                        for (List<IRenderable> renderableList : renderableMap
+                                .values()) {
+                            for (IRenderable renderable : renderableList) {
+                                updataRenderableCapabilities(renderable,
+                                        capability);
                             }
                         }
                     }
@@ -541,8 +540,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
      * Create an interpolation and format to be used when sampling
      */
     protected void initSampling() {
-        if (stylePreferences != null
-                && stylePreferences instanceof ImagePreferences) {
+        if (stylePreferences instanceof ImagePreferences) {
             ImagePreferences prefs = (ImagePreferences) stylePreferences;
             sampleFormat = prefs.getSampleFormat();
         }
@@ -553,11 +551,12 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
      *
      * @param target
      * @param data
+     * @param time
      * @return
      * @throws VizException
      */
     public IRenderable createRenderable(IGraphicsTarget target,
-            GeneralGridData data) throws VizException {
+            GeneralGridData data, DataTime time) throws VizException {
         IRenderable renderable = null;
 
         GridGeometry2D gridGeometry = data.getGridGeometry();
@@ -630,8 +629,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
                     CLASS_NAME);
             if (displayType != DisplayType.BARB) {
                 config.disableCalmCircle();
-                if (stylePreferences != null
-                        && stylePreferences instanceof ArrowPreferences) {
+                if (stylePreferences instanceof ArrowPreferences) {
                     double scale = ((ArrowPreferences) stylePreferences)
                             .getScale();
                     if (scale >= 0.0) {
@@ -690,10 +688,11 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
             GriddedContourDisplay contourRenderable = null;
             if (displayType == DisplayType.CONTOUR) {
                 contourRenderable = new GriddedContourDisplay(descriptor,
-                        gridGeometry, data.getData());
+                        getResourceId(time), gridGeometry, data.getData());
             } else if (data instanceof VectorGridData) {
                 contourRenderable = new GriddedStreamlineDisplay(descriptor,
-                        gridGeometry, ((VectorGridData) data).getUComponent(),
+                        getSafeName(), gridGeometry,
+                        ((VectorGridData) data).getUComponent(),
                         ((VectorGridData) data).getVComponent());
             } else {
                 throw new VizException(
@@ -712,8 +711,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
             contourRenderable.setMagnification(
                     getCapability(MagnificationCapability.class)
                             .getMagnification());
-            if (stylePreferences != null
-                    && stylePreferences instanceof ContourPreferences) {
+            if (stylePreferences instanceof ContourPreferences) {
                 contourRenderable
                         .setPreferences((ContourPreferences) stylePreferences);
             }
@@ -851,22 +849,17 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
      * @param renderable
      */
     protected void disposeRenderable(final IRenderable renderable) {
-        VizApp.runAsync(new Runnable() {
-
-            @Override
-            public void run() {
-                if (renderable instanceof TileSetRenderable) {
-                    ((TileSetRenderable) renderable).dispose();
-                } else if (renderable instanceof AbstractGriddedDisplay<?>) {
-                    ((AbstractGriddedDisplay<?>) renderable).dispose();
-                } else if (renderable instanceof ContourRenderable) {
-                    ((ContourRenderable) renderable).dispose();
-                } else {
-                    statusHandler.warn("Undisposed renderable of type: "
-                            + renderable.getClass().getSimpleName());
-                }
+        VizApp.runAsync(() -> {
+            if (renderable instanceof TileSetRenderable) {
+                ((TileSetRenderable) renderable).dispose();
+            } else if (renderable instanceof AbstractGriddedDisplay<?>) {
+                ((AbstractGriddedDisplay<?>) renderable).dispose();
+            } else if (renderable instanceof ContourRenderable) {
+                ((ContourRenderable) renderable).dispose();
+            } else {
+                statusHandler.warn("Undisposed renderable of type: "
+                        + renderable.getClass().getSimpleName());
             }
-
         });
 
     }
@@ -1259,7 +1252,8 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
 
                 renderables = new ArrayList<>(dataList.size());
                 for (GeneralGridData data : dataList) {
-                    IRenderable renderable = createRenderable(target, data);
+                    IRenderable renderable = createRenderable(target, data,
+                            time);
                     if (renderable != null) {
                         renderables.add(renderable);
                     }

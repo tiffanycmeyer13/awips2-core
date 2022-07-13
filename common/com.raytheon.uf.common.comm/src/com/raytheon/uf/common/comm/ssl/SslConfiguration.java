@@ -28,6 +28,9 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyStore;
@@ -38,7 +41,10 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -47,7 +53,7 @@ import com.raytheon.uf.common.status.UFStatus;
 
 /**
  *
- * Abstract class for configuring the credentials for an SSL connection.
+ * Configures the credentials for an SSL connection.
  *
  * <pre>
  *
@@ -57,12 +63,22 @@ import com.raytheon.uf.common.status.UFStatus;
  * ------------ ---------- ----------- --------------------------
  * Oct 28, 2021 8667       mapeters    Initial creation (mainly extracted from
  *                                     JmsSslConfiguration)
+ * Apr 12, 2022 8677       tgurney     Use temporary keystore and truststore
+ *                                     with randomly generated password. Switch
+ *                                     from JKS to PKCS12
  *
  * </pre>
  *
  * @author mapeters
  */
-public abstract class AbstractSslConfiguration {
+/*
+ * Implementation details: Keystore and truststore are each written to a temp
+ * file when they are first accessed. These files are encrypted using a randomly
+ * generated password that is kept in RAM and is never stored elsewhere. There
+ * is a separate set of keystore/truststore files created for each
+ * SslConfiguration instance. The files are deleted on JVM exit.
+ */
+public class SslConfiguration {
 
     private final IUFStatusHandler statusHandler = UFStatus
             .getHandler(getClass());
@@ -75,12 +91,27 @@ public abstract class AbstractSslConfiguration {
 
     private final Path rootCert;
 
-    private final String keystoreType;
+    private static final String STORE_TYPE = "pkcs12";
 
-    private final String keystoreExt;
+    private static final String STORE_EXT = ".p12";
 
-    protected AbstractSslConfiguration(String defaultClientName, String clientNameVar,
-            Path certDir, String keystoreType, String keystoreExt) {
+    private Path trustStorePath = null;
+
+    private Path keyStorePath = null;
+
+    private String storePassword = null;
+
+    /*
+     * Must hold this lock before accessing trustStorePath, keyStorePath, or
+     * storePassword
+     */
+    private final Object storeLock = new Object();
+
+    private final Set<PosixFilePermission> STORE_PERMS = EnumSet.of(
+            PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+
+    protected SslConfiguration(String defaultClientName, String clientNameVar,
+            Path certDir) {
         String certName = System.getenv(clientNameVar);
         if (certName == null) {
             certName = defaultClientName;
@@ -90,9 +121,6 @@ public abstract class AbstractSslConfiguration {
         clientCert = certDir.resolve(certName + ".crt");
         clientKey = certDir.resolve(certName + ".key");
         rootCert = certDir.resolve("root.crt");
-        this.keystoreType = keystoreType;
-        this.keystoreExt = keystoreExt;
-
     }
 
     public String getClientName() {
@@ -122,10 +150,10 @@ public abstract class AbstractSslConfiguration {
                 InputStream crtStream = Files.newInputStream(getClientCert())) {
             PrivateKey privateKey = readPrivateKey(keyStream);
             X509Certificate[] certs = readCertificates(crtStream);
-            KeyStore keyStore = KeyStore.getInstance(keystoreType);
+            KeyStore keyStore = KeyStore.getInstance(STORE_TYPE);
             keyStore.load(null, null);
             keyStore.setKeyEntry(getClientName(), privateKey,
-                    getKeyStorePassword().toCharArray(), certs);
+                    getStorePassword().toCharArray(), certs);
             return keyStore;
         }
     }
@@ -139,7 +167,7 @@ public abstract class AbstractSslConfiguration {
     public KeyStore loadTrustStore() throws Exception {
         try (InputStream crtStream = Files.newInputStream(getRootCert())) {
             X509Certificate[] certs = readCertificates(crtStream);
-            KeyStore keyStore = KeyStore.getInstance(keystoreType);
+            KeyStore keyStore = KeyStore.getInstance(STORE_TYPE);
             keyStore.load(null, null);
             int alias = 1;
             for (Certificate cert : certs) {
@@ -150,76 +178,58 @@ public abstract class AbstractSslConfiguration {
         }
     }
 
+    private Path createTempStore(String label) throws IOException {
+        Path rval = com.raytheon.uf.common.util.file.Files.createTempFile(
+                Paths.get(System.getProperty("java.io.tmpdir")),
+                "pid" + Long.toString(ProcessHandle.current().pid()) + "-"
+                        + label + "-",
+                STORE_EXT, PosixFilePermissions.asFileAttribute(STORE_PERMS));
+        rval.toFile().deleteOnExit();
+        return rval;
+    }
+
     /**
      * @return the trust store file as a {@link Path}
      */
     public Path getJavaTrustStoreFile() {
-        Path path = clientKey.resolveSibling(clientName + keystoreExt);
-        boolean createStore = !Files.exists(path);
-
-        if (!createStore) {
-            // double check file times
-            try {
-                long storeTime = Files.getLastModifiedTime(path).toMillis();
-                long certTime = Files.getLastModifiedTime(getRootCert())
-                        .toMillis();
-                createStore = certTime >= storeTime;
-            } catch (IOException e) {
-                statusHandler.error(
-                        "Failed to check modified times for trust store.", e);
-            }
-
-        }
-
-        if (createStore) {
-            try {
-                KeyStore trustStore = loadTrustStore();
-                try (OutputStream out = Files.newOutputStream(path)) {
-                    trustStore.store(out,
-                            getTrustStorePassword().toCharArray());
+        synchronized (storeLock) {
+            if (trustStorePath == null) {
+                try {
+                    trustStorePath = createTempStore("truststore");
+                    KeyStore trustStore = loadTrustStore();
+                    try (OutputStream out = Files
+                            .newOutputStream(trustStorePath)) {
+                        trustStore.store(out, getStorePassword().toCharArray());
+                    }
+                } catch (Exception e) {
+                    statusHandler.error(
+                            "Failed to create java trust store file.", e);
                 }
-            } catch (Exception e) {
-                statusHandler.error("Failed to create java trust store file.",
-                        e);
             }
+            return trustStorePath;
         }
-        return path;
     }
 
     /**
      * @return the key store file as a {@link Path}
      */
     public Path getJavaKeyStoreFile() {
-        Path path = rootCert.resolveSibling("root" + keystoreExt);
-        boolean createStore = !Files.exists(path);
-
-        if (!createStore) {
-            // double check file times
-            try {
-                long storeTime = Files.getLastModifiedTime(path).toMillis();
-                long certTime = Files.getLastModifiedTime(getClientCert())
-                        .toMillis();
-                long keyTime = Files.getLastModifiedTime(getClientKey())
-                        .toMillis();
-                createStore = certTime >= storeTime || keyTime >= storeTime;
-            } catch (IOException e) {
-                statusHandler.error(
-                        "Failed to check modified times for trust store.", e);
-            }
-
-        }
-
-        if (createStore) {
-            try {
-                KeyStore keyStore = loadKeyStore();
-                try (OutputStream out = Files.newOutputStream(path)) {
-                    keyStore.store(out, getKeyStorePassword().toCharArray());
+        synchronized (storeLock) {
+            if (keyStorePath == null) {
+                try {
+                    keyStorePath = createTempStore("keystore");
+                    KeyStore keyStore = loadKeyStore();
+                    try (OutputStream out = Files
+                            .newOutputStream(keyStorePath)) {
+                        keyStore.store(out, getStorePassword().toCharArray());
+                    }
+                } catch (Exception e) {
+                    statusHandler.error("Failed to create java key store file.",
+                            e);
                 }
-            } catch (Exception e) {
-                statusHandler.error("Failed to create java key store file.", e);
             }
+            return keyStorePath;
         }
-        return path;
     }
 
     /**
@@ -290,14 +300,14 @@ public abstract class AbstractSslConfiguration {
     }
 
     /**
-     * @return the key store password
-     * @throws Exception
+     * @return the key store / trust store password
      */
-    public abstract String getKeyStorePassword() throws Exception;
-
-    /**
-     * @return the trust store password
-     * @throws Exception
-     */
-    public abstract String getTrustStorePassword() throws Exception;
+    public String getStorePassword() {
+        synchronized (storeLock) {
+            if (storePassword == null) {
+                storePassword = UUID.randomUUID().toString();
+            }
+            return storePassword;
+        }
+    }
 }

@@ -97,7 +97,7 @@ do
                 -DIGNITE_QUIET=${IGNITE_QUIET} \
                 ${RESTART_SUCCESS_OPT} \
                 -DIGNITE_PERFORMANCE_SUGGESTIONS_DISABLED=true \
-                -Djava.security.properties=${IGNITE_HOME}/config/java.security \
+                -Djava.security.properties=/awips2/etc/java.security \
                 -Dthrift.stream.maxsize=${THRIFT_STREAM_MAXSIZE} \
                 -Djava.net.preferIPv4Stack=true \
                 -Dlogback.configurationFile=${IGNITE_HOME}/config/ignite-logback.xml \

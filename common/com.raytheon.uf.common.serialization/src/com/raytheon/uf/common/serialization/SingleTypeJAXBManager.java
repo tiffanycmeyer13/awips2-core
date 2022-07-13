@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -24,45 +24,46 @@ import java.io.InputStream;
 
 import javax.xml.bind.JAXBException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.UFStatus;
 
 /**
  * A JAXBManager that only supports a single class (including any classes that
  * are contained within that class). Useful when dealing specifically with an
  * XML file where you know the type that corresponds to it.
- * 
+ *
  * Primarily used for convenience to avoid casting.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Oct 01, 2013  2361      njensen     Initial creation
- * Jul 21, 2014  3373      bclement    added pooling boolean constructor
- * Aug 08, 2014  3503      bclement    removed ufstatus
- * Feb 18, 2015  4125      rjpeter     Added unmarshalFromXml
- * Dec 10, 2015  4834      njensen     Added unmarshalFromInputStream
- * Jun 19, 2017  6316      njensen     Fixed logging
- * 
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- ----------------------------------
+ * Oct 01, 2013  2361     njensen   Initial creation
+ * Jul 21, 2014  3373     bclement  added pooling boolean constructor
+ * Aug 08, 2014  3503     bclement  removed ufstatus
+ * Feb 18, 2015  4125     rjpeter   Added unmarshalFromXml
+ * Dec 10, 2015  4834     njensen   Added unmarshalFromInputStream
+ * Jun 19, 2017  6316     njensen   Fixed logging
+ * Jan 11, 2022  8341     randerso  Changed to use UFStatus
+ *
  * </pre>
- * 
+ *
  * @author njensen
  * @param <T>
  */
 
 public class SingleTypeJAXBManager<T extends Object> extends JAXBManager {
 
-    private static final Logger logger = LoggerFactory
-            .getLogger(SingleTypeJAXBManager.class);
+    private static final IUFStatusHandler logger = UFStatus
+            .getHandler(SingleTypeJAXBManager.class);
 
     protected final Class<T> type;
 
     /**
      * Constructor. Only accepts a single class.
-     * 
+     *
      * @param clazz
      *            the class of the object to read/write XML for.
      * @throws JAXBException
@@ -86,7 +87,7 @@ public class SingleTypeJAXBManager<T extends Object> extends JAXBManager {
 
     /**
      * Instantiates an object from the XML representation in a File.
-     * 
+     *
      * @param file
      *            The XML file
      * @return A new instance from the XML representation
@@ -99,7 +100,7 @@ public class SingleTypeJAXBManager<T extends Object> extends JAXBManager {
 
     /**
      * Instantiates an object from the XML representation in a File.
-     * 
+     *
      * @param filePath
      *            The path to the XML file
      * @return A new instance from the XML representation
@@ -113,7 +114,7 @@ public class SingleTypeJAXBManager<T extends Object> extends JAXBManager {
 
     /**
      * Instantiates an object from the XML representation in a string.
-     * 
+     *
      * @param xml
      *            The XML representation
      * @return A new instance from the XML representation
@@ -126,7 +127,7 @@ public class SingleTypeJAXBManager<T extends Object> extends JAXBManager {
 
     /**
      * Instantiates an object from the XML representation in a stream.
-     * 
+     *
      * @param is
      *            The input stream. The stream will be closed by this operation.
      * @return A new instance from the XML representation
@@ -142,7 +143,7 @@ public class SingleTypeJAXBManager<T extends Object> extends JAXBManager {
      * Creates a SingleTypeJAXBManager for a specified type, but catches any
      * JAXBExceptions thrown and logs them. If an exception does occur, returns
      * null.
-     * 
+     *
      * @param clazz
      *            the class of the object to read/write XML for
      * @return the SingleTypeJAXBManager or null if an exception occurred
@@ -156,7 +157,7 @@ public class SingleTypeJAXBManager<T extends Object> extends JAXBManager {
      * Creates a SingleTypeJAXBManager for a specified type, but catches any
      * JAXBExceptions thrown and logs them. If an exception does occur, returns
      * null.
-     * 
+     *
      * @param pooling
      *            true if jaxb manager should pool resources
      * @param clazz

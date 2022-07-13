@@ -41,6 +41,8 @@ import org.eclipse.ui.internal.registry.IActionSetDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.viz.core.ProgramArguments;
 import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
 import com.raytheon.uf.viz.ui.menus.DiscoverMenuContributions;
@@ -73,6 +75,7 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  * Feb 16, 2021  8339     mchan     Added code to start UI thread monitoring job
  *                                  post startup
  * Feb 25, 2021  8339     randerso  Moved UIThreadMonitor to this package.
+ * Dec 16, 2021  8341     randerso  Changed to use performance logging
  *
  * </pre>
  *
@@ -83,6 +86,9 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
     private boolean createdMenus = false;
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    protected final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler(this.getClass().getSimpleName());
 
     protected long appStartTime = -1L;
 
@@ -128,8 +134,7 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
                 .getDefault().getActionSetRegistry();
 
         IActionSetDescriptor[] actionSets = reg.getActionSets();
-        String[] removeActionSets = new String[] {
-                "org.eclipse.search.searchActionSet",
+        String[] removeActionSets = { "org.eclipse.search.searchActionSet",
                 // "org.eclipse.ui.cheatsheets.actionSet",
                 "org.eclipse.ui.actionSet.keyBindings",
                 "org.eclipse.ui.edit.text.actionSet.navigation",
@@ -288,9 +293,8 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
         service.activateContext("com.raytheon.uf.viz.application.cave");
 
         if (workbenchStartTime > -1) {
-            logger.info("Workbench startup time: "
-                    + (System.currentTimeMillis() - workbenchStartTime)
-                    + " ms");
+            perfLog.logDuration("Workbench startup",
+                    (System.currentTimeMillis() - workbenchStartTime));
         }
 
         IWorkbenchWindow window = workbench.getActiveWorkbenchWindow();
@@ -300,10 +304,12 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
             long t0 = System.currentTimeMillis();
             VizPerspectiveListener.getInstance(window)
                     .perspectiveActivated(page, perspective);
-            logger.info(perspective.getLabel() + " perspective started in "
-                    + (System.currentTimeMillis() - t0) + " ms");
+            perfLog.logDuration(
+                    String.format("Starting perspective [%s]",
+                            perspective.getLabel()),
+                    (System.currentTimeMillis() - t0));
         } else {
-            logger.info("No perspective activated at startup");
+            perfLog.log("No perspective activated at startup");
         }
 
         /*
@@ -315,8 +321,8 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
         // print out total startup time
         if (appStartTime > -1) {
             long endTime = System.currentTimeMillis();
-            logger.info("*** Total CAVE startup: " + (endTime - appStartTime)
-                    + " ms ***");
+            perfLog.logDuration("*** Total CAVE startup",
+                    (endTime - appStartTime));
         }
 
         /*
@@ -354,8 +360,8 @@ public class VizWorkbenchAdvisor extends WorkbenchAdvisor {
         IWorkbench wb = getWorkbenchConfigurer().getWorkbench();
         ICommandService service = wb.getService(ICommandService.class);
 
-        String[] commandPrefixes = new String[] { "org.eclipse.jdt",
-                "org.eclipse.debug", "org.eclipse.team" };
+        String[] commandPrefixes = { "org.eclipse.jdt", "org.eclipse.debug",
+                "org.eclipse.team" };
 
         Command[] commands = service.getDefinedCommands();
         for (Command c : commands) {

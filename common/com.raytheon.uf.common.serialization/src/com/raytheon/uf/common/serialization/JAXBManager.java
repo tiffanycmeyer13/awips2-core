@@ -33,11 +33,10 @@ import java.util.Map;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.raytheon.uf.common.serialization.jaxb.JaxbMarshallerStrategy;
 import com.raytheon.uf.common.serialization.jaxb.PooledJaxbMarshallerStrategy;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 
 /**
  * Provides an easy and convenient layer to marshal or unmarshal objects to and
@@ -47,21 +46,28 @@ import com.raytheon.uf.common.serialization.jaxb.PooledJaxbMarshallerStrategy;
  *
  * <pre>
  * SOFTWARE HISTORY
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Sep 24, 2008            chammack     Initial creation
- * Nov 13, 2008            njensen      Added thrift methods
- * May 22, 2013 1917       rjpeter      Added non-pretty print option to jaxb serialize methods.
- * Aug 18, 2013 #2097      dhladky      Allowed extension by OGCJAXBManager
- * Sep 30, 2013 2361       njensen      Refactored for cleanliness
- * Nov 14, 2013 2361       njensen      Added lazy init option, improved unmarshal error message
- * Apr 16, 2014 2928       rjpeter      Updated marshalToStream to not close the stream.
- * Apr 25, 2014 2060       njensen      Improved printout
- * Jul 15, 2014 3373       bclement     moved marshaller management to JaxbMarshallerStrategy
- *                                      added MarshalOptions, no longer pools by default
- * Feb 18, 2015 4125       rjpeter      Added type safe unmarshalFromXml
- * Feb 10, 2016 5307       bkowal       Added Java 7 {@link Path} support.
- * Oct 19, 2017 6367       tgurney     Replace stdout with logger
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Sep 24, 2008           chammack  Initial creation
+ * Nov 13, 2008           njensen   Added thrift methods
+ * May 22, 2013  1917     rjpeter   Added non-pretty print option to jaxb
+ *                                  serialize methods.
+ * Aug 18, 2013  2097     dhladky   Allowed extension by OGCJAXBManager
+ * Sep 30, 2013  2361     njensen   Refactored for cleanliness
+ * Nov 14, 2013  2361     njensen   Added lazy init option, improved unmarshal
+ *                                  error message
+ * Apr 16, 2014  2928     rjpeter   Updated marshalToStream to not close the
+ *                                  stream.
+ * Apr 25, 2014  2060     njensen   Improved printout
+ * Jul 15, 2014  3373     bclement  moved marshaller management to
+ *                                  JaxbMarshallerStrategy added MarshalOptions,
+ *                                  no longer pools by default
+ * Feb 18, 2015  4125     rjpeter   Added type safe unmarshalFromXml
+ * Feb 10, 2016  5307     bkowal    Added Java 7 {@link Path} support.
+ * Oct 19, 2017  6367     tgurney   Replace stdout with logger
+ * Dec 16, 2021  8341     randerso  Changed to use performance logging
+ *
  * </pre>
  *
  * @author chammack
@@ -75,8 +81,8 @@ public class JAXBManager {
 
     private final JaxbMarshallerStrategy marshStrategy;
 
-    private static final Logger logger = LoggerFactory
-            .getLogger(JAXBManager.class);
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("JAXBManager");
 
     /**
      * Constructor. Clazz should include any classes that this JAXBManager needs
@@ -147,9 +153,11 @@ public class JAXBManager {
                     jaxbContext = JAXBContext.newInstance(clazz,
                             getJaxbConfig());
                     if (clazz.length == 1) {
-                        logger.info("JAXB context for "
-                                + clazz[0].getSimpleName() + " inited in: "
-                                + (System.currentTimeMillis() - t0) + " ms");
+                        perfLog.logDuration(
+                                String.format(
+                                        "JAXB context initialization for [%s]",
+                                        clazz[0].getSimpleName()),
+                                (System.currentTimeMillis() - t0));
                     }
                     clazz = null;
                 }
