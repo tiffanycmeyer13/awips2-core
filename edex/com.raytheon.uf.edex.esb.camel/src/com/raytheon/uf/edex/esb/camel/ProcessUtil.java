@@ -53,6 +53,7 @@ import com.raytheon.uf.edex.core.EDEXUtil;
  * Jan 21, 2014 2627       njensen     Added logFailedData() and logFailureAsInfo()
  * Mar 04, 2014 2627       njensen     Harden static initialization
  * Jul 10, 2014 2914       garmendariz Remove EnvProperties
+ * May 12, 2022 22594   mgamazaychikov Add data identifier logging
  * 
  * </pre>
  * 
@@ -193,6 +194,13 @@ public class ProcessUtil {
             sb.append(":: ");
             sb.append(fileName);
             processEvent.setFileName(fileName);
+        }
+
+        String dataIdentifier = getHeaderProperty(headers, "dataIdentifier");
+        if (dataIdentifier != null) {
+            sb.append("dataIdentifier: ");
+            sb.append(dataIdentifier);
+            processEvent.setDataIdentifier(dataIdentifier);
         }
 
         Long dequeueTime = getHeaderProperty(headers, "dequeueTime");
