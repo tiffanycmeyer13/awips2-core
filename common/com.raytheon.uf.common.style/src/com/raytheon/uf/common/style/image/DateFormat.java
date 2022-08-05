@@ -31,7 +31,7 @@ import javax.measure.IncommensurableException;
 import javax.measure.UnconvertibleException;
 import javax.measure.Unit;
 import javax.measure.UnitConverter;
-import javax.measure.format.ParserException;
+import javax.measure.format.MeasurementParseException;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -41,8 +41,8 @@ import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 
 import si.uom.SI;
-import tec.uom.se.format.SimpleUnitFormat;
-import tec.uom.se.unit.MetricPrefix;
+import tech.units.indriya.format.SimpleUnitFormat;
+import javax.measure.MetricPrefix;
 
 /**
  * SampleFormat for date formats (e.g. seconds since epoch)
@@ -165,7 +165,7 @@ public class DateFormat extends SampleFormat {
                         .getConverterToAny(MetricPrefix.MILLI(SI.SECOND));
                 millisSinceEpoch = Duration.ofMillis((long) converter
                         .convert(((Number) value).doubleValue()));
-            } catch (ParserException e) {
+            } catch (MeasurementParseException e) {
                 statusHandler.error("Unrecognized unit string: " + unitString,
                         e);
             } catch (ClassCastException | IncommensurableException

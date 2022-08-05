@@ -63,7 +63,7 @@ import com.raytheon.uf.viz.core.tile.TileSetRenderable;
 import com.raytheon.uf.viz.core.tile.TileSetRenderable.TileImageCreator;
 
 import si.uom.SI;
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * Provides an SRTM hdf5-backed topographic map

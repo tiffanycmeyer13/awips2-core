@@ -62,7 +62,7 @@ import com.raytheon.uf.viz.core.localization.HierarchicalPreferenceStore;
 import com.raytheon.uf.viz.core.preferences.PreferenceConstants;
 import com.raytheon.uf.viz.core.rsc.capabilities.ImagingCapability;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * Renderable tile set class that creates a {@link TileSet} and renders images

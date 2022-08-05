@@ -30,7 +30,7 @@ import javax.measure.UnitConverter;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
-import tec.uom.se.AbstractUnit;
+import tech.units.indriya.AbstractUnit;
 
 /**
  * TODO Add Description

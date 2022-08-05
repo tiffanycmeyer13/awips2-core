@@ -22,14 +22,14 @@ package com.raytheon.uf.common.units;
 
 import java.text.ParsePosition;
 
-import javax.measure.format.ParserException;
+import javax.measure.format.MeasurementParseException;
 
 import org.apache.commons.beanutils.Converter;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * Custom converter implementation for converting Unit objects from Strings
@@ -56,7 +56,7 @@ public class UnitConverter implements Converter {
                 return clazz.cast(SimpleUnitFormat
                         .getInstance(SimpleUnitFormat.Flavor.ASCII)
                         .parseObject((String) value, new ParsePosition(0)));
-            } catch (ParserException e) {
+            } catch (MeasurementParseException e) {
                 statusHandler.debug(e.getLocalizedMessage(), e);
             }
         }

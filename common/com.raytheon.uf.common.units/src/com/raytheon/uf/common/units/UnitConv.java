@@ -25,10 +25,10 @@ import java.util.Objects;
 import javax.measure.IncommensurableException;
 import javax.measure.UnconvertibleException;
 import javax.measure.Unit;
-import javax.measure.format.ParserException;
+import javax.measure.format.MeasurementParseException;
 
-import tec.uom.se.AbstractUnit;
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.AbstractUnit;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * 
@@ -51,7 +51,7 @@ import tec.uom.se.format.SimpleUnitFormat;
  */
 public class UnitConv {
 
-    public static Unit<?> deserializer(String unit) throws ParserException {
+    public static Unit<?> deserializer(String unit) throws MeasurementParseException {
         if (!"".equals(unit)) {
             return SimpleUnitFormat.getInstance(SimpleUnitFormat.Flavor.ASCII)
                     .parseObject(unit, new ParsePosition(0));
