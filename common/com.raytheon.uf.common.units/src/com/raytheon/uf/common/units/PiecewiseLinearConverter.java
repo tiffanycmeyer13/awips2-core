@@ -19,13 +19,11 @@
  **/
 package com.raytheon.uf.common.units;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.Arrays;
 
 import javax.measure.UnitConverter;
 
-import tec.uom.se.AbstractConverter;
+import tech.units.indriya.function.AbstractConverter;
 
 /**
  * TODO Add Description
@@ -37,6 +35,8 @@ import tec.uom.se.AbstractConverter;
  *  Apr 15, 2019  7596       lsingh      Updated the javax.measure framework to JSR-363.
  *                                       UnitConverter has been replaced with AbstractConverter. 
  *                                       Updated methods and implemented additional methods.
+ * Aug 05, 2022   8905       lsingh      Updated units framework to 2.0.2.
+ *                                       Renamed methods, and overrided additional methods.
  * 
  * </pre>
  * 
@@ -57,7 +57,9 @@ public class PiecewiseLinearConverter extends AbstractConverter {
     }
 
     @Override
-    public double convert(double x) {
+    public Number convertWhenNotIdentity(Number num) {
+
+        double x = num.doubleValue();
         if (Double.isNaN(x)) {
             return Double.NaN;
         }
@@ -82,20 +84,13 @@ public class PiecewiseLinearConverter extends AbstractConverter {
     }
 
     @Override
-    public AbstractConverter inverse() {
+    public AbstractConverter inverseWhenNotIdentity() {
         return new PiecewiseLinearConverter(yVals, xVals);
     }
 
     @Override
     public boolean isLinear() {
         return false;
-    }
-
-    @Override
-    public UnitConverter concatenate(UnitConverter converter) {
-        // TODO Auto-generated method stub
-        UnitConverter result = super.concatenate(converter);
-        return result;
     }
 
     @Override
@@ -122,9 +117,26 @@ public class PiecewiseLinearConverter extends AbstractConverter {
     }
 
     @Override
-    public BigDecimal convert(BigDecimal value, MathContext ctx)
-            throws ArithmeticException {
-        return BigDecimal.valueOf(convert(value.doubleValue()));
+    public boolean isIdentity() {
+        return false;
+    }
+
+    @Override
+    public int compareTo(UnitConverter o) {
+     // This method hasn't been implemented yet since it's unused
+        return 0;
+    }
+
+    @Override
+    protected String transformationLiteral() {
+     // This method hasn't been implemented yet since it's unused
+        return null;
+    }
+
+    @Override
+    protected boolean canReduceWith(AbstractConverter that) {
+     // This method hasn't been implemented yet since it's unused
+        return false;
     }
 
 }

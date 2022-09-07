@@ -29,14 +29,13 @@ Import-Package: com.raytheon.uf.common.dataplugin,
  com.raytheon.uf.common.status,
  com.raytheon.uf.common.time,
  com.raytheon.uf.common.units,
- com.raytheon.uf.common.util.mapping,
- javax.measure,
- javax.persistence,
- tec.uom.se
+ com.raytheon.uf.common.util.mapping
 Export-Package: com.raytheon.uf.common.derivparam,
  com.raytheon.uf.common.derivparam.data,
  com.raytheon.uf.common.derivparam.inv,
  com.raytheon.uf.common.derivparam.library,
  com.raytheon.uf.common.derivparam.tree
 Require-Bundle: org.geotools,
- javax.xml.bind
+ javax.xml.bind,
+ javax.measure,
+ javax.persistence

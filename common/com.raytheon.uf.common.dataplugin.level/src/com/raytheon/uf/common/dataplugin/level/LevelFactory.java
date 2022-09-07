@@ -31,7 +31,7 @@ import javax.measure.IncommensurableException;
 import javax.measure.UnconvertibleException;
 import javax.measure.Unit;
 import javax.measure.UnitConverter;
-import javax.measure.format.ParserException;
+import javax.measure.format.MeasurementParseException;
 import javax.xml.bind.JAXB;
 
 import com.raytheon.uf.common.dataplugin.level.request.GetLevelByIdRequest;
@@ -48,7 +48,7 @@ import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * Singleton Level Factory for getting Level objects
@@ -193,7 +193,7 @@ public class LevelFactory {
                 requestedLevel.setLeveltwovalue(levelTwoValue);
 
                 rval = loadLevel(requestedLevel);
-            } catch (ParserException | IncommensurableException
+            } catch (MeasurementParseException | IncommensurableException
                     | UnconvertibleException e) {
                 statusHandler.warn("Unit conversion failed", e);
             }

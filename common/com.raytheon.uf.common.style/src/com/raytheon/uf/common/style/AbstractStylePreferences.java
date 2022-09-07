@@ -26,7 +26,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import javax.measure.Unit;
-import javax.measure.format.ParserException;
+import javax.measure.format.MeasurementParseException;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
@@ -35,7 +35,7 @@ import javax.xml.bind.annotation.XmlElementRef;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlValue;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * Abstract style preferences
@@ -82,7 +82,7 @@ public abstract class AbstractStylePreferences {
                 try {
                     unit = SimpleUnitFormat.getInstance(SimpleUnitFormat.Flavor.ASCII)
                             .parseProductUnit(unitString, new ParsePosition(0));
-                } catch (ParserException e) {
+                } catch (MeasurementParseException e) {
                     throw new RuntimeException(e);
                 }
             }

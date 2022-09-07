@@ -23,11 +23,10 @@ import javax.measure.Quantity;
 import javax.measure.quantity.Dimensionless;
 import javax.measure.quantity.Pressure;
 import javax.measure.quantity.Temperature;
-import si.uom.NonSI;
 import si.uom.SI;
-import tec.uom.se.quantity.Quantities;
-import tec.uom.se.unit.MetricPrefix;
-import tec.uom.se.unit.Units;
+import tech.units.indriya.quantity.Quantities;
+import javax.measure.MetricPrefix;
+import tech.units.indriya.unit.Units;
 
 import javax.measure.Unit;
 

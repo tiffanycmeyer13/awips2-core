@@ -59,7 +59,7 @@ import com.raytheon.uf.common.time.DataTime;
 import com.raytheon.uf.common.time.TimeRange;
 import com.raytheon.uf.common.units.UnitConv;
 
-import tec.uom.se.AbstractConverter;
+import tech.units.indriya.function.AbstractConverter;
 
 /**
  * Data Access Factory for retrieving point data as a geometry.
