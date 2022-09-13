@@ -79,6 +79,8 @@ import org.locationtech.jts.geom.Polygon;
  * Jul 07, 2015      #4375 dgilling    Set CRS on feature before adding default
  *                                     geometry.
  * Oct 27, 2015  4767      bclement    removed warning
+ * Sep 13, 2022  8858      lsingh      Force (longitude, latitude) axis order for
+ *                                     coordinates as part of Geotools 26.4 upgrade.
  * 
  * </pre>
  * 
@@ -200,9 +202,9 @@ public class GeoJsonMapUtil {
     }
 
     public Map<String, Object> extract(SimpleFeature feature,
-            EnumSet<FeatureOpt> opts) throws JsonException {
+            Set<FeatureOpt> opts) throws JsonException {
         Object geom = feature.getDefaultGeometry();
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(6);
+        Map<String, Object> rval = new LinkedHashMap<>(6);
         rval.put(TYPE_KEY, FEATURE_TYPE);
         SimpleFeatureType type = feature.getFeatureType();
         if (type == null) {
@@ -231,7 +233,7 @@ public class GeoJsonMapUtil {
                     .getName());
         }
         int count = type.getAttributeCount();
-        Map<String, Object> props = new LinkedHashMap<String, Object>(count);
+        Map<String, Object> props = new LinkedHashMap<>(count);
         for (int i = 0; i < count; ++i) {
             if (i == geomIndex) {
                 continue;
@@ -264,8 +266,8 @@ public class GeoJsonMapUtil {
 
     public Map<String, Object> extract(
             FeatureCollection<SimpleFeatureType, SimpleFeature> coll,
-            EnumSet<FeatureOpt> opts) throws JsonException {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(4);
+            Set<FeatureOpt> opts) throws JsonException {
+        Map<String, Object> rval = new LinkedHashMap<>(4);
         rval.put(TYPE_KEY, FEATURE_COLL_TYPE);
         ReferencedEnvelope bounds = coll.getBounds();
         if (opts.contains(FeatureOpt.ENCODE_CRS) && (bounds != null)
@@ -308,10 +310,10 @@ public class GeoJsonMapUtil {
 
     public Map<String, Object> extract(CoordinateReferenceSystem crs)
             throws JsonException {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(2);
+        Map<String, Object> rval = new LinkedHashMap<>(2);
         // TODO supported linked crs
         rval.put(TYPE_KEY, NAME_KEY);
-        Map<String, Object> props = new LinkedHashMap<String, Object>(1);
+        Map<String, Object> props = new LinkedHashMap<>(1);
         try {
             props.put(NAME_KEY, CRS.lookupIdentifier(crs, true));
         } catch (FactoryException e) {
@@ -337,7 +339,7 @@ public class GeoJsonMapUtil {
                     + obj.getClass());
         }
         List<?> features = (List<?>) obj;
-        List<SimpleFeature> rval = new ArrayList<SimpleFeature>(features.size());
+        List<SimpleFeature> rval = new ArrayList<>(features.size());
         for (Object f : features) {
             if (!(f instanceof Map)) {
                 throw new JsonException("Expected Map for feature got "
@@ -364,14 +366,14 @@ public class GeoJsonMapUtil {
             coll.addAll(features);
             return coll;
         }
-        Map<SimpleFeatureType, List<SimpleFeature>> sorted = new HashMap<SimpleFeatureType, List<SimpleFeature>>();
+        Map<SimpleFeatureType, List<SimpleFeature>> sorted = new HashMap<>();
 
         Iterator<SimpleFeature> i = features.iterator();
         while (i.hasNext()) {
             SimpleFeature next = i.next();
             List<SimpleFeature> list = sorted.get(next.getFeatureType());
             if (list == null) {
-                list = new ArrayList<SimpleFeature>();
+                list = new ArrayList<>();
             }
             list.add(next);
         }
@@ -382,7 +384,7 @@ public class GeoJsonMapUtil {
             return coll;
         } else {
             Set<SimpleFeatureType> keySet = sorted.keySet();
-            List<MemoryFeatureCollection> colls = new ArrayList<MemoryFeatureCollection>(
+            List<MemoryFeatureCollection> colls = new ArrayList<>(
                     keySet.size());
             for (SimpleFeatureType key : keySet) {
                 MemoryFeatureCollection coll = new MemoryFeatureCollection(key);
@@ -466,12 +468,12 @@ public class GeoJsonMapUtil {
             typeBuilder.add(geomName, geom.getClass());
         }
 
-        List<Object> values = new ArrayList<Object>(0);
+        List<Object> values = new ArrayList<>(0);
         Object propObj = jsonObj.get(PROP_KEY);
         if (propObj != null) {
             Map<String, Object> props = getProps(propObj);
             Set<String> keySet = props.keySet();
-            values = new ArrayList<Object>(keySet.size());
+            values = new ArrayList<>(keySet.size());
             for (String key : keySet) {
                 Object val = props.get(key);
                 typeBuilder.add(key, val.getClass());
@@ -511,7 +513,7 @@ public class GeoJsonMapUtil {
         Map<String, Object> props = getProps(propObj);
         String name = (String) props.get(NAME_KEY);
         try {
-            return CRS.decode(name);
+            return CRS.decode(name, true);
         } catch (Exception e) {
             throw new JsonException("Unable to decode namded CRS", e);
         }
@@ -790,7 +792,7 @@ public class GeoJsonMapUtil {
      */
     public Map<String, Object> extractGeometryCollection(GeometryCollection coll)
             throws JsonException {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(2);
+        Map<String, Object> rval = new LinkedHashMap<>(2);
         int count = coll.getNumGeometries();
         Object[] geoms = new Object[count];
         for (int i = 0; i < count; ++i) {
@@ -807,7 +809,7 @@ public class GeoJsonMapUtil {
      * @return
      */
     public Map<String, Object> extractMultiPolygon(MultiPolygon mpoly) {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(2);
+        Map<String, Object> rval = new LinkedHashMap<>(2);
         int count = mpoly.getNumGeometries();
         double[][][][] coords = new double[count][][][];
         for (int i = 0; i < count; ++i) {
@@ -824,7 +826,7 @@ public class GeoJsonMapUtil {
      * @return
      */
     public Map<String, Object> extractMultiLineString(MultiLineString mlineStr) {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(2);
+        Map<String, Object> rval = new LinkedHashMap<>(2);
         int count = mlineStr.getNumGeometries();
         double[][][] coords = new double[count][][];
         for (int i = 0; i < count; ++i) {
@@ -841,7 +843,7 @@ public class GeoJsonMapUtil {
      * @return
      */
     public Map<String, Object> extractMultiPoint(MultiPoint mpoint) {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(2);
+        Map<String, Object> rval = new LinkedHashMap<>(2);
         int count = mpoint.getNumGeometries();
         double[][] coords = new double[count][];
         for (int i = 0; i < count; ++i) {
@@ -858,7 +860,7 @@ public class GeoJsonMapUtil {
      * @return
      */
     public Map<String, Object> extractPolygon(Polygon poly) {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(2);
+        Map<String, Object> rval = new LinkedHashMap<>(2);
         double[][][] coords = getPolyCoords(poly);
         rval.put(TYPE_KEY, POLY_TYPE);
         rval.put(COORD_KEY, coords);
@@ -882,7 +884,7 @@ public class GeoJsonMapUtil {
      * @return
      */
     public Map<String, Object> extractLineString(LineString lineStr) {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(2);
+        Map<String, Object> rval = new LinkedHashMap<>(2);
         double[][] coords = toArray(lineStr.getCoordinates());
         rval.put(TYPE_KEY, LINE_STR_TYPE);
         rval.put(COORD_KEY, coords);
@@ -894,7 +896,7 @@ public class GeoJsonMapUtil {
      * @return
      */
     public Map<String, Object> extractPoint(Point point) {
-        Map<String, Object> rval = new LinkedHashMap<String, Object>(2);
+        Map<String, Object> rval = new LinkedHashMap<>(2);
         double[] coords = toArray(point.getCoordinate());
         rval.put(TYPE_KEY, POINT_TYPE);
         rval.put(COORD_KEY, coords);
