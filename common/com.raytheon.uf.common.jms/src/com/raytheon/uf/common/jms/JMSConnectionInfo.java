@@ -45,6 +45,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *                                     annotations
  * May 27, 2021 8469       dgilling    Add servicePort field.
  * Aug 06, 2021 22528      smoorthy    Added proxyAddress field
+ * Aug 16, 2022 8916       njensen     Added copy constructor
  * </pre>
  *
  * @author mrichardson
@@ -89,6 +90,14 @@ public class JMSConnectionInfo {
         this.vhost = vhost;
         this.servicePort = servicePort;
         this.parameters = parameters;
+    }
+
+    public JMSConnectionInfo(JMSConnectionInfo toCopy) {
+        this.host = toCopy.host;
+        this.port = toCopy.port;
+        this.vhost = toCopy.vhost;
+        this.servicePort = toCopy.servicePort;
+        this.parameters = new HashMap<>(toCopy.parameters);
     }
 
     public Map<String, String> getParameters() {
