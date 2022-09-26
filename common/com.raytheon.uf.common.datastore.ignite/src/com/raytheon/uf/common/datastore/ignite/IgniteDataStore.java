@@ -98,6 +98,7 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Feb 17, 2022  8608     mapeters  Update FastReplaceCallable to be used for all
  *                                  fast stores, extract to FastStoreCallable file
  * Jun 21, 2022  8879     mapeters  Don't retry failed retrievals
+ * Aug 24, 2022  8920     mapeters  Optimizations; Swap key/values for traceId/status mapping.
  * Sep 27, 2022  8930     mapeters  Update retrieveDatasets to return records in
  *                                  the same order as the requested datasets
  *
@@ -206,8 +207,8 @@ public class IgniteDataStore implements IDataStore {
                     MetadataAndDataId metaAndDataId = traceIdToDataInfo
                             .computeIfAbsent(metaId.getTraceId(),
                                     traceId -> new MetadataAndDataId(metaId,
-                                            new Hdf5DataIdentifier(traceId,
-                                                    path, group)));
+                                            new Hdf5DataIdentifier(path,
+                                                    group)));
                     ((Hdf5DataIdentifier) metaAndDataId.getDataId())
                             .addDataset(record.getName());
                 }
@@ -423,7 +424,8 @@ public class IgniteDataStore implements IDataStore {
 
     private void auditDataStatuses(Set<String> successfulGroups,
             Set<String> duplicateGroups) {
-        Map<String, DataStatus> traceIdsToStatus = new HashMap<>();
+        List<String> failureTraceIds = new ArrayList<>();
+        List<String> duplicateTraceIds = new ArrayList<>();
         for (Entry<String, List<RecordAndMetadata>> groupRecordsEntry : recordsByGroup
                 .entrySet()) {
             String group = groupRecordsEntry.getKey();
@@ -431,14 +433,24 @@ public class IgniteDataStore implements IDataStore {
                 continue;
             }
 
-            DataStatus status = duplicateGroups.contains(group)
-                    ? DataStatus.DUPLICATE_SYNC
-                    : DataStatus.FAILURE_SYNC;
+            List<String> traceIdsList = duplicateGroups.contains(group)
+                    ? duplicateTraceIds
+                    : failureTraceIds;
             for (RecordAndMetadata rm : groupRecordsEntry.getValue()) {
                 for (IMetadataIdentifier metaId : rm.getMetadata()) {
-                    traceIdsToStatus.put(metaId.getTraceId(), status);
+                    traceIdsList.add(metaId.getTraceId());
                 }
             }
+        }
+
+        Map<DataStatus, String[]> traceIdsToStatus = new HashMap<>();
+        if (!failureTraceIds.isEmpty()) {
+            traceIdsToStatus.put(DataStatus.FAILURE_SYNC,
+                    failureTraceIds.toArray(String[]::new));
+        }
+        if (!duplicateTraceIds.isEmpty()) {
+            traceIdsToStatus.put(DataStatus.DUPLICATE_SYNC,
+                    duplicateTraceIds.toArray(String[]::new));
         }
         DataStorageAuditerContainer.getInstance().getAuditer()
                 .processDataStatuses(traceIdsToStatus);

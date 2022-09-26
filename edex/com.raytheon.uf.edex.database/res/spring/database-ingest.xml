@@ -53,24 +53,94 @@
         <constructor-arg ref="clusteredDatabaseMonitor" />
     </bean>
 
-    <bean id="dataStorageAuditerImpl" class="com.raytheon.uf.edex.database.health.DataStorageAuditer">
+    <bean id="dataStorageAuditerImpl1" class="com.raytheon.uf.edex.database.health.DataStorageAuditer">
         <constructor-arg ref="messageProducer"/>
+        <constructor-arg value="1"/>
+    </bean>
+
+    <bean id="dataStorageAuditerImpl2" class="com.raytheon.uf.edex.database.health.DataStorageAuditer">
+        <constructor-arg ref="messageProducer"/>
+        <constructor-arg value="2"/>
+    </bean>
+
+    <bean id="dataStorageAuditerImpl3" class="com.raytheon.uf.edex.database.health.DataStorageAuditer">
+        <constructor-arg ref="messageProducer"/>
+        <constructor-arg value="3"/>
+    </bean>
+
+    <bean id="dataStorageAuditerImpl4" class="com.raytheon.uf.edex.database.health.DataStorageAuditer">
+        <constructor-arg ref="messageProducer"/>
+        <constructor-arg value="4"/>
+    </bean>
+
+    <bean id="dataStorageAuditerImpl5" class="com.raytheon.uf.edex.database.health.DataStorageAuditer">
+        <constructor-arg ref="messageProducer"/>
+        <constructor-arg value="5"/>
     </bean>
 
     <camelContext id="clusteredDataStorageAuditContext" xmlns="http://camel.apache.org/schema/spring"
         errorHandlerRef="errorHandler">
         
-        <endpoint id="cleanupCron" uri="quartz://DataStorageAudit/?cron=${data.storage.auditer.cleanup.cron}"/> 
+        <endpoint id="cleanupCron1" uri="quartz://DataStorageAudit1/?cron=${data.storage.auditer.cleanup.cron}"/>
+        <endpoint id="cleanupCron2" uri="quartz://DataStorageAudit2/?cron=${data.storage.auditer.cleanup.cron}"/>
+        <endpoint id="cleanupCron3" uri="quartz://DataStorageAudit3/?cron=${data.storage.auditer.cleanup.cron}"/>
+        <endpoint id="cleanupCron4" uri="quartz://DataStorageAudit4/?cron=${data.storage.auditer.cleanup.cron}"/>
+        <endpoint id="cleanupCron5" uri="quartz://DataStorageAudit5/?cron=${data.storage.auditer.cleanup.cron}"/>
 
-        <route id="dataStorageAuditInfoRoute">
-            <from uri="jms-durable:queue:data.storage.audit.event?threadName=DataStorageAudit"/>
+        <route id="dataStorageAuditInfoRoute1">
+            <from uri="jms-durable:queue:data.storage.audit.event1?threadName=DataStorageAudit1"/>
             <bean ref="serializationUtil" method="transformFromThrift"/>
-            <bean ref="dataStorageAuditerImpl" method="processEvent"/>
+            <bean ref="dataStorageAuditerImpl1" method="processEvent"/>
         </route>
 
-        <route id="dataStorageAuditCleanupRoute">
-            <from uri="cleanupCron"/>
-            <bean ref="dataStorageAuditerImpl" method="cleanup"/>
+        <route id="dataStorageAuditInfoRoute2">
+            <from uri="jms-durable:queue:data.storage.audit.event2?threadName=DataStorageAudit2"/>
+            <bean ref="serializationUtil" method="transformFromThrift"/>
+            <bean ref="dataStorageAuditerImpl2" method="processEvent"/>
+        </route>
+
+        <route id="dataStorageAuditInfoRoute3">
+            <from uri="jms-durable:queue:data.storage.audit.event3?threadName=DataStorageAudit3"/>
+            <bean ref="serializationUtil" method="transformFromThrift"/>
+            <bean ref="dataStorageAuditerImpl3" method="processEvent"/>
+        </route>
+
+        <route id="dataStorageAuditInfoRoute4">
+            <from uri="jms-durable:queue:data.storage.audit.event4?threadName=DataStorageAudit4"/>
+            <bean ref="serializationUtil" method="transformFromThrift"/>
+            <bean ref="dataStorageAuditerImpl4" method="processEvent"/>
+        </route>
+
+        <route id="dataStorageAuditInfoRoute5">
+            <from uri="jms-durable:queue:data.storage.audit.event5?threadName=DataStorageAudit5"/>
+            <bean ref="serializationUtil" method="transformFromThrift"/>
+            <bean ref="dataStorageAuditerImpl5" method="processEvent"/>
+        </route>
+
+
+        <route id="dataStorageAuditCleanupRoute1">
+            <from uri="cleanupCron1"/>
+            <bean ref="dataStorageAuditerImpl1" method="cleanup"/>
+        </route>
+
+        <route id="dataStorageAuditCleanupRoute2">
+            <from uri="cleanupCron2"/>
+            <bean ref="dataStorageAuditerImpl2" method="cleanup"/>
+        </route>
+
+        <route id="dataStorageAuditCleanupRoute3">
+            <from uri="cleanupCron3"/>
+            <bean ref="dataStorageAuditerImpl3" method="cleanup"/>
+        </route>
+
+        <route id="dataStorageAuditCleanupRoute4">
+            <from uri="cleanupCron4"/>
+            <bean ref="dataStorageAuditerImpl4" method="cleanup"/>
+        </route>
+
+        <route id="dataStorageAuditCleanupRoute5">
+            <from uri="cleanupCron5"/>
+            <bean ref="dataStorageAuditerImpl5" method="cleanup"/>
         </route>
 
     </camelContext>
@@ -81,7 +151,13 @@
 
     <bean factory-bean="contextManager" factory-method="registerContextStateProcessor">
         <constructor-arg ref="clusteredDataStorageAuditContext" />
-        <constructor-arg ref="dataStorageAuditerImpl" />
+        <constructor-arg><list>
+         <ref bean="dataStorageAuditerImpl1"/>
+         <ref bean="dataStorageAuditerImpl2" />
+         <ref bean="dataStorageAuditerImpl3" />
+         <ref bean="dataStorageAuditerImpl4" />
+         <ref bean="dataStorageAuditerImpl5" />
+         </list> </constructor-arg>
     </bean>
 
 </beans>
