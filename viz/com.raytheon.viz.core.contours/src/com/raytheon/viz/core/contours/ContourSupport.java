@@ -646,6 +646,10 @@ public class ContourSupport {
                     } else {
                         statusHandler.warn(
                                 "Attempted to create contours from null values list. Skipping...");
+                        }
+                    } else {
+                        statusHandler.warn(
+                                "Attempted to create contours from null values list. Skipping...");
                     }
                 }
             }
