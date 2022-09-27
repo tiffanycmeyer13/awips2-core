@@ -28,7 +28,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,6 +40,8 @@ import java.util.stream.Collectors;
 
 import javax.cache.processor.EntryProcessorException;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
@@ -97,6 +98,8 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Feb 17, 2022  8608     mapeters  Update FastReplaceCallable to be used for all
  *                                  fast stores, extract to FastStoreCallable file
  * Jun 21, 2022  8879     mapeters  Don't retry failed retrievals
+ * Sep 27, 2022  8930     mapeters  Update retrieveDatasets to return records in
+ *                                  the same order as the requested datasets
  *
  * </pre>
  *
@@ -563,7 +566,8 @@ public class IgniteDataStore implements IDataStore {
         IPerformanceTimer timer = TimeUtil.getPerformanceTimer();
         timer.start();
 
-        Map<String, Set<String>> dataSetsByGroup = new LinkedHashMap<>();
+        List<Pair<String, List<String>>> groupAndDatasetsList = new ArrayList<>();
+        Pair<String, List<String>> currGroupAndDatasets = null;
         for (String path : datasetGroupPath) {
             String group = "";
             String dataset = path;
@@ -572,17 +576,18 @@ public class IgniteDataStore implements IDataStore {
                 group = path.substring(0, index);
                 dataset = path.substring(index + 1);
             }
-            Set<String> dataSets = dataSetsByGroup.get(group);
-            if (dataSets == null) {
-                dataSets = new HashSet<>();
-                dataSetsByGroup.put(group, dataSets);
+
+            if (currGroupAndDatasets == null
+                    || !group.equals(currGroupAndDatasets.getKey())) {
+                currGroupAndDatasets = new ImmutablePair<>(group,
+                        new ArrayList<>());
+                groupAndDatasetsList.add(currGroupAndDatasets);
             }
-            dataSets.add(dataset);
+            currGroupAndDatasets.getValue().add(dataset);
         }
         List<IDataRecord> records = new ArrayList<>();
         try {
-            for (Entry<String, Set<String>> entry : dataSetsByGroup
-                    .entrySet()) {
+            for (Pair<String, List<String>> entry : groupAndDatasetsList) {
                 DataStoreKey key = new DataStoreKey(this.path, entry.getKey());
                 RetrieveProcessor processor = new RetrieveProcessor(
                         entry.getValue(), request);
