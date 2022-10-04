@@ -33,6 +33,7 @@ import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IExtent;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
+import com.raytheon.uf.viz.core.InputManager;
 import com.raytheon.uf.viz.core.PixelExtent;
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
@@ -44,7 +45,6 @@ import com.raytheon.uf.viz.core.rsc.ResourceList;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
 import com.raytheon.viz.ui.input.InputAdapter;
-import com.raytheon.viz.ui.input.InputManager;
 
 /**
  * Abstract class for managing display panes.

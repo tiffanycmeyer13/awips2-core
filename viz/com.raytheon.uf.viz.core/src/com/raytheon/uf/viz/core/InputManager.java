@@ -1,24 +1,24 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
 
-package com.raytheon.viz.ui.input;
+package com.raytheon.uf.viz.core;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +29,6 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 
-import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.rsc.IContainerAwareInputHandler;
 import com.raytheon.uf.viz.core.rsc.IInputHandler;
 import com.raytheon.uf.viz.core.rsc.IInputHandler.InputPriority;
@@ -38,11 +37,11 @@ import com.raytheon.uf.viz.core.rsc.IInputHandler2;
 /**
  * Manage the {@link IInputHandler}s that are registered for an
  * {@link IDisplayPaneContainer}.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer  Description
  * ------------- -------- --------- --------------------------------------------
  * Jul 01, 2006           chammack  Initial Creation.
@@ -50,19 +49,23 @@ import com.raytheon.uf.viz.core.rsc.IInputHandler2;
  * Jun 23, 2016  5674     randerso  Extend IInputHandler to pass raw event to
  *                                  handler
  * Aug 08, 2016  2676     bsteffen  Add IContainerAwareInputHandler
- * 
+ * Sep 08, 2022  8792     mapeters  Move from com.raytheon.viz.ui.input,
+ *                                  add PrioritizedHandler.toString()
+ *
  * </pre>
- * 
+ *
  * @author chammack
  */
 public class InputManager implements Listener {
 
-    private class PrioritizedHandler implements Comparable<PrioritizedHandler> {
-        InputPriority priority;
+    private static class PrioritizedHandler
+            implements Comparable<PrioritizedHandler> {
+        private InputPriority priority;
 
-        IInputHandler handler;
+        private IInputHandler handler;
 
-        public PrioritizedHandler(IInputHandler handler, InputPriority priority) {
+        public PrioritizedHandler(IInputHandler handler,
+                InputPriority priority) {
             this.handler = handler;
             this.priority = priority;
         }
@@ -82,6 +85,12 @@ public class InputManager implements Listener {
             }
             return false;
         }
+
+        @Override
+        public String toString() {
+            return "PrioritizedHandler [priority=" + priority + ", handler="
+                    + handler + "]";
+        }
     }
 
     private boolean isMouseDown = false;
@@ -98,23 +107,23 @@ public class InputManager implements Listener {
 
     /**
      * Constructor
-     * 
+     *
      * @param container
      */
     public InputManager(IDisplayPaneContainer container) {
-        this.handlers = new ArrayList<PrioritizedHandler>();
-        this.perspectiveHandlers = new ArrayList<PrioritizedHandler>();
+        this.handlers = new ArrayList<>();
+        this.perspectiveHandlers = new ArrayList<>();
         this.container = container;
     }
 
     /**
      * Get all input handlers registered at a particular priority
-     * 
+     *
      * @param priority
      * @return array of handlers for the specified priority
      */
     public IInputHandler[] getHandlersForPriority(InputPriority priority) {
-        List<IInputHandler> handlers = new ArrayList<IInputHandler>();
+        List<IInputHandler> handlers = new ArrayList<>();
         for (PrioritizedHandler handler : this.handlers) {
             if (handler.priority == priority) {
                 handlers.add(handler.handler);
@@ -129,8 +138,7 @@ public class InputManager implements Listener {
     @Override
     public void handleEvent(Event event) {
 
-        if ((container == null)
-                || (container.getActiveDisplayPane() == null)
+        if ((container == null) || (container.getActiveDisplayPane() == null)
                 || (event.display != container.getActiveDisplayPane()
                         .getDisplay())) {
             return;
@@ -361,9 +369,9 @@ public class InputManager implements Listener {
                 }
             }
         } else {
-            for (int i = 0; i < handlers.size(); i++) {
+            for (PrioritizedHandler prioritizedHandler : handlers) {
                 // Let all handlers know about moves
-                IInputHandler handler = handlers.get(i).handler;
+                IInputHandler handler = prioritizedHandler.handler;
 
                 if (handler instanceof IInputHandler2) {
                     ((IInputHandler2) handler).handleMouseMove(e);
@@ -376,17 +384,18 @@ public class InputManager implements Listener {
 
     /**
      * Register a mouse handler, lowest priority are handled last
-     * 
+     *
      * @param aHandler
      * @param priority
-     * 
+     *
      */
     public void registerMouseHandler(IInputHandler aHandler,
             InputPriority priority) {
         if (aHandler instanceof IContainerAwareInputHandler) {
             ((IContainerAwareInputHandler) aHandler).setContainer(container);
         }
-        PrioritizedHandler pHandler = new PrioritizedHandler(aHandler, priority);
+        PrioritizedHandler pHandler = new PrioritizedHandler(aHandler,
+                priority);
         synchronized (this) {
             if (!handlers.contains(pHandler)) {
                 handlers.add(pHandler);
@@ -397,7 +406,7 @@ public class InputManager implements Listener {
 
     /**
      * Register a mouse handler
-     * 
+     *
      * @param aHandler
      */
     public void registerMouseHandler(IInputHandler aHandler) {
@@ -406,7 +415,7 @@ public class InputManager implements Listener {
 
     /**
      * Unregister a mouse handler
-     * 
+     *
      * @param aHandler
      */
     public void unregisterMouseHandler(IInputHandler aHandler) {
@@ -420,7 +429,7 @@ public class InputManager implements Listener {
     /**
      * Notify the manager that the perspective has changed and the
      * perspective-specific handlers should be changed out
-     * 
+     *
      * @param newPerspectiveSpecificHandlers
      *            a new set of perspective specific handlers
      */

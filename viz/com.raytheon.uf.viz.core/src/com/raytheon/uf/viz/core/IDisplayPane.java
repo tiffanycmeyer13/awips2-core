@@ -23,6 +23,7 @@ import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Listener;
 
+import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 
@@ -42,6 +43,7 @@ import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
  * ------------ ---------- ----------- --------------------------
  *                                     Initial creation
  * Mar 23, 2022 8790       mapeters    Add addListener(Listener)
+ * Oct 07, 2022 8792       mapeters    Add getType()
  *
  * </pre>
  *
@@ -238,4 +240,6 @@ public interface IDisplayPane {
      * @return
      */
     boolean isVisible();
+
+    CanvasType getType();
 }

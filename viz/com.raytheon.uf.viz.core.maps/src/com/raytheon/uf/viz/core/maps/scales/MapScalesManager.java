@@ -78,6 +78,7 @@ import com.raytheon.viz.ui.actions.LoadPerspectiveHandler;
  * Jun 23, 2017 6316      njensen     Improved logging
  * Apr 25, 2022 8791      mapeters    Added getLastResortScaleDisplay(), ensure
  *                                    scale bundle errors are logged
+ * Sep 08, 2022 8792      mapeters    Added getDefaultScaleDisplay()
  *
  * </pre>
  *
@@ -575,7 +576,7 @@ public class MapScalesManager {
      *
      * @return the last resort scale display
      */
-    public IRenderableDisplay getLastResortScaleDisplay() {
+    private IRenderableDisplay getLastResortScaleDisplay() {
         try {
             return getLastResortScale().getScaleBundle().getDisplays()[0];
         } catch (Exception e) {
@@ -608,5 +609,26 @@ public class MapScalesManager {
             }
         }
         return editorScale;
+    }
+
+    /**
+     * Get a default map scale display. This is the first scale tied to a map
+     * editor, or the last resort scale if that fails to load.
+     *
+     * @return the default map scale display
+     */
+    public IRenderableDisplay getDefaultScaleDisplay() {
+        IRenderableDisplay display = null;
+        try {
+            display = findEditorScale().getScaleBundle().getDisplays()[0];
+        } catch (Exception e) {
+            statusHandler.error("Error loading default background map display",
+                    e);
+        }
+
+        if (display == null) {
+            display = getLastResortScaleDisplay();
+        }
+        return display;
     }
 }

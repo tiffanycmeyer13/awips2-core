@@ -43,8 +43,10 @@ import org.locationtech.jts.geom.Coordinate;
 import com.raytheon.uf.viz.core.AbstractTimeMatcher;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
+import com.raytheon.uf.viz.core.IPane;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
+import com.raytheon.uf.viz.core.InputManager;
 import com.raytheon.uf.viz.core.VizApp;
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
 import com.raytheon.uf.viz.core.drawables.AbstractRenderableDisplay;
@@ -59,7 +61,6 @@ import com.raytheon.uf.viz.core.rsc.ResourceProperties;
 import com.raytheon.viz.ui.IRenameablePart;
 import com.raytheon.viz.ui.color.BackgroundColor;
 import com.raytheon.viz.ui.color.IBackgroundColorChangedListener;
-import com.raytheon.viz.ui.input.InputManager;
 import com.raytheon.viz.ui.panes.AbstractPaneManager;
 import com.raytheon.viz.ui.perspectives.AbstractCAVEPerspectiveManager;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
@@ -87,8 +88,9 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  *                                   Turbulence and Icing in NsharpEditor.
  * Apr 01, 2022  8790     mapeters   Move makeCompatible() here from UiUtil
  * Apr 22, 2022  8791     mapeters   Update setColor to correctly use canvases arg,
- *                                   update addCompatible to add correct number of
+ *                                   update makeCompatible to add correct number of
  *                                   panes if editor already has multiple panes
+ * Sep 12, 2022  8792     mapeters   Added methods for new combo editor
  *
  * </pre>
  *
@@ -138,6 +140,21 @@ public abstract class AbstractEditor extends EditorPart
     @Override
     public IDisplayPane[] getDisplayPanes() {
         return editorInput.getPaneManager().getDisplayPanes();
+    }
+
+    @Override
+    public List<IPane> getPanes() {
+        return editorInput.getPaneManager().getPanes();
+    }
+
+    @Override
+    public IPane getActivePane() {
+        return editorInput.getPaneManager().getActivePane();
+    }
+
+    @Override
+    public List<IDisplayPane> getCanvasesCompatibleWithActive() {
+        return editorInput.getPaneManager().getCanvasesCompatibleWithActive();
     }
 
     @Override

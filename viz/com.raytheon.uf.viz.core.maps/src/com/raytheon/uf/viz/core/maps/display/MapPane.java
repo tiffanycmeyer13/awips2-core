@@ -19,13 +19,13 @@
 package com.raytheon.uf.viz.core.maps.display;
 
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Listener;
 
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
+import com.raytheon.uf.viz.core.InputManager;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
-import com.raytheon.viz.ui.panes.AbstractPane;
+import com.raytheon.viz.ui.panes.AbstractComboPane;
 import com.raytheon.viz.ui.panes.VizDisplayPane;
 
 /**
@@ -41,12 +41,14 @@ import com.raytheon.viz.ui.panes.VizDisplayPane;
  * ------------ ---------- ----------- --------------------------
  * Mar 22, 2022 8790       mapeters    Initial creation
  * Apr 22, 2022 8791       mapeters    Abstract out a lot of functionality
+ * Sep 08, 2022 8792       mapeters    Updated registerHandlers() signature,
+ *                                     extend new class AbstractComboPane
  *
  * </pre>
  *
  * @author mapeters
  */
-public class MapPane extends AbstractPane {
+public class MapPane extends AbstractComboPane {
 
     /**
      * Constructor.
@@ -63,17 +65,12 @@ public class MapPane extends AbstractPane {
             IRenderableDisplay renderableDisplay) throws VizException {
         super(composite);
         IDisplayPane canvas = new VizDisplayPane(paneContainer, composite,
-                renderableDisplay);
-        addCanvas(CanvasType.MAIN, canvas);
+                CanvasType.MAIN, renderableDisplay);
+        addCanvas(canvas);
     }
 
     @Override
-    public CanvasType getActiveCanvasType() {
-        return CanvasType.MAIN;
-    }
-
-    @Override
-    public void registerHandlers(Listener listener) {
-        getMainCanvas().addListener(listener);
+    public void registerHandlers(InputManager inputManager) {
+        getMainCanvas().addListener(inputManager);
     }
 }

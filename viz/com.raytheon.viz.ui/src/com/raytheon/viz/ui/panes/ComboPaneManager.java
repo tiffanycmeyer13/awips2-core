@@ -20,6 +20,7 @@ package com.raytheon.viz.ui.panes;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -36,6 +37,7 @@ import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.locationtech.jts.geom.Coordinate;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
@@ -50,6 +52,8 @@ import com.raytheon.uf.viz.core.VizApp;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
+import com.raytheon.uf.viz.core.rsc.IPaneSyncedResource;
+import com.raytheon.uf.viz.core.rsc.ResourceList;
 import com.raytheon.viz.ui.color.IBackgroundColorChangedListener.BGColorMode;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
@@ -72,6 +76,9 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  * Mar 22, 2022 8790       mapeters    Initial creation
  * Apr 22, 2022 8791       mapeters    Implement IInsetMapDisplayPaneContainer,
  *                                     abstract out background resource sharing
+ * Sep 19, 2022 8792       mapeters    Add virtual cursor and new methods for
+ *                                     getting panes/canvases, update addPane
+ *                                     to do some resource syncing
  *
  * </pre>
  *
@@ -196,12 +203,8 @@ public class ComboPaneManager extends AbstractPaneManager
         return active.getCanvas(active.getActiveCanvasType());
     }
 
-    /**
-     * Get the managed pane that is currently active.
-     *
-     * @return the active pane
-     */
-    protected IPane getActivePane() {
+    @Override
+    public IPane getActivePane() {
         if (activePane == null) {
             for (IPane pane : panes) {
                 if (pane.isVisible()) {
@@ -329,6 +332,24 @@ public class ComboPaneManager extends AbstractPaneManager
                             .setColor(BGColorMode.EDITOR,
                                     newCanvas.getRenderableDisplay()
                                             .getBackgroundColor());
+                }
+
+                /*
+                 * Some resources need to stay in sync across all panes, let
+                 * them sync the new pane
+                 */
+                for (IPane existingPane : panes) {
+                    IDescriptor existingDescriptor = existingPane
+                            .getMainCanvas().getDescriptor();
+                    if (existingDescriptor != null) {
+                        ResourceList rl = existingDescriptor.getResourceList();
+                        List<IPaneSyncedResource> syncedRscs = rl
+                                .getResourcesByTypeAsType(
+                                        IPaneSyncedResource.class);
+                        for (IPaneSyncedResource rsc : syncedRscs) {
+                            rsc.syncPane(pane);
+                        }
+                    }
                 }
 
                 if (index >= 0 && index < panes.size()) {
@@ -507,5 +528,98 @@ public class ComboPaneManager extends AbstractPaneManager
     public IDisplayPane[] getCanvases(CanvasType type) {
         return panes.stream().map(pane -> pane.getCanvas(type))
                 .filter(Objects::nonNull).toArray(IDisplayPane[]::new);
+    }
+
+    @Override
+    public List<IPane> getPanes() {
+        return Collections.unmodifiableList(panes);
+    }
+
+    @Override
+    public boolean handleMouseMove(int x, int y) {
+        // Update virtual cursor
+        Coordinate c = translateClick(x, y);
+
+        if (c == null) {
+            return false;
+        }
+
+        IDisplayPane activeCanvas = getActiveDisplayPane();
+        boolean needRefresh = false;
+        for (IDisplayPane canvas : getCanvasesCompatibleWithActive()) {
+            if (canvas != activeCanvas) {
+                ((VizDisplayPane) canvas).setVirtualCursor(c);
+                needRefresh = true;
+            }
+        }
+
+        if (needRefresh) {
+            refresh();
+        }
+
+        return false;
+    }
+
+    @Override
+    public boolean handleMouseDownMove(int x, int y, int mouseButton) {
+        handleMouseMove(x, y);
+        return false;
+    }
+
+    @Override
+    public boolean handleMouseExit(Event event) {
+        // Clear all virtual cursors
+        for (IPane pane : getPanes()) {
+            for (IDisplayPane canvas : pane.getCanvasMap().values()) {
+                ((VizDisplayPane) canvas).setVirtualCursor(null);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get the canvas in the given pane that is the same type as the active
+     * canvas, if one exists.
+     *
+     * @param pane
+     *            the pane to check for a compatible canvas
+     * @return canvas of active type (or null if none)
+     */
+    private IDisplayPane getCanvasCompatibleWithActive(IPane pane) {
+        if (activePane == pane) {
+            return activePane.getActiveCanvas();
+        }
+
+        CanvasType activeCanvasType = activePane.getActiveCanvasType();
+        IDescriptor origDesc = activePane.getActiveCanvas().getDescriptor();
+        IDisplayPane canvas = pane.getCanvas(activeCanvasType);
+
+        if (canvas == null || !origDesc.isCompatible(canvas.getDescriptor())) {
+            return null;
+        }
+
+        /*
+         * Only consider inset canvases compatible if the main canvases are
+         * compatible as well.
+         */
+        if (activeCanvasType != CanvasType.MAIN
+                && !activePane.getMainCanvas().getDescriptor()
+                        .isCompatible(pane.getMainCanvas().getDescriptor())) {
+            return null;
+        }
+
+        return canvas;
+    }
+
+    @Override
+    public List<IDisplayPane> getCanvasesCompatibleWithActive() {
+        List<IDisplayPane> canvases = new ArrayList<>();
+        for (IPane pane : panes) {
+            IDisplayPane canvas = getCanvasCompatibleWithActive(pane);
+            if (canvas != null) {
+                canvases.add(canvas);
+            }
+        }
+        return canvases;
     }
 }

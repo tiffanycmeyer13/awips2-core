@@ -55,6 +55,7 @@ import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IExtent;
 import com.raytheon.uf.viz.core.IGraphicsTarget;
+import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
 import com.raytheon.uf.viz.core.PixelExtent;
 import com.raytheon.uf.viz.core.VizApp;
@@ -107,6 +108,7 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  * May 17, 2021  8452     randerso     Add ability for the descriptor to
  *                                     contribute to the context menu.
  * Mar 23, 2022  8790     mapeters     Add addListener(Listener)
+ * Oct 07, 2022  8792     mapeters     Add CanvasType field
  *
  *
  * </pre>
@@ -130,6 +132,8 @@ public class VizDisplayPane implements IDisplayPane {
 
     /** The canvas */
     private final Canvas canvas;
+
+    private final CanvasType type;
 
     /** The graphics target */
     protected IGraphicsTarget target;
@@ -179,13 +183,15 @@ public class VizDisplayPane implements IDisplayPane {
      * @param container
      * @param canvasComp
      *            the composite to use with the canvas
+     * @param type
+     *            the type of this canvas
      * @param display
      *            the initial renderable display to use in construction
      * @throws VizException
      */
     public VizDisplayPane(IDisplayPaneContainer container, Composite c,
-            IRenderableDisplay display) throws VizException {
-        this(container, c, display, true);
+            CanvasType type, IRenderableDisplay display) throws VizException {
+        this(container, c, type, display, true);
     }
 
     /**
@@ -194,6 +200,8 @@ public class VizDisplayPane implements IDisplayPane {
      * @param container
      * @param canvasComp
      *            the composite to use with the canvas
+     * @param type
+     *            the type of this canvas
      * @param display
      *            the initial renderable display to use in construction
      * @param enableContextualMenus
@@ -201,10 +209,11 @@ public class VizDisplayPane implements IDisplayPane {
      * @throws VizException
      */
     public VizDisplayPane(final IDisplayPaneContainer container,
-            Composite canvasComp, IRenderableDisplay display,
+            Composite canvasComp, CanvasType type, IRenderableDisplay display,
             boolean enableContextualMenus) throws VizException {
         this.container = container;
         this.canvasComp = canvasComp;
+        this.type = type;
 
         // create the graphics adapter
         graphicsAdapter = display.getGraphicsAdapter();
@@ -876,5 +885,10 @@ public class VizDisplayPane implements IDisplayPane {
         addListener(SWT.MenuDetect, listener);
         addListener(SWT.MouseExit, listener);
         addListener(SWT.MouseEnter, listener);
+    }
+
+    @Override
+    public CanvasType getType() {
+        return type;
     }
 }

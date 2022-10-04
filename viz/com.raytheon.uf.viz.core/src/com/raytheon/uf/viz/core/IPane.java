@@ -21,7 +21,6 @@ package com.raytheon.uf.viz.core;
 import java.util.Map;
 
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Listener;
 
 import com.raytheon.uf.viz.core.IPane.CanvasType;
 
@@ -44,6 +43,8 @@ import com.raytheon.uf.viz.core.IPane.CanvasType;
  * Mar 22, 2022 8790       mapeters    Initial creation
  * Apr 22, 2022 8791       mapeters    Remove getResourceType; add getMainCanvas(),
  *                                     getCanvasMap(), and CanvasType.SECONDARY_INSET
+ * Sep 08, 2022 8792       mapeters    Add getActiveCanvas(), change registerHandlers()
+ *                                     to take InputManager
  *
  * </pre>
  *
@@ -96,6 +97,16 @@ public interface IPane {
     IDisplayPane getCanvas(CanvasType type);
 
     /**
+     * Get the active canvas in this pane. This is only applicable if this pane
+     * as a whole is active.
+     *
+     * @return the active canvas
+     */
+    default IDisplayPane getActiveCanvas() {
+        return getCanvas(getActiveCanvasType());
+    }
+
+    /**
      * Get the main canvas in this pane.
      *
      * This is just a convenience method that calls
@@ -137,14 +148,16 @@ public interface IPane {
     void dispose();
 
     /**
-     * Register event handlers. The given listener should be attached to
+     * Register event handlers. The given input manager should be attached to
      * standard event types, but implementations are free to attach any custom
-     * event handlers as well.
+     * event handlers as well. Implementations may also add custom input
+     * handlers to the given input manager, for handlers that should potentially
+     * preempt or be preempted by other handlers.
      *
-     * @param listener
-     *            the listener to attach to standard events
+     * @param inputManager
+     *            the primary editor input manager to attach to standard events
      */
-    void registerHandlers(Listener listener);
+    void registerHandlers(InputManager inputManager);
 
     /**
      * Get the SWT composite for this pane's area.

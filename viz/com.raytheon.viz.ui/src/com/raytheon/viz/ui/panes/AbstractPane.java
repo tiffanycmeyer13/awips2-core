@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
 
 import com.raytheon.uf.viz.core.IDisplayPane;
@@ -41,6 +42,9 @@ import com.raytheon.uf.viz.core.IPane;
  * Mar 22, 2022 8790       mapeters    Initial creation
  * Apr 22, 2022 8791       mapeters    Store canvases in a map and abstract out
  *                                     a lot more functionality to here
+ * Sep 30, 2022 8792       mapeters    Move dispose functionality to new
+ *                                     AbstractComboPane subclass, move active
+ *                                     canvas type tracking here from subclasses
  *
  * </pre>
  *
@@ -49,6 +53,8 @@ import com.raytheon.uf.viz.core.IPane;
 public abstract class AbstractPane implements IPane {
 
     protected final Composite composite;
+
+    private CanvasType activeCanvasType = CanvasType.MAIN;
 
     private final Map<CanvasType, IDisplayPane> canvasMap = new HashMap<>();
 
@@ -60,7 +66,6 @@ public abstract class AbstractPane implements IPane {
      */
     protected AbstractPane(Composite composite) {
         this.composite = composite;
-        composite.addDisposeListener(e -> onCompositeDispose());
     }
 
     @Override
@@ -81,11 +86,19 @@ public abstract class AbstractPane implements IPane {
      * @param canvas
      *            the canvas
      */
-    protected void addCanvas(CanvasType type, IDisplayPane canvas) {
+    protected void addCanvas(IDisplayPane canvas) {
+        CanvasType type = canvas.getType();
         IDisplayPane prevCanvas = canvasMap.put(type, canvas);
         if (prevCanvas != null) {
             throw new UnsupportedOperationException(
                     "Illegal replacement of canvas type: " + type);
+        }
+
+        if (type != CanvasType.MAIN) {
+            canvas.addListener(SWT.MouseEnter,
+                    event -> activeCanvasType = type);
+            canvas.addListener(SWT.MouseExit,
+                    event -> activeCanvasType = CanvasType.MAIN);
         }
     }
 
@@ -102,6 +115,11 @@ public abstract class AbstractPane implements IPane {
     @Override
     public boolean containsCanvas(IDisplayPane canvas) {
         return canvasMap.values().stream().anyMatch(c -> c == canvas);
+    }
+
+    @Override
+    public CanvasType getActiveCanvasType() {
+        return activeCanvasType;
     }
 
     @Override
@@ -129,25 +147,5 @@ public abstract class AbstractPane implements IPane {
     @Override
     public void clear() {
         canvasMap.values().forEach(IDisplayPane::clear);
-    }
-
-    @Override
-    public final void dispose() {
-        /*
-         * All custom dispose handling should be done in onCompositeDispose() so
-         * that it occurs whether the SWT composite is disposed via this method
-         * or via another way.
-         */
-        composite.dispose();
-    }
-
-    /**
-     * Perform any necessary cleanup when this pane's SWT composite is disposed.
-     */
-    protected void onCompositeDispose() {
-        /*
-         * Contained canvases dispose themselves by listening for SWT canvas
-         * dispose, so nothing to dispose here.
-         */
     }
 }

@@ -22,8 +22,6 @@ import java.util.List;
 
 import org.eclipse.swt.widgets.Composite;
 
-import com.raytheon.uf.common.status.IUFStatusHandler;
-import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IPane;
 import com.raytheon.uf.viz.core.IPaneCreator;
@@ -43,15 +41,14 @@ import com.raytheon.uf.viz.core.maps.scales.MapScalesManager;
  * Mar 23, 2022 8790       mapeters    Initial creation
  * Apr 22, 2022 8791       mapeters    Added getDefaultBackgroundDisplay,
  *                                     removed getResourceType
+ * Sep 08, 2022 8792       mapeters    Moved default map scale determination to
+ *                                     MapScalesManager
  *
  * </pre>
  *
  * @author mapeters
  */
 public class MapPaneCreator implements IPaneCreator {
-
-    private static final IUFStatusHandler statusHandler = UFStatus
-            .getHandler(MapPaneCreator.class);
 
     @Override
     public IPane createPane(IDisplayPaneContainer paneContainer, Composite comp,
@@ -66,19 +63,6 @@ public class MapPaneCreator implements IPaneCreator {
          * Map data displays don't include the background maps here, so need to
          * get those separately.
          */
-        IRenderableDisplay bgDisplay = null;
-        try {
-            bgDisplay = MapScalesManager.getInstance().findEditorScale()
-                    .getScaleBundle().getDisplays()[0];
-        } catch (Exception e) {
-            statusHandler.error("Error loading default background map display",
-                    e);
-        }
-
-        if (bgDisplay == null) {
-            bgDisplay = MapScalesManager.getInstance()
-                    .getLastResortScaleDisplay();
-        }
-        return bgDisplay;
+        return MapScalesManager.getInstance().getDefaultScaleDisplay();
     }
 }

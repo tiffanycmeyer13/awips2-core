@@ -52,6 +52,7 @@ import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
 import com.raytheon.uf.viz.core.drawables.AbstractRenderableDisplay;
+import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.procedures.Bundle;
 import com.raytheon.viz.ui.UiUtil.ContainerPart.Container;
@@ -82,6 +83,8 @@ import com.raytheon.viz.ui.statusline.VizActionBarAdvisor;
  * Apr 01, 2022 8790       mapeters    Update determination of editor type to open, move
  *                                     makeCompatible() to editor hierarchy
  * Apr 22, 2022 8791       mapeters    Further update determination of editor type to open
+ * Sep 13, 2022 8792       mapeters    Add isDescriptorCompatibleWithActive() and
+ *                                     isDescriptorActive()
  *
  * </pre>
  *
@@ -638,4 +641,49 @@ public class UiUtil {
         }
     }
 
+    /**
+     * Determine if the given descriptor is compatible with the active
+     * descriptor in the given pane container.
+     *
+     * @param descriptor
+     *            descriptor to compare with the active descriptor
+     * @param paneContainer
+     *            pane container to get the active descriptor from
+     * @return true if the descriptor is compatible, false otherwise
+     */
+    public static boolean isDescriptorCompatibleWithActive(
+            IDescriptor descriptor, IDisplayPaneContainer paneContainer) {
+        if (paneContainer != null) {
+            for (IDisplayPane canvas : paneContainer
+                    .getCanvasesCompatibleWithActive()) {
+                if (canvas.getDescriptor() == descriptor) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if the given descriptor is the active descriptor in the given
+     * pane container.
+     *
+     * @param descriptor
+     *            descriptor to check if it matches the active descriptor
+     * @param paneContainer
+     *            pane container to get the active descriptor from
+     * @return true if the descriptor is active in the pane container, false
+     *         otherwise
+     */
+    public static boolean isDescriptorActive(IDescriptor descriptor,
+            IDisplayPaneContainer paneContainer) {
+        if (paneContainer != null) {
+            IDisplayPane canvas = paneContainer.getActiveDisplayPane();
+            if (canvas != null && canvas.getDescriptor() == descriptor) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

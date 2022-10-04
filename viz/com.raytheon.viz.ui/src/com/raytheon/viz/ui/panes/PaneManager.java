@@ -21,11 +21,13 @@
 package com.raytheon.viz.ui.panes;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.collections4.map.LinkedMap;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
@@ -39,6 +41,8 @@ import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
+import com.raytheon.uf.viz.core.IPane;
+import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.VizApp;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
@@ -73,6 +77,9 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  * Apr 01, 2022  8790     mapeters  Abstract out some functionality to new
  *                                  AbstractPaneManager
  * Apr 22, 2022  8791     mapeters  Abstract out background resource sharing
+ * Sep 12, 2022  8792     mapeters  Added new methods for new combo editor,
+ *                                  replaced displayPanes list with map to also
+ *                                  track LegacyPanes.
  *
  * </pre>
  *
@@ -83,8 +90,12 @@ public class PaneManager extends AbstractPaneManager {
     private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(PaneManager.class);
 
-    /** The display pane */
-    protected final List<VizDisplayPane> displayPanes = new ArrayList<>();
+    /**
+     * Ordered map of main canvases and their associated panes.
+     * {@link LinkedMap} used for convenience methods that make it easier to
+     * access specific canvas keys.
+     */
+    protected final LinkedMap<IDisplayPane, LegacyPane> mainCanvasToPaneMap = new LinkedMap<>();
 
     /** The pane that currently has the active focus */
     protected IDisplayPane activatedPane;
@@ -102,7 +113,7 @@ public class PaneManager extends AbstractPaneManager {
     @Override
     public void initializeComponents(IDisplayPaneContainer container,
             Composite comp) {
-        displayPanes.clear();
+        mainCanvasToPaneMap.clear();
         displayedPaneCount = 0;
         paneContainer = container;
         GridLayout gl = new GridLayout(0, true);
@@ -122,7 +133,7 @@ public class PaneManager extends AbstractPaneManager {
                 if (waiting) {
                     return;
                 }
-                if (!displayPanes.isEmpty()) {
+                if (!mainCanvasToPaneMap.isEmpty()) {
                     waiting = true;
                     VizApp.runAsync(() -> {
                         adjustPaneLayout();
@@ -132,7 +143,7 @@ public class PaneManager extends AbstractPaneManager {
             }
         });
 
-        displayPanes.clear();
+        mainCanvasToPaneMap.clear();
     }
 
     protected void registerHandlers(final IDisplayPane pane) {
@@ -222,14 +233,14 @@ public class PaneManager extends AbstractPaneManager {
      */
     @Override
     public void refresh() {
-        for (IDisplayPane pane : displayPanes) {
+        for (IDisplayPane pane : mainCanvasToPaneMap.keySet()) {
             pane.refresh();
         }
     }
 
     public IRenderableDisplay[] getRenderableDisplays() {
         List<IRenderableDisplay> rDisplays = new ArrayList<>();
-        for (IDisplayPane pane : displayPanes) {
+        for (IDisplayPane pane : mainCanvasToPaneMap.keySet()) {
             rDisplays.add(pane.getRenderableDisplay());
         }
         return rDisplays.toArray(new IRenderableDisplay[rDisplays.size()]);
@@ -237,20 +248,20 @@ public class PaneManager extends AbstractPaneManager {
 
     @Override
     public IDisplayPane[] getDisplayPanes() {
-        return displayPanes.toArray(new VizDisplayPane[displayPanes.size()]);
+        return mainCanvasToPaneMap.keySet().toArray(IDisplayPane[]::new);
     }
 
     @Override
     public IDisplayPane getActiveDisplayPane() {
         if (activatedPane == null) {
-            for (VizDisplayPane pane : displayPanes) {
+            for (IDisplayPane pane : mainCanvasToPaneMap.keySet()) {
                 if (pane.isVisible()) {
                     activatedPane = pane;
                     break;
                 }
             }
-            if (activatedPane == null && !displayPanes.isEmpty()) {
-                activatedPane = displayPanes.get(0);
+            if (activatedPane == null && !mainCanvasToPaneMap.isEmpty()) {
+                activatedPane = mainCanvasToPaneMap.firstKey();
             }
         }
         return activatedPane;
@@ -272,7 +283,7 @@ public class PaneManager extends AbstractPaneManager {
 
     @Override
     public int getNumberofPanes() {
-        return displayPanes.size();
+        return mainCanvasToPaneMap.size();
     }
 
     @Override
@@ -282,7 +293,7 @@ public class PaneManager extends AbstractPaneManager {
 
     @Override
     public void setSelectedPane(String action, IDisplayPane pane) {
-        if (pane != null && !displayPanes.contains(pane)) {
+        if (pane != null && !mainCanvasToPaneMap.containsKey(pane)) {
             throw new IllegalArgumentException(
                     "setSelectedPane called with pane not in this IMultiPaneEditor");
         }
@@ -300,12 +311,13 @@ public class PaneManager extends AbstractPaneManager {
 
     protected IDisplayPane addPane(IRenderableDisplay renderableDisplay,
             Composite canvasComp) {
-        shareBackgroundResources(renderableDisplay, displayPanes);
+        shareBackgroundResources(renderableDisplay,
+                mainCanvasToPaneMap.asList());
 
         VizDisplayPane pane = null;
         try {
-            pane = (VizDisplayPane) createNewPane(renderableDisplay,
-                    canvasComp);
+            pane = new VizDisplayPane(paneContainer, canvasComp,
+                    CanvasType.MAIN, renderableDisplay, true);
             registerHandlers(pane);
         } catch (VizException e) {
             statusHandler.handle(Priority.PROBLEM, "Error adding pane", e);
@@ -317,9 +329,10 @@ public class PaneManager extends AbstractPaneManager {
                     activatedPane = pane;
                 }
                 ++displayedPaneCount;
-                if (!displayPanes.isEmpty()) {
-                    pane.getRenderableDisplay().setBackgroundColor(
-                            displayPanes.get(0).getRenderableDisplay()
+                if (!mainCanvasToPaneMap.isEmpty()) {
+                    pane.getRenderableDisplay()
+                            .setBackgroundColor(mainCanvasToPaneMap.firstKey()
+                                    .getRenderableDisplay()
                                     .getBackgroundColor());
                 } else if (paneContainer instanceof AbstractEditor) {
                     ((AbstractEditor) paneContainer).getBackgroundColor()
@@ -328,11 +341,11 @@ public class PaneManager extends AbstractPaneManager {
                                             .getBackgroundColor());
                 }
 
-                if (!displayPanes.isEmpty()) {
+                if (!mainCanvasToPaneMap.isEmpty()) {
                     pane.getDescriptor().synchronizeTimeMatching(
-                            displayPanes.get(0).getDescriptor());
+                            mainCanvasToPaneMap.firstKey().getDescriptor());
                 }
-                displayPanes.add(pane);
+                mainCanvasToPaneMap.put(pane, new LegacyPane(pane));
             } catch (Throwable t) {
                 statusHandler.handle(Priority.PROBLEM, "Error adding pane", t);
             }
@@ -341,12 +354,6 @@ public class PaneManager extends AbstractPaneManager {
         setSelectedPane(IMultiPaneEditor.IMAGE_ACTION, null);
         adjustPaneLayout();
         return pane;
-    }
-
-    protected IDisplayPane createNewPane(IRenderableDisplay renderableDisplay,
-            Composite canvasComp) throws VizException {
-        return new VizDisplayPane(paneContainer, canvasComp, renderableDisplay,
-                true);
     }
 
     @Override
@@ -364,14 +371,14 @@ public class PaneManager extends AbstractPaneManager {
 
     @Override
     public void removePane(IDisplayPane pane) {
-        if (!displayPanes.contains(pane)) {
+        if (!mainCanvasToPaneMap.containsKey(pane)) {
             throw new IllegalArgumentException(
                     "removePane called with pane not in this IDisplayPaneContainer");
         }
         boolean wasVisible = pane.isVisible();
-        displayPanes.remove(pane);
-        if (activatedPane == pane && !displayPanes.isEmpty()) {
-            activatedPane = displayPanes.get(0);
+        mainCanvasToPaneMap.remove(pane);
+        if (activatedPane == pane && !mainCanvasToPaneMap.isEmpty()) {
+            activatedPane = mainCanvasToPaneMap.firstKey();
         } else {
             activatedPane = null;
         }
@@ -386,7 +393,7 @@ public class PaneManager extends AbstractPaneManager {
         }
 
         // Undo map sharing that was done in addPane
-        unshareBackgroundResources(pane, displayPanes);
+        unshareBackgroundResources(pane, mainCanvasToPaneMap.asList());
 
         pane.dispose();
 
@@ -408,10 +415,10 @@ public class PaneManager extends AbstractPaneManager {
 
     @Override
     public void clear() {
-        while (displayPanes.size() > 1) {
-            removePane(displayPanes.get(displayPanes.size() - 1));
+        while (mainCanvasToPaneMap.size() > 1) {
+            removePane(mainCanvasToPaneMap.lastKey());
         }
-        IDisplayPane pane = displayPanes.get(0);
+        IDisplayPane pane = mainCanvasToPaneMap.firstKey();
         showPane(pane);
         pane.getRenderableDisplay().setBounds(composite.getBounds());
         pane.clear();
@@ -473,5 +480,25 @@ public class PaneManager extends AbstractPaneManager {
             }
         }
         return false;
+    }
+
+    @Override
+    public List<IPane> getPanes() {
+        return List.copyOf(mainCanvasToPaneMap.values());
+    }
+
+    @Override
+    public IPane getActivePane() {
+        IDisplayPane activeCanvas = getActiveDisplayPane();
+        if (activeCanvas != null) {
+            IPane activePane = mainCanvasToPaneMap.get(activeCanvas);
+            return activePane;
+        }
+        return null;
+    }
+
+    @Override
+    public List<IDisplayPane> getCanvasesCompatibleWithActive() {
+        return Arrays.asList(getDisplayPanes());
     }
 }
