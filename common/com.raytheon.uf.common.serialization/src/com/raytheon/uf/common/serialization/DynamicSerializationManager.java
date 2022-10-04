@@ -32,6 +32,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -60,9 +61,7 @@ import com.raytheon.uf.common.serialization.thrift.ThriftSerializationContextBui
 import com.raytheon.uf.common.util.ByteArrayOutputStreamPool;
 import com.raytheon.uf.common.util.PooledByteArrayOutputStream;
 
-import net.sf.cglib.beans.BeanMap;
-
-import net.sf.cglib.beans.BeanMap;
+import org.springframework.cglib.beans.BeanMap;
 
 /**
  * Dynamic Serialization Manager provides a serialization capability that runs
@@ -92,13 +91,14 @@ import net.sf.cglib.beans.BeanMap;
  *                                      runtime (the class is no longer
  *                                      accessible at compile time)
  * Jul  1, 2019 7888        tgurney     deserialize(ctx) changed method signature
+ * Apr 21, 2022 8709        tjensen     Remove net.sf.cglib
  *
  * </pre>
  *
  * @author chammack
  */
 public class DynamicSerializationManager {
-    private static Map<SerializationType, DynamicSerializationManager> instanceMap = new HashMap<>();
+    private static EnumMap<SerializationType, DynamicSerializationManager> instanceMap = new EnumMap<>(SerializationType.class);
 
     private ISerializationContextBuilder builder;
 
@@ -352,7 +352,6 @@ public class DynamicSerializationManager {
                  * ignore, it will return null and if it's an issue it will be
                  * thrown as an exception later
                  */
-                // e.printStackTrace();
             }
         }
 

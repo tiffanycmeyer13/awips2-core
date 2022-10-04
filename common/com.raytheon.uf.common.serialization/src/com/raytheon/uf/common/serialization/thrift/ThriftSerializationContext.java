@@ -61,8 +61,8 @@ import com.raytheon.uf.common.serialization.thrift.exception.SetDeserializationE
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 
-import net.sf.cglib.beans.BeanMap;
-import net.sf.cglib.reflect.FastClass;
+import org.springframework.cglib.beans.BeanMap;
+import org.springframework.cglib.reflect.FastClass;
 
 /**
  * Provides a serialization/deserialization capability built on top of the
@@ -112,6 +112,7 @@ import net.sf.cglib.reflect.FastClass;
  *                                  would assigned to a Number or Object field
  * Jan 21, 2021  8319     randerso  Updated for thrift 0.13.0
  * Jan 11, 2022  8341     randerso  Changed to use UFStatus
+ * Apr 21, 2022  8709     tjensen   Remove net.sf.cglib
  *
  * </pre>
  *

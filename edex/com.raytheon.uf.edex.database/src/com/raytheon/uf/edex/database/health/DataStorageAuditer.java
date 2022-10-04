@@ -18,6 +18,12 @@
  **/
 package com.raytheon.uf.edex.database.health;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,6 +31,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +46,12 @@ import com.raytheon.uf.common.datastorage.audit.IDataStorageAuditer;
 import com.raytheon.uf.common.datastorage.audit.MetadataAndDataId;
 import com.raytheon.uf.common.datastorage.audit.MetadataStatus;
 import com.raytheon.uf.common.datastorage.records.IMetadataIdentifier;
+import com.raytheon.uf.common.datastorage.records.IMetadataIdentifier.MetadataSpecificity;
+import com.raytheon.uf.common.serialization.SerializationUtil;
 import com.raytheon.uf.common.time.SimulatedTime;
 import com.raytheon.uf.common.time.util.TimeUtil;
+import com.raytheon.uf.edex.core.EDEXUtil;
+import com.raytheon.uf.edex.core.IContextStateProcessor;
 import com.raytheon.uf.edex.core.IMessageProducer;
 
 /**
@@ -60,14 +73,32 @@ import com.raytheon.uf.edex.core.IMessageProducer;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Sep 23, 2021 8608       mapeters    Initial creation
+ * Feb 17, 2022 8608       mapeters    Prevent harmless warnings about duplicate data,
+ *                                     persist state across EDEX restarts
+ * Jun 28, 2022 8865       mapeters    Ensure exceptions thrown by cleanup() are logged,
+ *                                     prevent methods from running when they shouldn't
+ *
  *
  * </pre>
  *
  * @author mapeters
  */
-public class DataStorageAuditer implements IDataStorageAuditer {
+public class DataStorageAuditer
+        implements IDataStorageAuditer, IContextStateProcessor {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final Logger logger = LoggerFactory
+            .getLogger(DataStorageAuditer.class);
+
+    /**
+     * Path to persist state to, so that data storage routes that occur around
+     * EDEX restarts are still audited correctly. Note that this must be a
+     * mounted/shared file, since only one instance of this auditer exists per
+     * EDEX cluster, and it may switch JVMs on restart.
+     */
+    private static final String PERSISTED_STATE_PATH = EDEXUtil.getEdexShare()
+            + File.separator + "dataStorageAuditerState.gz";
+
+    private final AtomicBoolean persistedStateLoaded = new AtomicBoolean(false);
 
     private final Map<String, DataStorageInfo> traceIdToInfo = new HashMap<>();
 
@@ -128,7 +159,8 @@ public class DataStorageAuditer implements IDataStorageAuditer {
                     IMetadataIdentifier metaId = dataIds.getMetaId();
                     info.setMetaId(metaId);
                     info.setDataId(dataIds.getDataId());
-                    if (!metaId.isMetadataUsed()) {
+                    if (metaId
+                            .getSpecificity() == MetadataSpecificity.NO_METADATA) {
                         if (info.getMetaStatus() != null) {
                             logger.error(
                                     "Metadata status reported for data storage operation that shouldn't have any metadata: "
@@ -162,16 +194,32 @@ public class DataStorageAuditer implements IDataStorageAuditer {
                     if (prevStatus == null) {
                         logger.debug("Data store completed: {}", info);
                     } else {
-                        /*
-                         * Warn since this shouldn't really happen, probably
-                         * caused by a synchronous data store failure which
-                         * should prevent reaching the metadata storing code,
-                         * but some data storage routes may not handle that
-                         * correctly.
-                         */
-                        logger.warn(
-                                "Metadata status updated from {} for store info: {}",
-                                prevStatus, info);
+                        if (info.getDataStatus() == DataStatus.DUPLICATE_SYNC
+                                && prevStatus == MetadataStatus.STORAGE_NOT_REACHED_FOR_DUPLICATE
+                                && status == MetadataStatus.DUPLICATE) {
+                            /*
+                             * Metadata storage shouldn't be reached if data
+                             * storage fails due to duplicates. But if it is
+                             * reached and complains about duplicates,
+                             * everything still matches up, so log as info
+                             * instead of warning. This regularly happens for
+                             * FFMP.
+                             */
+                            logger.info(
+                                    "Metadata status updated from {} for store info: {}",
+                                    prevStatus, info);
+                        } else {
+                            /*
+                             * Warn since this shouldn't really happen, probably
+                             * caused by a synchronous data store failure which
+                             * should prevent reaching the metadata storing
+                             * code, but some data storage routes may not handle
+                             * that correctly.
+                             */
+                            logger.warn(
+                                    "Metadata status updated from {} for store info: {}",
+                                    prevStatus, info);
+                        }
                     }
                     handleDataStorageResult(info);
                 }
@@ -234,43 +282,66 @@ public class DataStorageAuditer implements IDataStorageAuditer {
      * older than the cutoff times. Should be called on a cron.
      */
     public void cleanup() {
-        long currentTime = SimulatedTime.getSystemTime().getMillis();
-        long completedCutoff = currentTime - completedRetentionMillis;
-        long pendingCutoff = currentTime - pendingRetentionMillis;
-        synchronized (traceIdToInfo) {
-            logger.info(
-                    "Cleaning up expired data storage information from {} total operations...",
-                    traceIdToInfo.size());
-            Iterator<DataStorageInfo> iter = traceIdToInfo.values().iterator();
-            while (iter.hasNext()) {
-                DataStorageInfo info = iter.next();
-                long startTime = info.getStartTime();
-                if (info.isComplete()) {
-                    if (startTime < completedCutoff) {
-                        iter.remove();
-                    }
-                } else if (startTime < pendingCutoff) {
-                    iter.remove();
-                    if (info.hasDataStatusOnly()) {
-                        /*
-                         * This can happen somewhat commonly if a data storage
-                         * operation completes, the completed data storage info
-                         * expires from here, and then the data group is stored
-                         * again, and the trace ID hung around in the ignite
-                         * cache that whole time.
-                         */
-                        logger.info(
-                                "Expired data storage info only has data status: "
-                                        + info);
-                    } else {
-                        logger.warn(
-                                "Expired data storage info never completed: "
-                                        + info);
+        if (!enabled) {
+            return;
+        }
+
+        /*
+         * Wrap everything in try/catch since it seems like some errors thrown
+         * from here may be ignored based on some "Cleaning up" log messages not
+         * having corresponding "Retained info" messages.
+         */
+        try {
+            long currentTime = SimulatedTime.getSystemTime().getMillis();
+            long completedCutoff = currentTime - completedRetentionMillis;
+            long pendingCutoff = currentTime - pendingRetentionMillis;
+
+            synchronized (traceIdToInfo) {
+                logger.info(
+                        "Cleaning up expired data storage information from {} total operations...",
+                        traceIdToInfo.size());
+                Iterator<DataStorageInfo> iter = traceIdToInfo.values()
+                        .iterator();
+                while (iter.hasNext()) {
+                    DataStorageInfo info = iter.next();
+                    try {
+                        long startTime = info.getStartTime();
+                        if (info.isComplete()) {
+                            if (startTime < completedCutoff) {
+                                iter.remove();
+                            }
+                        } else if (startTime < pendingCutoff) {
+                            iter.remove();
+                            if (info.hasDataStatusOnly()) {
+                                /*
+                                 * This can happen somewhat commonly if a data
+                                 * storage operation completes, the completed
+                                 * data storage info expires from here, and then
+                                 * the data group is stored again, and the trace
+                                 * ID hung around in the ignite cache that whole
+                                 * time.
+                                 */
+                                logger.info(
+                                        "Expired data storage info only has data status: {}",
+                                        info);
+                            } else {
+                                logger.warn(
+                                        "Expired data storage info never completed: {}",
+                                        info);
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.error(
+                                "Error cleaning up expired data storage info: ",
+                                e);
                     }
                 }
+                logger.info("Retained info for {} data storage operations",
+                        traceIdToInfo.size());
             }
-            logger.info("Retained info for {} data storage operations",
-                    traceIdToInfo.size());
+        } catch (Throwable t) {
+            logger.error("Error cleaning up expired data storage info", t);
+            throw t;
         }
     }
 
@@ -286,6 +357,89 @@ public class DataStorageAuditer implements IDataStorageAuditer {
                 listener.handleDataStorageResult(info,
                         Collections.unmodifiableMap(traceIdToInfo));
             }
+        }
+    }
+
+    @Override
+    public void preStart() {
+        if (!enabled) {
+            return;
+        }
+
+        /*
+         * This gets called twice for some reason, only load persisted state the
+         * first time.
+         */
+        if (persistedStateLoaded.getAndSet(true)) {
+            return;
+        }
+
+        // Load state from disk
+        Path persistedStatePath = Paths.get(PERSISTED_STATE_PATH);
+        if (Files.isRegularFile(persistedStatePath)) {
+            try (FileInputStream fis = new FileInputStream(
+                    PERSISTED_STATE_PATH);
+                    GZIPInputStream gzis = new GZIPInputStream(fis)) {
+                @SuppressWarnings("unchecked")
+                Map<String, DataStorageInfo> persistedTraceIdToInfo = SerializationUtil
+                        .transformFromThrift(Map.class, gzis);
+                traceIdToInfo.putAll(persistedTraceIdToInfo);
+                logger.info("Loaded info for {} data storage operations",
+                        traceIdToInfo.size());
+            } catch (Exception e) {
+                logger.error("Error loading persisted state from "
+                        + PERSISTED_STATE_PATH, e);
+            }
+            try {
+                Files.delete(persistedStatePath);
+            } catch (Exception e) {
+                logger.error("Error deleting persisted state: "
+                        + PERSISTED_STATE_PATH, e);
+            }
+        } else if (Files.exists(persistedStatePath)) {
+            logger.error(
+                    "Unable to load persisted state from non-regular file: "
+                            + PERSISTED_STATE_PATH);
+        } else {
+            logger.info("No persisted state to load");
+        }
+    }
+
+    @Override
+    public void postStart() {
+        // no-op
+    }
+
+    @Override
+    public void preStop() {
+        // no-op
+    }
+
+    @Override
+    public void postStop() {
+        if (!enabled) {
+            return;
+        }
+
+        if (traceIdToInfo.isEmpty()) {
+            /*
+             * Primarily checking this because this method can be called on
+             * ingest JVMs that aren't running this auditer, and we don't want
+             * them overwriting the persisted state.
+             */
+            return;
+        }
+
+        // Persist state to disk
+        cleanup();
+        logger.info("Persisting info for {} data storage operations",
+                traceIdToInfo.size());
+        try (FileOutputStream fos = new FileOutputStream(PERSISTED_STATE_PATH);
+                GZIPOutputStream gzos = new GZIPOutputStream(fos)) {
+            SerializationUtil.transformToThriftUsingStream(traceIdToInfo, gzos);
+        } catch (Exception e) {
+            logger.error("Error persisting state to " + PERSISTED_STATE_PATH,
+                    e);
         }
     }
 }

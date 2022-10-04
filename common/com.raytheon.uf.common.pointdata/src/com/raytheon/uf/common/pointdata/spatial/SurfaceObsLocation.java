@@ -28,7 +28,10 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
-import org.hibernate.annotations.Index;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import com.raytheon.uf.common.dataplugin.NullUtil;
@@ -40,10 +43,6 @@ import com.raytheon.uf.common.geospatial.MapUtil;
 import com.raytheon.uf.common.geospatial.adapter.GeometryAdapter;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 
 /**
  * SurfaceObsLocation represents an observation point on the surface of the
@@ -67,6 +66,7 @@ import org.locationtech.jts.geom.Point;
  * 10/16/2014   3454       bphillip    Upgrading to Hibernate 4
  * Jul 31, 2016 4360       rferrel     Made stationId, latitude and longitude non-nullable.
  * Feb 26, 2019 6140       tgurney     Hibernate 5 GeometryType fix
+ * Aug 10, 2022 8892       tjensen     Update indexes for Hibernate 5
  *
  * </pre>
  *
@@ -95,12 +95,11 @@ public class SurfaceObsLocation implements ISpatialObject, Cloneable {
 
     // Id of the station making this observation.
     @Column(length = 48, nullable = false)
-    @Index(name = "%TABLE%_stationIndex")
     @DataURI(position = 0)
     @NullString
     @XmlAttribute
     @DynamicSerializeElement
-    private String stationId = NullUtil.NULL_STRING;;
+    private String stationId = NullUtil.NULL_STRING;
 
     // Default to mobile. If defined the base location data has been retrieved
     // from a data base.
@@ -134,11 +133,6 @@ public class SurfaceObsLocation implements ISpatialObject, Cloneable {
     public SurfaceObsLocation() {
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Object#clone()
-     */
     @Override
     public Object clone() throws CloneNotSupportedException {
         SurfaceObsLocation clone = (SurfaceObsLocation) super.clone();

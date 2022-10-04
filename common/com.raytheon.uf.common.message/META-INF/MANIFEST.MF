@@ -10,7 +10,7 @@ Export-Package: com.raytheon.uf.common.message,
  com.raytheon.uf.common.message.response
 Import-Package: com.raytheon.uf.common.serialization,
  com.raytheon.uf.common.serialization.annotations
-Require-Bundle: net.sf.cglib,
+Require-Bundle: org.springframework,
  com.raytheon.uf.common.status,
  com.raytheon.uf.common.util,
  javax.xml.bind

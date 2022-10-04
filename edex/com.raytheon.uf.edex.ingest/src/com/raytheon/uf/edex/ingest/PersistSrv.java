@@ -21,12 +21,13 @@ package com.raytheon.uf.edex.ingest;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +36,7 @@ import com.raytheon.uf.common.dataplugin.PluginDataObject;
 import com.raytheon.uf.common.datastorage.DuplicateRecordStorageException;
 import com.raytheon.uf.common.datastorage.StorageException;
 import com.raytheon.uf.common.datastorage.StorageStatus;
-import com.raytheon.uf.common.datastorage.audit.DataStorageAuditerContainer;
+import com.raytheon.uf.common.datastorage.audit.DataStorageAuditUtils;
 import com.raytheon.uf.common.datastorage.audit.MetadataStatus;
 import com.raytheon.uf.common.datastorage.records.IDataRecord;
 import com.raytheon.uf.common.status.IPerformanceStatusHandler;
@@ -59,10 +60,12 @@ import com.raytheon.uf.edex.database.plugin.PluginFactory;
  * Mar 19, 2013 1785       bgonzale    Added performance status to persist.
  * Dec 17, 2015 5166       kbisanz     Update logging to use SLF4J
  * Apr 25, 2016 5604       rjpeter     Added dupElim checking by dataURI.
+ * Feb 17, 2022 8608       mapeters    Use DataStorageAuditUtils
+ * Jul 21, 2022 8897       njensen     Optimize check for discardedPdos
+ *
  * </pre>
  *
  * @author chammack
- * @version 1.0
  */
 public class PersistSrv {
 
@@ -116,21 +119,18 @@ public class PersistSrv {
              * complaining about uncompleted data storage routes, report any
              * that were discarded like this.
              */
-            List<PluginDataObject> discardedPdos = new ArrayList<>();
-            for (PluginDataObject pdo : pdos) {
-                boolean discarded = pdoSet.stream().noneMatch(
-                        possiblyReturnedPdo -> possiblyReturnedPdo == pdo);
-                if (discarded) {
-                    discardedPdos.add(pdo);
+            if (pdos.length != pdoSet.size()) {
+                List<PluginDataObject> discardedPdos = new ArrayList<>();
+                Set<PluginDataObject> identitySet = Collections
+                        .newSetFromMap(new IdentityHashMap<>(pdoSet.size()));
+                identitySet.addAll(pdoSet);
+                for (PluginDataObject pdo : pdos) {
+                    if (!identitySet.contains(pdo)) {
+                        discardedPdos.add(pdo);
+                    }
                 }
-            }
-            if (!discardedPdos.isEmpty()) {
-                Map<String, MetadataStatus> traceIdsToStatus = discardedPdos
-                        .stream()
-                        .collect(Collectors.toMap(pdo -> pdo.getTraceId(),
-                                pdo -> MetadataStatus.NA));
-                DataStorageAuditerContainer.getInstance().getAuditer()
-                        .processMetadataStatuses(traceIdsToStatus);
+                DataStorageAuditUtils.auditMetadataStatuses(MetadataStatus.NA,
+                        discardedPdos);
             }
 
             if (se != null) {

@@ -43,6 +43,8 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Mar 24, 2021  8374     srahimi   Code cleanup
  * Mar 29, 2021  8374     randerso  Re-implemented copyFrom as shallowCopy.
  *                                  Additional code cleanup.
+ * Jan 14, 2021  8741     njensen   Fixed toString() slab case and generated new
+ *                                  implementations of hashCode() and equals()
  *
  * </pre>
  *
@@ -255,8 +257,9 @@ public class Request {
             break;
         }
         case SLAB: {
-            str.append(Arrays.toString(
-                    new int[][] { minIndexForSlab, maxIndexForSlab }));
+            str.append(Arrays
+                    .toString(new String[] { Arrays.toString(minIndexForSlab),
+                            Arrays.toString(maxIndexForSlab) }));
             break;
         }
         case XLINE:
@@ -273,7 +276,14 @@ public class Request {
 
     @Override
     public int hashCode() {
-        return toString().hashCode();
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + Arrays.hashCode(indices);
+        result = prime * result + Arrays.hashCode(maxIndexForSlab);
+        result = prime * result + Arrays.hashCode(minIndexForSlab);
+        result = prime * result + Arrays.hashCode(points);
+        result = prime * result + ((type == null) ? 0 : type.hashCode());
+        return result;
     }
 
     @Override
@@ -287,7 +297,23 @@ public class Request {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        return toString().equals(obj.toString());
+        Request other = (Request) obj;
+        if (!Arrays.equals(indices, other.indices)) {
+            return false;
+        }
+        if (!Arrays.equals(maxIndexForSlab, other.maxIndexForSlab)) {
+            return false;
+        }
+        if (!Arrays.equals(minIndexForSlab, other.minIndexForSlab)) {
+            return false;
+        }
+        if (!Arrays.equals(points, other.points)) {
+            return false;
+        }
+        if (type != other.type) {
+            return false;
+        }
+        return true;
     }
 
 }

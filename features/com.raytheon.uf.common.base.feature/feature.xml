@@ -233,12 +233,6 @@
          version="0.0.0"/>
 
    <plugin
-         id="net.sf.cglib"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"/>
-
-   <plugin
          id="net.sf.ehcache"
          download-size="0"
          install-size="0"
@@ -306,12 +300,6 @@
 
    <plugin
          id="org.geotools"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"/>
-
-   <plugin
-         id="org.jdom"
          download-size="0"
          install-size="0"
          version="0.0.0"/>

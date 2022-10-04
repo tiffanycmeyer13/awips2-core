@@ -37,6 +37,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * ------------ ---------- ----------- --------------------------
  * Oct 25, 2012  #1292     bgonzale     Initial creation
  * Feb 12, 2013  #1615     bgonzale     Changed pluginName to dataType.
+ * May 12, 2022  22594   mgamazaychikov Add dataIdentifier field
  * 
  * </pre>
  * 
@@ -76,6 +77,9 @@ public class ProcessEvent extends StatisticsEvent {
      */
     @DynamicSerializeElement
     private long processingLatency;
+
+    @DynamicSerializeElement
+    private String dataIdentifier;
 
     public ProcessEvent() {
     }
@@ -158,6 +162,14 @@ public class ProcessEvent extends StatisticsEvent {
      */
     public void setProcessingTime(long processingTime) {
         this.processingTime = processingTime;
+    }
+
+    public String getDataIdentifier() {
+        return dataIdentifier;
+    }
+
+    public void setDataIdentifier(String dataIdentifier) {
+        this.dataIdentifier = dataIdentifier;
     }
 
     @Override

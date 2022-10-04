@@ -31,7 +31,6 @@ source ${dir}/setup.env
 
 AWIPS_HOME=${AWIPS_HOME:-`dirname $IGNITE_HOME`}
 JAVA_HOME=${JAVA_HOME:-${AWIPS_HOME}/java}
-EDEX_HOME=${EDEX_HOME:-${AWIPS_HOME}/edex}
 
 DEBUG_PORT=${DEBUG_PORT:-5102}
 
@@ -41,6 +40,9 @@ IGNITE_DEFAULT_TX_TIMEOUT=${IGNITE_DEFAULT_TX_TIMEOUT:-120000}
 IGNITE_TX_TIMEOUT_ON_PARTITION_MAP_EXCHANGE=${IGNITE_TX_TIMEOUT_ON_PARTITION_MAP_EXCHANGE:-30000}
 IGNITE_QUIET=${IGNITE_QUIET:-false}
 
+HEAP_DUMP_PATH="/data/fxa/cave/$(hostname -s)/"
+mkdir -p "${HEAP_DUMP_PATH}"
+
 source /etc/watchdog.d/utilities/watchdogutils.sh
 
 for arg in "${ARGS[@]}"
@@ -48,7 +50,7 @@ do
     case "${arg}" in
         production)
             remove_watchdog_bypass "ignite@production"
-            JVM_OPTS+=" -Xms24g -Xmx24g -server -XX:MaxMetaspaceSize=256m -XX:+UseG1GC"
+            JVM_OPTS+=" -Xms48g -Xmx48g -server -XX:MaxMetaspaceSize=256m -XX:+UseG1GC"
             IGNITE_DATA_REGION_MAX_SIZE_GB=${IGNITE_DATA_REGION_MAX_SIZE_GB:-64}
             IGNITE_DATA_REGION_INITIAL_SIZE_GB=${IGNITE_DATA_REGION_INITIAL_SIZE_GB:-64}
             # The largest objects I have seen are about 374MiB, ignite documentation suggests we need enough pages to
@@ -75,9 +77,9 @@ do
     esac
 done
 
-CLASSPATH=${EDEX_HOME}/lib/plugins/*
+CLASSPATH=${IGNITE_HOME}/lib/plugins/*
 
-for DIRECTORY in ${EDEX_HOME}/lib/dependencies/*
+for DIRECTORY in ${IGNITE_HOME}/lib/dependencies/*
 do
     CLASSPATH+=":$DIRECTORY/*"
 done
@@ -93,12 +95,14 @@ ERRORCODE="-1"
 while [ "${ERRORCODE}" -ne "130" ]
 do
     exec ${JAVA_HOME}/bin/java \
+                -XX:+HeapDumpOnOutOfMemoryError \
+                -XX:HeapDumpPath=${HEAP_DUMP_PATH} \
                 ${JVM_OPTS} \
                 -DIGNITE_HOME=${IGNITE_HOME} \
                 -DIGNITE_QUIET=${IGNITE_QUIET} \
                 ${RESTART_SUCCESS_OPT} \
                 -DIGNITE_PERFORMANCE_SUGGESTIONS_DISABLED=true \
-                -Djava.security.properties=/awips2/ignite/config/java.security \
+                -Djava.security.properties=/awips2/etc/java.security \
                 -Dthrift.stream.maxsize=${THRIFT_STREAM_MAXSIZE} \
                 -Djava.net.preferIPv4Stack=true \
                 -Dlogback.configurationFile=${IGNITE_HOME}/config/ignite-logback.xml \

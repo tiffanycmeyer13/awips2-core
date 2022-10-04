@@ -39,18 +39,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import javax.cache.integration.CacheLoader;
 import javax.cache.processor.EntryProcessorException;
 
-import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
-import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
-import org.apache.ignite.configuration.CacheConfiguration;
-import org.apache.ignite.lang.IgniteCallable;
-import org.apache.ignite.resources.IgniteInstanceResource;
-import org.apache.ignite.resources.LoggerResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,13 +55,14 @@ import com.raytheon.uf.common.datastorage.StorageException;
 import com.raytheon.uf.common.datastorage.StorageProperties;
 import com.raytheon.uf.common.datastorage.StorageProperties.Compression;
 import com.raytheon.uf.common.datastorage.StorageStatus;
-import com.raytheon.uf.common.datastorage.audit.DataId;
 import com.raytheon.uf.common.datastorage.audit.DataStatus;
 import com.raytheon.uf.common.datastorage.audit.DataStorageAuditerContainer;
+import com.raytheon.uf.common.datastorage.audit.Hdf5DataIdentifier;
 import com.raytheon.uf.common.datastorage.audit.MetadataAndDataId;
 import com.raytheon.uf.common.datastorage.records.IDataRecord;
 import com.raytheon.uf.common.datastorage.records.IMetadataIdentifier;
 import com.raytheon.uf.common.datastorage.records.RecordAndMetadata;
+import com.raytheon.uf.common.datastore.ignite.processor.FastStoreCallable;
 import com.raytheon.uf.common.datastore.ignite.processor.GetDatasetNamesProcessor;
 import com.raytheon.uf.common.datastore.ignite.processor.RetrieveProcessor;
 import com.raytheon.uf.common.datastore.ignite.processor.StoreProcessor;
@@ -102,6 +96,9 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  *                                  cursors, add extra logging
  * Sep 23, 2021  8608     mapeters  Add auditing to prevent metadata/data from
  *                                  getting out of sync
+ * Feb 17, 2022  8608     mapeters  Update FastReplaceCallable to be used for all
+ *                                  fast stores, extract to FastStoreCallable file
+ * Jun 21, 2022  8879     mapeters  Don't retry failed retrievals
  *
  * </pre>
  *
@@ -205,16 +202,19 @@ public class IgniteDataStore implements IDataStore {
                 IDataRecord record = rm.getRecord();
                 Set<IMetadataIdentifier> metaIds = rm.getMetadata();
                 for (IMetadataIdentifier metaId : metaIds) {
-                    traceIdToDataInfo
+                    MetadataAndDataId metaAndDataId = traceIdToDataInfo
                             .computeIfAbsent(metaId.getTraceId(),
                                     traceId -> new MetadataAndDataId(metaId,
-                                            new DataId(traceId, path, group)))
-                            .getDataId().addDataset(record.getName());
+                                            new Hdf5DataIdentifier(traceId,
+                                                    path, group)));
+                    ((Hdf5DataIdentifier) metaAndDataId.getDataId())
+                            .addDataset(record.getName());
                 }
                 totalSizeInBytes += record.getSizeInBytes();
             }
         }
-        String logMsg = "Storing " + path + " (fastStore=" + fastStore
+        String logMsg = "Storing " + path + " groups: "
+                + recordsByGroup.keySet() + " (fastStore=" + fastStore
                 + ", storeOp=" + storeOp + ", size=" + totalSizeInBytes + "B)";
         logger.info(logMsg);
 
@@ -252,7 +252,8 @@ public class IgniteDataStore implements IDataStore {
                     StorageStatus status;
                     try {
                         status = igniteCacheAccessor.doAsyncCacheOp(
-                                c -> c.invokeAsync(key, processor, records));
+                                c -> c.invokeAsync(key, processor, records),
+                                true);
                         if (status.hasExceptions()) {
                             for (StorageException e : status.getExceptions()) {
                                 resetCorrelationObjects(corrObjs, e);
@@ -320,8 +321,10 @@ public class IgniteDataStore implements IDataStore {
     /**
      * Ignite will serialize and store correlation objects which means it must
      * have every object on the classpath which is bad, this clears them and
-     * returns a mapping of datasetname to correlation object so they can be
+     * returns a mapping of dataset name to correlation object so they can be
      * reset in error processing if necessary.
+     *
+     * @return map of dataset name to correlation object
      */
     protected Map<String, Object> unsetCorrelationObjects(
             List<IDataRecord> records) {
@@ -359,34 +362,10 @@ public class IgniteDataStore implements IDataStore {
      * Alternative implementation of store that is optimized for the common case
      * where all of the data in a group is stored in a single operation.
      *
-     * This implementation is not as good for more complex operations such as
-     * append, detecting duplicates, and partial inserts(including inserting
-     * different datasets in a group with multiple store operations). For these
-     * operations the previous cache value is needed. This method will pull the
-     * previous value to the local node and then push the result to the node
-     * storing the data. Bringing the data local is more expensive than using a
-     * {@link StoreProcessor} to move the new data to the node responsible for
-     * storing the data so this method is not recommended if these operations
-     * are performed often.
-     *
-     * For the complex operations described above the exact behavior of this
-     * method is dependent on the value of
-     * {@link CacheConfiguration#isLoadPreviousValue()}. When this setting is
-     * false the previous value will only be used if it is already loaded in the
-     * cache, this is much faster but may overwrite the previous value if it is
-     * not already in the cache. When loadPreviousValue is true the previous
-     * value is loaded with the {@link CacheLoader} which is slower but
-     * guarantees the existing data will not be overwritten unless this is a
-     * REPLACE operation.
-     *
-     * Note that this method uses {@link Ignite#compute()} calls and various
-     * cache key-value operations here instead of using an entry processor,
-     * because a processor automatically tries to read through the value from
-     * the underlying datastore if it is not in the cache. That is unnecessary
-     * for the common case and hurts performance.
+     * @see FastStoreCallable's javadoc
      *
      * @param storeOp
-     * @return
+     * @return the storage status
      * @throws StorageException
      */
     protected StorageStatus fastStore(StoreOp storeOp) {
@@ -405,28 +384,24 @@ public class IgniteDataStore implements IDataStore {
                 DataStoreKey key = new DataStoreKey(path, group);
                 DataStoreValue value = new DataStoreValue(entry.getValue());
                 try {
-                    if (storeOp == StoreOp.REPLACE) {
-                        String cacheName = igniteCacheAccessor.getCacheName();
-                        igniteClientManager.doVoidIgniteOp(
-                                ignite -> ignite.compute().affinityCall(
-                                        cacheName, key, new FastReplaceCallable(
-                                                cacheName, key, value)));
-                    } else {
-                        DataStoreValue previous = igniteCacheAccessor
-                                .doAsyncCacheOp(c -> c
-                                        .getAndPutIfAbsentAsync(key, value));
-                        if (previous != null) {
-                            List<RecordAndMetadata> updated = recordsByGroup
-                                    .get(group);
-                            DataStoreValue mergedValue = StoreProcessor.merge(
-                                    Arrays.asList(
-                                            previous.getRecordsAndMetadata()),
-                                    updated, storeOp, result);
-                            igniteCacheAccessor.doAsyncCacheOp(
-                                    c -> c.putAsync(key, mergedValue));
+                    String cacheName = igniteCacheAccessor.getCacheName();
+                    StorageStatus status = igniteClientManager.doIgniteOp(
+                            ignite -> ignite.compute()
+                                    .affinityCall(cacheName, key,
+                                            new FastStoreCallable(cacheName,
+                                                    key, value, storeOp)),
+                            true);
+                    if (status.hasExceptions()) {
+                        for (StorageException e : status.getExceptions()) {
+                            resetCorrelationObjects(corrObjs, e);
+                            exceptions.add(e);
+                            if (e instanceof DuplicateRecordStorageException) {
+                                duplicateGroups.add(group);
+                            }
                         }
+                    } else {
+                        successfulGroups.add(group);
                     }
-                    successfulGroups.add(group);
                 } catch (DuplicateRecordStorageException e) {
                     resetCorrelationObjects(corrObjs, e);
                     exceptions.add(e);
@@ -479,7 +454,7 @@ public class IgniteDataStore implements IDataStore {
 
         DataStoreKey key = new DataStoreKey(path, "");
         IDataStore through = getThroughDataStore();
-        igniteCacheAccessor.doAsyncCacheOp(c -> c.clearAsync(key));
+        igniteCacheAccessor.doAsyncCacheOp(c -> c.clearAsync(key), true);
         through.deleteDatasets(datasets);
 
         timer.stop();
@@ -501,7 +476,7 @@ public class IgniteDataStore implements IDataStore {
         }
         DataStoreKey key = new DataStoreKey(path, "");
         IDataStore through = getThroughDataStore();
-        igniteCacheAccessor.doAsyncCacheOp(c -> c.clearAsync(key));
+        igniteCacheAccessor.doAsyncCacheOp(c -> c.clearAsync(key), true);
         /*
          * The cache store is not writing removal of records so manually pass it
          * through.
@@ -521,7 +496,7 @@ public class IgniteDataStore implements IDataStore {
         DataStoreKey key = new DataStoreKey(path, group);
         try {
             List<IDataRecord> result = igniteCacheAccessor.doAsyncCacheOp(
-                    c -> c.invokeAsync(key, new RetrieveProcessor()));
+                    c -> c.invokeAsync(key, new RetrieveProcessor()), false);
 
             timer.stop();
             perfLog.logDuration("Retrieving records for " + group,
@@ -561,9 +536,10 @@ public class IgniteDataStore implements IDataStore {
         DataStoreKey key = new DataStoreKey(path, group);
         try {
             final String finalDataset = dataset;
-            List<IDataRecord> result = igniteCacheAccessor
-                    .doAsyncCacheOp(c -> c.invokeAsync(key,
-                            new RetrieveProcessor(finalDataset, request)));
+            List<IDataRecord> result = igniteCacheAccessor.doAsyncCacheOp(
+                    c -> c.invokeAsync(key,
+                            new RetrieveProcessor(finalDataset, request)),
+                    false);
             if (result == null || result.isEmpty()) {
                 throw new StorageException("No data found for " + group + " "
                         + dataset + " in " + path, null);
@@ -612,8 +588,8 @@ public class IgniteDataStore implements IDataStore {
                 DataStoreKey key = new DataStoreKey(this.path, entry.getKey());
                 RetrieveProcessor processor = new RetrieveProcessor(
                         entry.getValue(), request);
-                records.addAll(igniteCacheAccessor
-                        .doAsyncCacheOp(c -> c.invokeAsync(key, processor)));
+                records.addAll(igniteCacheAccessor.doAsyncCacheOp(
+                        c -> c.invokeAsync(key, processor), false));
             }
         } catch (EntryProcessorException e) {
             throw new StorageException(e.getLocalizedMessage(), null, e);
@@ -638,8 +614,8 @@ public class IgniteDataStore implements IDataStore {
         try {
             for (String group : groups) {
                 DataStoreKey key = new DataStoreKey(path, group);
-                records.addAll(igniteCacheAccessor
-                        .doAsyncCacheOp(c -> c.invokeAsync(key, processor)));
+                records.addAll(igniteCacheAccessor.doAsyncCacheOp(
+                        c -> c.invokeAsync(key, processor), false));
             }
         } catch (EntryProcessorException e) {
             throw new StorageException(e.getLocalizedMessage(), null, e);
@@ -661,7 +637,7 @@ public class IgniteDataStore implements IDataStore {
 
         DataStoreKey key = new DataStoreKey(path, group);
         Set<String> names = igniteCacheAccessor.doAsyncCacheOp(
-                c -> c.invokeAsync(key, new GetDatasetNamesProcessor()));
+                c -> c.invokeAsync(key, new GetDatasetNamesProcessor()), false);
 
         timer.stop();
         perfLog.logDuration("Getting datasets for " + group,
@@ -690,7 +666,7 @@ public class IgniteDataStore implements IDataStore {
 
         final IDataRecord finalRec = rec;
         StorageStatus result = igniteCacheAccessor.doAsyncCacheOp(
-                c -> c.invokeAsync(key, new StoreProcessor(), finalRec));
+                c -> c.invokeAsync(key, new StoreProcessor(), finalRec), true);
         if (result.hasExceptions()) {
             StorageException e = result.getExceptions()[0];
             resetCorrelationObjects(corrObjs, e);
@@ -729,7 +705,7 @@ public class IgniteDataStore implements IDataStore {
 
         List<String> pathsToPurge = new ArrayList<>();
         try (QueryCursor<List<?>> cursor = igniteCacheAccessor
-                .doSyncCacheOp(c -> c.query(selectQuery))) {
+                .doSyncCacheOp(c -> c.query(selectQuery), true)) {
             for (List<?> row : cursor) {
                 String path = (String) row.get(0);
                 for (java.util.Map.Entry<String, Date> entry : dateMap
@@ -766,7 +742,7 @@ public class IgniteDataStore implements IDataStore {
                     "delete from DataStoreValue where path in "
                             + pathsSql.toString());
             try (QueryCursor<List<?>> cursor = igniteCacheAccessor
-                    .doSyncCacheOp(c -> c.query(deleteQuery))) {
+                    .doSyncCacheOp(c -> c.query(deleteQuery), true)) {
                 // do nothing
             }
         }
@@ -805,7 +781,7 @@ public class IgniteDataStore implements IDataStore {
             query.setLazy(true);
             Set<DataStoreKey> keysToDelete = new TreeSet<>();
             try (QueryCursor<List<?>> cursor = igniteCacheAccessor
-                    .doSyncCacheOp(c -> c.query(query))) {
+                    .doSyncCacheOp(c -> c.query(query), true)) {
                 for (List<?> row : cursor) {
                     String group = (String) row.get(0);
                     keysToDelete.add(new DataStoreKey(path, group));
@@ -814,13 +790,13 @@ public class IgniteDataStore implements IDataStore {
             logger.info("Deleting " + keysToDelete.size() + " keys for path: "
                     + path);
             igniteCacheAccessor
-                    .doAsyncCacheOp(c -> c.removeAllAsync(keysToDelete));
+                    .doAsyncCacheOp(c -> c.removeAllAsync(keysToDelete), true);
         } else {
             SqlFieldsQuery query = new SqlFieldsQuery(
                     "delete from DataStoreValue where path = ?");
             query.setArgs(path);
             try (QueryCursor<List<?>> cursor = igniteCacheAccessor
-                    .doSyncCacheOp(c -> c.query(query))) {
+                    .doSyncCacheOp(c -> c.query(query), true)) {
                 // do nothing
             }
         }
@@ -829,82 +805,5 @@ public class IgniteDataStore implements IDataStore {
 
         timer.stop();
         perfLog.logDuration(msg, timer.getElapsedTime());
-    }
-
-    private static class FastReplaceCallable implements IgniteCallable<Object> {
-
-        private static final long serialVersionUID = 1L;
-
-        private static final Map<DataStoreKey, Object> locks = new LinkedHashMap<DataStoreKey, Object>() {
-
-            private static final long serialVersionUID = 1L;
-
-            @Override
-            protected boolean removeEldestEntry(
-                    Map.Entry<DataStoreKey, Object> eldest) {
-                return size() > 256;
-            }
-        };
-
-        @LoggerResource
-        private IgniteLogger logger;
-
-        private IgniteCacheAccessor<DataStoreKey, DataStoreValue> cacheAccessor;
-
-        private String cacheName;
-
-        private DataStoreKey key;
-
-        private DataStoreValue value;
-
-        public FastReplaceCallable(String cacheName, DataStoreKey key,
-                DataStoreValue value) {
-            this.cacheName = cacheName;
-            this.key = key;
-            this.value = value;
-        }
-
-        @IgniteInstanceResource
-        public void setIgnite(Ignite ignite) {
-            this.cacheAccessor = new IgniteServerManager(ignite)
-                    .getCacheAccessor(cacheName);
-        }
-
-        @Override
-        public Object call() throws StorageException {
-            Object lock = getLock(key);
-            /*
-             * A different thread could put a different value for this key in
-             * between the get and put cache operations here. In that case, the
-             * trace IDs in that thread's value could be lost. Synchronize to
-             * prevent this.
-             */
-            synchronized (lock) {
-                DataStoreValue prevValue = null;
-                try {
-                    prevValue = cacheAccessor.doAsyncCacheOp(
-                            cache -> cache.withSkipStore().getAsync(key));
-                } catch (StorageException e) {
-                    logger.error("Error loading previous cache value for: "
-                            + cacheName + ", " + key, e);
-                }
-
-                if (prevValue != null) {
-                    IgniteUtils.updateMetadata(value,
-                            Arrays.asList(prevValue.getRecordsAndMetadata()));
-                }
-
-                cacheAccessor.doAsyncCacheOp(c -> c.putAsync(key, value));
-            }
-
-            // Just a Callable so we can throw an exception
-            return null;
-        }
-
-        private static Object getLock(DataStoreKey key) {
-            synchronized (locks) {
-                return locks.computeIfAbsent(key, k -> new Object());
-            }
-        }
     }
 }

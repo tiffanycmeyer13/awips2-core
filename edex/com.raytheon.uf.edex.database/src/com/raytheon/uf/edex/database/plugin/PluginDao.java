@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -66,9 +65,17 @@ import com.raytheon.uf.common.datastorage.IDataStore.StoreOp;
 import com.raytheon.uf.common.datastorage.Request;
 import com.raytheon.uf.common.datastorage.StorageException;
 import com.raytheon.uf.common.datastorage.StorageStatus;
+import com.raytheon.uf.common.datastorage.audit.DataStatus;
+import com.raytheon.uf.common.datastorage.audit.DataStorageAuditEvent;
+import com.raytheon.uf.common.datastorage.audit.DataStorageAuditUtils;
 import com.raytheon.uf.common.datastorage.audit.DataStorageAuditerContainer;
+import com.raytheon.uf.common.datastorage.audit.IDataIdentifier;
+import com.raytheon.uf.common.datastorage.audit.MetadataAndDataId;
 import com.raytheon.uf.common.datastorage.audit.MetadataStatus;
+import com.raytheon.uf.common.datastorage.audit.NoDataIdentifier;
+import com.raytheon.uf.common.datastorage.records.DataUriMetadataIdentifier;
 import com.raytheon.uf.common.datastorage.records.IDataRecord;
+import com.raytheon.uf.common.datastorage.records.IMetadataIdentifier.MetadataSpecificity;
 import com.raytheon.uf.common.localization.ILocalizationFile;
 import com.raytheon.uf.common.localization.IPathManager;
 import com.raytheon.uf.common.localization.PathManagerFactory;
@@ -139,6 +146,9 @@ import com.raytheon.uf.edex.database.query.DatabaseQuery;
  * Sep 23, 2021  8608     mapeters    Add auditing and {@link #getPlugin()}, re-write
  *                                    {@link #getMetadata(String)} to work with data objects
  *                                    that don't have a dataURI table column
+ * Feb 17, 2022  8608     mapeters    Add auditMissingPiecesForDatabaseOnlyPdos()
+ * Jun 22, 2022  8865     mapeters    Updates to hdf5 storage methods to audit missing pieces
+ *                                    for PDOs that are filtered out
  *
  * </pre>
  *
@@ -201,17 +211,20 @@ public abstract class PluginDao extends CoreDao {
     }
 
     /**
-     * Defines the behavior for storing data to the HDF5 data store
+     * Add the data to the data store object for it to be stored. This does not
+     * actually save the data to hdf5, {@link IDataStore#store(StoreOp)} must be
+     * called to do that.
      *
      * @param dataStore
-     *            The datastore to save the data to
+     *            the data store object to add the data to
      * @param obj
-     *            The object containing the data to be stored
-     * @return The updated data store
+     *            the object containing the data to be stored
+     * @return true if the data object was added to the data store, false
+     *         otherwise
      * @throws Exception
      *             if problems occur while interacting with the HDF5 data store
      */
-    protected abstract IDataStore populateDataStore(IDataStore dataStore,
+    protected abstract boolean populateDataStore(IDataStore dataStore,
             IPersistable obj) throws Exception;
 
     /**
@@ -224,6 +237,11 @@ public abstract class PluginDao extends CoreDao {
      */
     public void persistRecords(PluginDataObject... records)
             throws PluginException {
+        /*
+         * TODO: The persistToHDF5 storage status result should be checked for
+         * exceptions, and records with exceptions should not be stored to
+         * database. PersistSrv already has this logic.
+         */
         persistToHDF5(records);
         persistToDatabase(records);
     }
@@ -232,6 +250,7 @@ public abstract class PluginDao extends CoreDao {
         if (records == null || records.length == 0) {
             return records;
         }
+
         List<PluginDataObject> objects = Arrays.asList(records);
         List<PluginDataObject> duplicates = new ArrayList<>();
         List<PluginDataObject> persisted = new ArrayList<>(records.length);
@@ -428,7 +447,7 @@ public abstract class PluginDao extends CoreDao {
      *            all PDOs that were attempted to be persisted
      */
     @SuppressWarnings("rawtypes")
-    private void auditMetadataStorageStatus(
+    protected void auditMetadataStorageStatus(
             Collection<? extends PersistableDataObject> persisted,
             Collection<? extends PersistableDataObject> duplicates,
             Collection<? extends PersistableDataObject> all) {
@@ -443,6 +462,40 @@ public abstract class PluginDao extends CoreDao {
         }
         DataStorageAuditerContainer.getInstance().getAuditer()
                 .processMetadataStatuses(traceIdToStatuses);
+    }
+
+    /**
+     * This should be called for PDOs that only store metadata to the database,
+     * and have no associated data store values.
+     *
+     * The data store route normally audits the metadata ID, data ID, and data
+     * status, so this generates and sends those pieces to the auditer.
+     *
+     * @param pdos
+     *            the plugin data objects to audit
+     */
+    public void auditMissingPiecesForDatabaseOnlyPdos(
+            PluginDataObject... pdos) {
+        if (pdos.length == 0) {
+            return;
+        }
+
+        List<MetadataAndDataId> dataIds = new ArrayList<>(pdos.length);
+        for (PluginDataObject pdo : pdos) {
+
+            String traceId = pdo.getTraceId();
+            DataUriMetadataIdentifier metaId = new DataUriMetadataIdentifier(
+                    pdo, MetadataSpecificity.NO_DATA);
+            IDataIdentifier dataId = new NoDataIdentifier(traceId);
+            dataIds.add(new MetadataAndDataId(metaId, dataId));
+        }
+        DataStorageAuditEvent databaseOnlyAuditEvent = new DataStorageAuditEvent();
+        databaseOnlyAuditEvent
+                .setDataIds(dataIds.toArray(new MetadataAndDataId[0]));
+        databaseOnlyAuditEvent.setDataStatuses(
+                DataStorageAuditUtils.getDataStatusMap(DataStatus.NA, pdos));
+        DataStorageAuditerContainer.getInstance().getAuditer()
+                .processEvent(databaseOnlyAuditEvent);
     }
 
     private boolean hasDataUriColumn(Class<?> pdoClazz) {
@@ -532,22 +585,18 @@ public abstract class PluginDao extends CoreDao {
 
         Iterator<File> fileIterator = persistableMap.keySet().iterator();
         List<StorageException> exceptions = new ArrayList<>();
+
+        List<IPersistable> dbOnlyRecords = new ArrayList<>();
         while (fileIterator.hasNext()) {
             File file = fileIterator.next();
             List<IPersistable> persistables = persistableMap.get(file);
-
-            // create the directories necessary for this file, if they do not
-            // exist
-            // File directory = file.getParentFile();
-            // if (!directory.exists()) {
-            // directory.mkdirs();
-            // }
 
             IDataStore dataStore = null;
             IDataStore replaceDataStore = null;
 
             for (IPersistable persistable : persistables) {
                 try {
+                    boolean populated;
                     if (((PersistableDataObject<?>) persistable)
                             .isOverwriteAllowed()) {
                         if (replaceDataStore == null) {
@@ -555,12 +604,16 @@ public abstract class PluginDao extends CoreDao {
                                     .getDataStore(file);
                         }
 
-                        populateDataStore(replaceDataStore, persistable);
+                        populated = populateDataStore(replaceDataStore,
+                                persistable);
                     } else {
                         if (dataStore == null) {
                             dataStore = DataStoreFactory.getDataStore(file);
                         }
-                        populateDataStore(dataStore, persistable);
+                        populated = populateDataStore(dataStore, persistable);
+                    }
+                    if (!populated) {
+                        dbOnlyRecords.add(persistable);
                     }
                 } catch (Exception e) {
                     throw new PluginException("Error populating data store", e);
@@ -587,6 +640,11 @@ public abstract class PluginDao extends CoreDao {
                     logger.error("Error persisting replace records to HDF5", e);
                 }
             }
+        }
+
+        if (!dbOnlyRecords.isEmpty()) {
+            auditMissingPiecesForDatabaseOnlyPdos(
+                    dbOnlyRecords.toArray(new PluginDataObject[0]));
         }
 
         // Create an aggregated status object
@@ -1066,16 +1124,13 @@ public abstract class PluginDao extends CoreDao {
                 Date currentRefTime = null;
                 for (int i = 0; i < refTimesForKey.size(); i++) {
                     currentRefTime = refTimesForKey.get(i);
-                    if (i < rule.getVersionsToKeep()) {
-                        // allow for period to override versions to keep
-                        if (rule.isPeriodSpecified()
-                                && currentRefTime.before(periodCutoffTime)) {
-                            timesPurgedByRule.add(currentRefTime);
-                        } else {
-                            timesKeptByRule.add(currentRefTime);
-                        }
-                    } else {
+                    // allow for period to override versions to keep
+                    if ((i >= rule.getVersionsToKeep())
+                            || (rule.isPeriodSpecified() && currentRefTime
+                                    .before(periodCutoffTime))) {
                         timesPurgedByRule.add(currentRefTime);
+                    } else {
+                        timesKeptByRule.add(currentRefTime);
                     }
                 }
                 /*
@@ -1965,12 +2020,8 @@ public abstract class PluginDao extends CoreDao {
         /*
          * Sorting guarantees multiple auxiliary files behave deterministically.
          */
-        Collections.sort(auxRuleFiles, new Comparator<ILocalizationFile>() {
-            @Override
-            public int compare(ILocalizationFile o1, ILocalizationFile o2) {
-                return o1.getPath().compareTo(o2.getPath());
-            }
-        });
+        Collections.sort(auxRuleFiles,
+                (o1, o2) -> o1.getPath().compareTo(o2.getPath()));
 
         for (ILocalizationFile file : auxRuleFiles) {
             PurgeRuleSet auxRules = null;
