@@ -20,15 +20,15 @@
 
 package com.raytheon.uf.common.style.level;
 
-import si.uom.NonSI;
-import si.uom.SI;
-import tec.uom.se.AbstractUnit;
-import tec.uom.se.unit.MetricPrefix;
-
 import javax.measure.Unit;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
+
+import si.uom.NonSI;
+import si.uom.SI;
+import tec.uom.se.AbstractUnit;
+import tec.uom.se.unit.MetricPrefix;
 
 /**
  * Represents a level on the earth for style rule purposes
@@ -44,6 +44,7 @@ import javax.xml.bind.annotation.XmlAttribute;
  * Aug 15, 2016  5821     bsteffen     Add TROP level
  * May 18, 2018  20395    wkwock       Add CBL and CLG level
  * Apr 15, 2019  7596     lsingh       Updated units framework to JSR-363.
+ * Jun 01, 2022 21979   mgamazaychikov Added SIG
  * 
  * </pre>
  * 
@@ -53,7 +54,8 @@ import javax.xml.bind.annotation.XmlAttribute;
 public abstract class Level {
 
     public static enum LevelType {
-        THETA, HEIGHT_AGL, HEIGHT_MSL, PRESSURE, SURFACE, TILT, MB_AGL, MAXW, TW0, TEMP, FRZ, DEFAULT, WBZ, TROP, CBL, CLG
+        THETA, HEIGHT_AGL, HEIGHT_MSL, PRESSURE, SURFACE, TILT, MB_AGL, MAXW, TW0, TEMP, FRZ, DEFAULT, WBZ, TROP, CBL,
+        CLG, SIG
     }
 
     protected LevelType type;

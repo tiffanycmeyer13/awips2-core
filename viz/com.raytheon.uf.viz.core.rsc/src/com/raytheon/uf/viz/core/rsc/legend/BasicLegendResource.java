@@ -77,7 +77,14 @@ public abstract class BasicLegendResource<T extends AbstractResourceData>
         boolean tmb = false;
         boolean timeAgnostic = false;
         DataTime timeToUse = null;
-        DataTime currTime = info.getFrameTimes()[info.getFrameIndex()];
+        DataTime currTime = null;
+        int frameIndex = 0;
+        DataTime[] frameTimes = info.getFrameTimes();
+        frameIndex = info.getFrameIndex();
+        if (frameIndex >= 0 && frameTimes != null) {
+            currTime = frameTimes[frameIndex];
+        }
+
         if (!rscGroup.hasCapability(GroupNamingCapability.class)
                 || groupName == null) {
             for (ResourcePair rp : list) {
@@ -124,14 +131,16 @@ public abstract class BasicLegendResource<T extends AbstractResourceData>
                  * and we are NOT time agnostic look at each resource and see if
                  * their time is that of the descriptor's frame
                  */
-                for (ResourcePair rp : list) {
-                    DataTime rscTime = descriptor
-                            .getTimeForResource(rp.getResource());
-                    if (currTime.equals(rscTime)) {
-                        s = new StringBuilder(groupName);
-                        timeToUse = currTime;
+                if (currTime != null) {
+                    for (ResourcePair rp : list) {
+                        DataTime rscTime = descriptor
+                                .getTimeForResource(rp.getResource());
+                        if (currTime.equals(rscTime)) {
+                            s = new StringBuilder(groupName);
+                            timeToUse = currTime;
 
-                        break;
+                            break;
+                        }
                     }
                 }
 

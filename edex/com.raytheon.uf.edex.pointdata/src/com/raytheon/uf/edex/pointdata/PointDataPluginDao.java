@@ -92,6 +92,7 @@ import org.springframework.cglib.beans.BeanMap;
  * Sep 23, 2021  8608     mapeters    Add metadata id handling
  * Apr 21, 2022  8709     tjensen     Remove net.sf.cglib
  * Feb 17, 2022  8608     mapeters    Disable broken data storage auditing
+ * Jun 22, 2022  8865     mapeters    Update populateDataStore to return boolean
  *
  * </pre>
  *
@@ -236,10 +237,10 @@ public abstract class PointDataPluginDao<T extends PluginDataObject>
     }
 
     @Override
-    protected IDataStore populateDataStore(IDataStore dataStore,
-            IPersistable obj) throws Exception {
+    protected boolean populateDataStore(IDataStore dataStore, IPersistable obj)
+            throws Exception {
         // This method should never be called due to our persistToHDF5 override
-        return null;
+        return false;
     }
 
     @Override
