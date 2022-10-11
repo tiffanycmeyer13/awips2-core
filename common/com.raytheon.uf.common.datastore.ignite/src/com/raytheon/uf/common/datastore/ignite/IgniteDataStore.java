@@ -101,6 +101,7 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Aug 24, 2022  8920     mapeters  Optimizations; Swap key/values for traceId/status mapping.
  * Sep 27, 2022  8930     mapeters  Update retrieveDatasets to return records in
  *                                  the same order as the requested datasets
+ * Oct 11, 2022  8929     mapeters  Handle FastStoreCallable constructor update
  *
  * </pre>
  *
@@ -381,17 +382,17 @@ public class IgniteDataStore implements IDataStore {
             for (Entry<String, List<RecordAndMetadata>> entry : recordsByGroup
                     .entrySet()) {
                 String group = entry.getKey();
+                List<RecordAndMetadata> recordsAndMetadata = entry.getValue();
                 Map<String, Object> corrObjs = unsetCorrelationObjects2(
-                        entry.getValue());
+                        recordsAndMetadata);
                 DataStoreKey key = new DataStoreKey(path, group);
-                DataStoreValue value = new DataStoreValue(entry.getValue());
                 try {
                     String cacheName = igniteCacheAccessor.getCacheName();
                     StorageStatus status = igniteClientManager.doIgniteOp(
-                            ignite -> ignite.compute()
-                                    .affinityCall(cacheName, key,
-                                            new FastStoreCallable(cacheName,
-                                                    key, value, storeOp)),
+                            ignite -> ignite.compute().affinityCall(cacheName,
+                                    key,
+                                    new FastStoreCallable(cacheName, key,
+                                            recordsAndMetadata, storeOp)),
                             true);
                     if (status.hasExceptions()) {
                         for (StorageException e : status.getExceptions()) {
