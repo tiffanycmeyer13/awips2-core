@@ -23,6 +23,8 @@ import java.util.Comparator;
 import org.apache.ignite.cache.affinity.AffinityKeyMapped;
 import org.apache.ignite.cache.query.annotations.QuerySqlField;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
+
 /**
  * Unique key for a file path and group name.
  *
@@ -34,6 +36,7 @@ import org.apache.ignite.cache.query.annotations.QuerySqlField;
  * ------------- -------- --------- -----------------------------
  * May 20, 2019  7628     bsteffen  Initial creation
  * Jun 10, 2021  8450     mapeters  Implement {@link Comparable}
+ * Oct 12, 2022  8931     smoorthy  Normalize path and group so that key is consistent.
  *
  * </pre>
  *
@@ -64,8 +67,8 @@ public class DataStoreKey implements Comparable<DataStoreKey> {
     }
 
     public DataStoreKey(String path, String group) {
-        this.path = path;
-        this.group = group;
+        this.path = normalizeAttributeName(path);
+        this.group = normalizeAttributeName(group);
     }
 
     public String getPath() {
@@ -73,7 +76,7 @@ public class DataStoreKey implements Comparable<DataStoreKey> {
     }
 
     public void setPath(String path) {
-        this.path = path;
+        this.path = normalizeAttributeName(path);
     }
 
     public String getGroup() {
@@ -81,7 +84,7 @@ public class DataStoreKey implements Comparable<DataStoreKey> {
     }
 
     public void setGroup(String group) {
-        this.group = group;
+        this.group = normalizeAttributeName(group);
     }
 
     @Override
@@ -130,5 +133,24 @@ public class DataStoreKey implements Comparable<DataStoreKey> {
             return false;
         }
         return true;
+    }
+
+    private static String normalizeAttributeName(String attributeName) {
+        /*
+         * normalize attribute so that there is only one "/" at the beginning
+         * and no "/" at the end. Empty string remains empty.
+         */
+        attributeName = attributeName.replaceAll(
+                DataStoreFactory.DEF_SEPARATOR + DataStoreFactory.DEF_SEPARATOR,
+                DataStoreFactory.DEF_SEPARATOR);
+        if (attributeName.endsWith(DataStoreFactory.DEF_SEPARATOR)) {
+            attributeName = attributeName.substring(0, attributeName.length()
+                    - DataStoreFactory.DEF_SEPARATOR.length());
+        }
+        if (attributeName.length() > 0 && (!attributeName
+                .startsWith(DataStoreFactory.DEF_SEPARATOR))) {
+            attributeName = DataStoreFactory.DEF_SEPARATOR + attributeName;
+        }
+        return attributeName;
     }
 }
