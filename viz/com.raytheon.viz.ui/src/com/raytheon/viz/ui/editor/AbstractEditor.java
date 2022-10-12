@@ -40,10 +40,13 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.EditorPart;
 import org.locationtech.jts.geom.Coordinate;
 
+import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.viz.core.AbstractTimeMatcher;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IPane;
+import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
 import com.raytheon.uf.viz.core.InputManager;
@@ -91,6 +94,7 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  *                                   update makeCompatible to add correct number of
  *                                   panes if editor already has multiple panes
  * Sep 12, 2022  8792     mapeters   Added methods for new combo editor
+ * Oct 10, 2022  8946     mapeters   Added statusHandler, getCanvases(CanvasType)
  *
  * </pre>
  *
@@ -99,6 +103,9 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
 public abstract class AbstractEditor extends EditorPart
         implements IDisplayPaneContainer, IBackgroundColorChangedListener,
         ISaveablePart2, IRenameablePart {
+
+    protected final IUFStatusHandler statusHandler = UFStatus
+            .getHandler(getClass());
 
     /** The set of those listening for IRenderableDisplay changes */
     private final Set<IRenderableDisplayChangedListener> renderableDisplayListeners;
@@ -155,6 +162,11 @@ public abstract class AbstractEditor extends EditorPart
     @Override
     public List<IDisplayPane> getCanvasesCompatibleWithActive() {
         return editorInput.getPaneManager().getCanvasesCompatibleWithActive();
+    }
+
+    @Override
+    public IDisplayPane[] getCanvases(CanvasType type) {
+        return editorInput.getPaneManager().getCanvases(type);
     }
 
     @Override

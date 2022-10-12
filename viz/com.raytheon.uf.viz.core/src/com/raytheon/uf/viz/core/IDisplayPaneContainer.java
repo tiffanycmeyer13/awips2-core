@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.locationtech.jts.geom.Coordinate;
 
+import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
@@ -36,13 +37,14 @@ import com.raytheon.uf.viz.core.rsc.IInputHandler.InputPriority;
  *
  * <pre>
  *
- *    SOFTWARE HISTORY
+ * SOFTWARE HISTORY
  *
- *    Date         Ticket#     Engineer    Description
- *    ------------ ----------  ----------- --------------------------
- *    Jul 30, 2007             chammack    Initial Creation.
- *    Sep 08, 2022 8792        mapeters    Added getCanvasesCompatibleWithActive,
- *                                         getPanes, getActivePane
+ * Date         Ticket#     Engineer    Description
+ * ------------ ----------  ----------- --------------------------
+ * Jul 30, 2007             chammack    Initial Creation.
+ * Sep 08, 2022 8792        mapeters    Added getCanvasesCompatibleWithActive,
+ *                                      getPanes, getActivePane
+ * Oct 12, 2022 8946        mapeters    Added getCanvases, getMainCanvases
  *
  * </pre>
  *
@@ -67,6 +69,24 @@ public interface IDisplayPaneContainer {
      * @return the compatible canvases
      */
     List<IDisplayPane> getCanvasesCompatibleWithActive();
+
+    /**
+     * Get the contained display canvases of the given type.
+     *
+     * @param type
+     *            the canvas type (e.g. main or inset)
+     * @return the canvases
+     */
+    IDisplayPane[] getCanvases(CanvasType type);
+
+    /**
+     * Get the main canvases of the contained panes.
+     *
+     * @return the main canvases
+     */
+    default IDisplayPane[] getMainCanvases() {
+        return getCanvases(CanvasType.MAIN);
+    }
 
     /**
      * @return the contained panes

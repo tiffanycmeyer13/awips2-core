@@ -80,6 +80,7 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  * Sep 12, 2022  8792     mapeters  Added new methods for new combo editor,
  *                                  replaced displayPanes list with map to also
  *                                  track LegacyPanes.
+ * Oct 12, 2022  8946     mapeters  Added getCanvases(CanvasType)
  *
  * </pre>
  *
@@ -500,5 +501,13 @@ public class PaneManager extends AbstractPaneManager {
     @Override
     public List<IDisplayPane> getCanvasesCompatibleWithActive() {
         return Arrays.asList(getDisplayPanes());
+    }
+
+    @Override
+    public IDisplayPane[] getCanvases(CanvasType type) {
+        if (type == CanvasType.MAIN) {
+            return mainCanvasToPaneMap.keySet().toArray(IDisplayPane[]::new);
+        }
+        return new IDisplayPane[0];
     }
 }

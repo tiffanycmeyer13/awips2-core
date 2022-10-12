@@ -29,6 +29,8 @@ import com.raytheon.uf.viz.core.IInsetMapDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IPane;
 import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.uf.viz.core.drawables.IScalableRenderableDisplay;
+import com.raytheon.uf.viz.core.drawables.IScalableRenderableDisplay.ScaleType;
 import com.raytheon.viz.ui.EditorUtil;
 import com.raytheon.viz.ui.panes.ComboPaneManager;
 
@@ -52,6 +54,8 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  * Mar 23, 2022 8790       mapeters    Initial creation
  * Apr 22, 2022 8791       mapeters    Implement IInsetMapDisplayPaneContainer,
  *                                     update makeCompatible
+ * Oct 10, 2022 8946       mapeters    Update to ensure all height scales in a
+ *                                     single editor match
  *
  * </pre>
  *
@@ -91,6 +95,72 @@ public class ComboEditor extends VizMultiPaneEditor
         getPaneManager().replacePane(canvas, display);
     }
 
+    /**
+     * Update the new display's scale to match the pre-existing display, if
+     * necessary.
+     *
+     * @param newDisplay
+     *            the display being loaded that may need its scale updated
+     * @param existingDisplay
+     *            the pre-existing display to be conformed to
+     * @return true if scale updated, false otherwise
+     */
+    private boolean conformScale(IScalableRenderableDisplay newDisplay,
+            IScalableRenderableDisplay existingDisplay) {
+        /*
+         * Only height scales need updating, differing map scales are
+         * automatically handled elsewhere.
+         */
+        if (newDisplay.getScaleType() == ScaleType.HEIGHT
+                && existingDisplay.getScaleType() == ScaleType.HEIGHT) {
+            if (!existingDisplay.getScale().equals(newDisplay.getScale())) {
+                newDisplay.setScale(existingDisplay.getScale());
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Update the scales of the new displays to match the scales of the
+     * pre-existing displays, if necessary.
+     *
+     * @param newDisplays
+     *            the displays being loaded that may need their scales updated
+     * @param existingCanvases
+     *            the pre-existing canvases containing displays to be conformed
+     *            to
+     */
+    private void conformScales(IRenderableDisplay[] newDisplays,
+            IDisplayPane[] existingCanvases) {
+        boolean updatedAnyScale = false;
+        for (IRenderableDisplay newDisplay : newDisplays) {
+            if (!(newDisplay instanceof IScalableRenderableDisplay)) {
+                continue;
+            }
+            IScalableRenderableDisplay newScalableDisplay = (IScalableRenderableDisplay) newDisplay;
+            for (IDisplayPane canvas : existingCanvases) {
+                IRenderableDisplay existingDisplay = canvas
+                        .getRenderableDisplay();
+                if (!(existingDisplay instanceof IScalableRenderableDisplay)) {
+                    continue;
+                }
+                IScalableRenderableDisplay existingScalableDisplay = (IScalableRenderableDisplay) existingDisplay;
+                boolean updatedCurrScale = conformScale(newScalableDisplay,
+                        existingScalableDisplay);
+                if (updatedCurrScale) {
+                    updatedAnyScale = true;
+                    break;
+                }
+            }
+        }
+
+        if (updatedAnyScale) {
+            statusHandler.info(
+                    "Updated new display scales to match already loaded displays.");
+        }
+    }
+
     @Override
     public boolean makeCompatible(IRenderableDisplay... newDisplays) {
         if (this != EditorUtil.getActiveEditor()) {
@@ -107,6 +177,9 @@ public class ComboEditor extends VizMultiPaneEditor
                 return false;
             }
         }
+
+        // Make sure scales of new displays match the existing canvases
+        conformScales(newDisplays, getMainCanvases());
 
         if (newDisplays.length == 1) {
             /*
@@ -142,7 +215,7 @@ public class ComboEditor extends VizMultiPaneEditor
              * Ignore selected Load pane if multiple displays, just load the n
              * displays to the first n panes, adding panes if necessary.
              */
-            IDisplayPane[] currentCanvases = getDisplayPanes();
+            IDisplayPane[] currentCanvases = getMainCanvases();
 
             for (int i = 0; i < newDisplays.length; i++) {
                 if (i >= currentCanvases.length) {

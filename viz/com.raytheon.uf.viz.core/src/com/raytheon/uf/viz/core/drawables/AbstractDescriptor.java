@@ -107,7 +107,7 @@ public abstract class AbstractDescriptor extends ResourceGroup
 
         public TimeManager() {
             Integer frames = ((Integer) VizGlobalsManager.getCurrentInstance()
-                    .getPropery(VizConstants.FRAMES_ID));
+                    .getProperty(VizConstants.FRAMES_ID));
             if (frames != null) {
                 numberOfFrames = frames.intValue();
             }

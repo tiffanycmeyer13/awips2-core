@@ -29,6 +29,8 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.eclipse.e4.core.services.events.IEventBroker;
+import org.eclipse.e4.ui.workbench.UIEvents;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
@@ -52,8 +54,10 @@ import com.raytheon.uf.viz.core.VizApp;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
+import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
 import com.raytheon.uf.viz.core.rsc.IPaneSyncedResource;
 import com.raytheon.uf.viz.core.rsc.ResourceList;
+import com.raytheon.viz.ui.VizWorkbenchManager;
 import com.raytheon.viz.ui.color.IBackgroundColorChangedListener.BGColorMode;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
@@ -79,6 +83,8 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  * Sep 19, 2022 8792       mapeters    Add virtual cursor and new methods for
  *                                     getting panes/canvases, update addPane
  *                                     to do some resource syncing
+ * Oct 10, 2022 8946       mapeters    Update map/height scale menus depending
+ *                                     on the types of the contained panes
  *
  * </pre>
  *
@@ -357,6 +363,8 @@ public class ComboPaneManager extends AbstractPaneManager
                 } else {
                     panes.add(pane);
                 }
+
+                refreshScaleMenus(newCanvas.getRenderableDisplay());
             } catch (Throwable t) {
                 statusHandler.error("Error adding pane", t);
             }
@@ -406,6 +414,8 @@ public class ComboPaneManager extends AbstractPaneManager
         if (layout) {
             adjustPaneLayout();
         }
+
+        refreshScaleMenus(null);
     }
 
     @Override
@@ -518,13 +528,7 @@ public class ComboPaneManager extends AbstractPaneManager
         composite.layout();
     }
 
-    /**
-     * Get all canvases of the given type that are in the managed panes.
-     *
-     * @param type
-     *            the canvas type
-     * @return the canvases
-     */
+    @Override
     public IDisplayPane[] getCanvases(CanvasType type) {
         return panes.stream().map(pane -> pane.getCanvas(type))
                 .filter(Objects::nonNull).toArray(IDisplayPane[]::new);
@@ -621,5 +625,17 @@ public class ComboPaneManager extends AbstractPaneManager
             }
         }
         return canvases;
+    }
+
+    private void refreshScaleMenus(IRenderableDisplay newDisplay) {
+        IEventBroker eventBroker = VizWorkbenchManager.getInstance()
+                .getCurrentWindow().getService(IEventBroker.class);
+        eventBroker.send(UIEvents.REQUEST_ENABLEMENT_UPDATE_TOPIC,
+                UIEvents.ALL_ELEMENT_ID);
+
+        if (newDisplay != null) {
+            VizGlobalsManager.getCurrentInstance().updateUI(paneContainer,
+                    newDisplay);
+        }
     }
 }
