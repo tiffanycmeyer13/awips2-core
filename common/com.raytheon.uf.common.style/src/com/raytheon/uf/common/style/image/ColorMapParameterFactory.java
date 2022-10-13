@@ -86,6 +86,7 @@ import com.raytheon.uf.common.util.GridUtil;
  * Jun 27, 2019  65510    ksunil      support color fill through XML entries
  * Jul 25, 2019  65809    ksunil      fixed potential cache issue in colormap
  *                                     when fill colors are overridden through XML
+ * Oct 13, 2022  8905     lsingh      Check for invalid values when converting display max/min
  * </pre>
  *
  * @author chammack
@@ -290,10 +291,35 @@ public class ColorMapParameterFactory {
                 params.setDataMin(min);
             }
 
-            float displayMin = dataToDisplay != null
-                    ? (float) dataToDisplay.convert(colormapMin) : colormapMin;
-            float displayMax = dataToDisplay != null
-                    ? (float) dataToDisplay.convert(colormapMax) : colormapMax;
+            float displayMin;
+            float displayMax;
+
+            /*
+             * In some cases, the dataToDisplay converter can be an instance of
+             * PiecewiseLinearConverter plus a MultiplyConverter. The combined 2
+             * converters will throw a NumberFormatException if the input value
+             * is NaN, 0 or 1. So we check for that here.
+             */
+
+            try {
+                displayMin = (dataToDisplay != null)
+                        ? (float) dataToDisplay.convert(colormapMin)
+                        : colormapMin;
+            } catch (NumberFormatException e) {
+                // set value to NaN, which will cause the displayMin to be set
+                // to the minimum value.
+                displayMin = Float.NaN;
+            }
+
+            try {
+                displayMax = (dataToDisplay != null)
+                        ? (float) dataToDisplay.convert(colormapMax)
+                        : colormapMax;
+            } catch (NumberFormatException e) {
+                // set value to NaN, which will cause the displayMax to be set
+                // to the smallest max value.
+                displayMax = Float.NaN;
+            }
 
             if (preferences.getColorbarLabeling() != null) {
                 extractLabelValues(preferences, displayMax, displayMin, params);
