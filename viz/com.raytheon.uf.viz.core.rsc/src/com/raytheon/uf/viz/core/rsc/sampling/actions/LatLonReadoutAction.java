@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -23,29 +23,31 @@ import java.util.List;
 
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
+import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.ResourcePair;
+import com.raytheon.uf.viz.core.map.MapDescriptor;
 import com.raytheon.uf.viz.core.rsc.GenericResourceData;
 import com.raytheon.uf.viz.core.rsc.sampling.LatLonReadoutResource;
 import com.raytheon.uf.viz.core.sampling.ISamplingResource;
 import com.raytheon.viz.ui.cmenu.AbstractRightClickAction;
 
 /**
- * 
+ *
  * Enable or Disable Lat/Lon display on an editor
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Jun 1, 2007             chammack    Initial Creation.
+ * Jun 01, 2007            chammack    Initial Creation.
  * Jan 28, 2013   14465    snaples     Updated run() method to set sampling false when disabling readout.
- * Jan 6, 2016    5202     tgurney     Update run() and setContainer() to check enabled property
+ * Jan 06, 2016   5202     tgurney     Update run() and setContainer() to check enabled property
  *                                     of LatLonReadoutResource to set checkbox status
- * 
+ * Sep 12, 2022   8792     mapeters    Only add resource to map descriptors
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1.0
  */
 public class LatLonReadoutAction extends AbstractRightClickAction {
 
@@ -78,22 +80,23 @@ public class LatLonReadoutAction extends AbstractRightClickAction {
         } else {
             // add resource
             for (IDisplayPane pane : container.getDisplayPanes()) {
-                pane.getDescriptor()
-                        .getResourceList()
-                        .add(ResourcePair
-                                .constructSystemResourcePair(new GenericResourceData(
-                                        LatLonReadoutResource.class)));
-                pane.getDescriptor().getResourceList()
-                        .instantiateResources(pane.getDescriptor(), true);
-                List<LatLonReadoutResource> rscs = pane.getDescriptor()
-                        .getResourceList()
-                        .getResourcesByTypeAsType(LatLonReadoutResource.class);
-                for (LatLonReadoutResource rsc : rscs) {
-                    rsc.setEnabled(true);
+                IDescriptor desc = pane.getDescriptor();
+                if (desc instanceof MapDescriptor) {
+                    desc.getResourceList()
+                            .add(ResourcePair.constructSystemResourcePair(
+                                    new GenericResourceData(
+                                            LatLonReadoutResource.class)));
+                    desc.getResourceList().instantiateResources(desc, true);
+                    List<LatLonReadoutResource> rscs = desc.getResourceList()
+                            .getResourcesByTypeAsType(
+                                    LatLonReadoutResource.class);
+                    for (LatLonReadoutResource rsc : rscs) {
+                        rsc.setEnabled(true);
+                    }
                 }
+
                 // turn on sampling
-                List<ISamplingResource> samplers = pane.getDescriptor()
-                        .getResourceList()
+                List<ISamplingResource> samplers = desc.getResourceList()
                         .getResourcesByTypeAsType(ISamplingResource.class);
                 for (ISamplingResource sampler : samplers) {
                     if (sampler.isSampling()) {
@@ -116,7 +119,7 @@ public class LatLonReadoutAction extends AbstractRightClickAction {
                 List<LatLonReadoutResource> rscs = activePane.getDescriptor()
                         .getResourceList()
                         .getResourcesByTypeAsType(LatLonReadoutResource.class);
-                hasLatLonReadout = rscs.size() > 0;
+                hasLatLonReadout = !rscs.isEmpty();
                 for (LatLonReadoutResource rsc : rscs) {
                     hasLatLonReadout &= rsc.isEnabled();
                 }

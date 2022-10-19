@@ -40,6 +40,7 @@ import com.raytheon.uf.viz.core.rsc.IInputHandler;
 import com.raytheon.uf.viz.core.rsc.IResourceDataChanged;
 import com.raytheon.uf.viz.core.rsc.LoadProperties;
 import com.raytheon.uf.viz.core.rsc.capabilities.EditableCapability;
+import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.input.EditableManager;
 
 /**
@@ -83,11 +84,12 @@ import com.raytheon.viz.ui.input.EditableManager;
  * Dec 13, 2018 #7675      reblum      Allow subclasses to specify timeAgnostic via
  *                                     new constructor.
  * Jan 06, 2021 #8704      pvemuri     UELE 'bound must be positive' After Issuing River Flood Warning
+ * Sep 13, 2022 8792       mapeters    Only handle input events in the pane this
+ *                                     layer is in
  *
  * </pre>
  *
  * @author bsteffen
- * @version 1.0
  * @param <T>
  */
 public abstract class AbstractMovableToolLayer<T>
@@ -296,17 +298,31 @@ public abstract class AbstractMovableToolLayer<T>
     protected abstract String getDefaultName();
 
     /**
-     * Called when user clicks "Button 2" on label.
+     * Get whether or not this layer is currently interactive, that is, whether
+     * or not current mouse/key inputs should interact with it.
      *
+     * @return true if interactive, false otherwise
+     * @see #isEditable()
      */
-    public boolean isEditable() {
+    protected boolean isInteractive() {
+        // Editable, visible, and in the active canvas
+        return isEditable() && getProperties().isVisible() && UiUtil
+                .isDescriptorActive(descriptor, getResourceContainer());
+    }
+
+    /**
+     * Get whether this layer's editable capability is toggled on or off.
+     *
+     * @return true if editable, false otherwise
+     * @see #isInteractive()
+     */
+    protected boolean isEditable() {
         return getCapability(EditableCapability.class).isEditable();
     }
 
     @Override
     public boolean handleMouseDown(int x, int y, int mouseButton) {
-        if ((liveObject == null) && isEditable()
-                && getProperties().isVisible()) {
+        if ((liveObject == null) && isInteractive()) {
             IDisplayPaneContainer container = getResourceContainer();
             lastMouseLoc = container.translateClick(x, y);
 
@@ -367,32 +383,10 @@ public abstract class AbstractMovableToolLayer<T>
                 issueRefresh();
             }
             return true;
-        } else if ((liveObject == null) && isEditable()
-                && getProperties().isVisible()) {
+        } else if (isInteractive()) {
             if (objects == null) {
                 return false;
             }
-
-            // if (liveObject != null) {
-            // if (isClicked(container, new Coordinate(x, y), liveObject)) {
-            // if (!this.endpointClicked) {
-            // this.changeCursorCross();
-            // } else {
-            // this.changeCursorHand();
-            // }
-            // return true;
-            // }
-            // }
-            // if (selectedObject != null) {
-            // if (isClicked(container, new Coordinate(x, y), selectedObject)) {
-            // if (!this.endpointClicked) {
-            // this.changeCursorCross();
-            // } else {
-            // this.changeCursorHand();
-            // }
-            // return true;
-            // }
-            // }
 
             for (T object : objects) {
                 if (isClicked(container, new Coordinate(x, y), object)) {
@@ -412,7 +406,7 @@ public abstract class AbstractMovableToolLayer<T>
     @Override
     @SuppressWarnings("unchecked")
     public boolean handleMouseUp(int x, int y, int mouseButton) {
-        if (!isEditable() || !getProperties().isVisible()) {
+        if (!isInteractive()) {
             return false;
         }
 
@@ -440,7 +434,7 @@ public abstract class AbstractMovableToolLayer<T>
     }
 
     protected void save(T oldObject, T newObject) {
-
+        // Implementations can override this to save state as necessary
     }
 
     @Override

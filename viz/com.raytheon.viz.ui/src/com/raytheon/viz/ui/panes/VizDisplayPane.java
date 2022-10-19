@@ -26,13 +26,10 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
-import org.eclipse.jface.action.IMenuListener;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.MenuManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.DisposeEvent;
-import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.swt.events.FocusListener;
 import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.MouseListener;
@@ -43,7 +40,6 @@ import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.Canvas;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.ui.IWorkbenchPart;
@@ -59,6 +55,7 @@ import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IExtent;
 import com.raytheon.uf.viz.core.IGraphicsTarget;
+import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
 import com.raytheon.uf.viz.core.PixelExtent;
 import com.raytheon.uf.viz.core.VizApp;
@@ -75,6 +72,8 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
 
 /**
  * Creates a GL Context for drawing
+ *
+ * TODO rename to VizDisplayCanvas
  *
  * <P>
  * Typical usage:
@@ -108,6 +107,9 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  * Mar 13, 2018  7160     tgurney      getDisplay check for disposed canvas
  * May 17, 2021  8452     randerso     Add ability for the descriptor to
  *                                     contribute to the context menu.
+ * Mar 23, 2022  8790     mapeters     Add addListener(Listener)
+ * Oct 07, 2022  8792     mapeters     Add CanvasType field
+ *
  *
  * </pre>
  *
@@ -130,6 +132,8 @@ public class VizDisplayPane implements IDisplayPane {
 
     /** The canvas */
     private final Canvas canvas;
+
+    private final CanvasType type;
 
     /** The graphics target */
     protected IGraphicsTarget target;
@@ -179,13 +183,15 @@ public class VizDisplayPane implements IDisplayPane {
      * @param container
      * @param canvasComp
      *            the composite to use with the canvas
+     * @param type
+     *            the type of this canvas
      * @param display
      *            the initial renderable display to use in construction
      * @throws VizException
      */
     public VizDisplayPane(IDisplayPaneContainer container, Composite c,
-            IRenderableDisplay display) throws VizException {
-        this(container, c, display, true);
+            CanvasType type, IRenderableDisplay display) throws VizException {
+        this(container, c, type, display, true);
     }
 
     /**
@@ -194,6 +200,8 @@ public class VizDisplayPane implements IDisplayPane {
      * @param container
      * @param canvasComp
      *            the composite to use with the canvas
+     * @param type
+     *            the type of this canvas
      * @param display
      *            the initial renderable display to use in construction
      * @param enableContextualMenus
@@ -201,21 +209,17 @@ public class VizDisplayPane implements IDisplayPane {
      * @throws VizException
      */
     public VizDisplayPane(final IDisplayPaneContainer container,
-            Composite canvasComp, IRenderableDisplay display,
+            Composite canvasComp, CanvasType type, IRenderableDisplay display,
             boolean enableContextualMenus) throws VizException {
         this.container = container;
         this.canvasComp = canvasComp;
+        this.type = type;
 
         // create the graphics adapter
         graphicsAdapter = display.getGraphicsAdapter();
         // create the canvas
         this.canvas = graphicsAdapter.constrcutCanvas(canvasComp);
-        this.canvas.addDisposeListener(new DisposeListener() {
-            @Override
-            public void widgetDisposed(DisposeEvent e) {
-                VizDisplayPane.this.disposePane();
-            }
-        });
+        this.canvas.addDisposeListener(e -> VizDisplayPane.this.disposePane());
         // set the renderable display
         setRenderableDisplay(display);
 
@@ -244,12 +248,8 @@ public class VizDisplayPane implements IDisplayPane {
             MenuManager menuMgr = new MenuManager("#PopupMenu");
             menuMgr.setRemoveAllWhenShown(true);
 
-            menuMgr.addMenuListener(new IMenuListener() {
-                @Override
-                public void menuAboutToShow(IMenuManager manager) {
-                    VizDisplayPane.this.menuAboutToShow(manager);
-                }
-            });
+            menuMgr.addMenuListener(
+                    manager -> VizDisplayPane.this.menuAboutToShow(manager));
             Menu menu = menuMgr.createContextMenu(canvas);
             menu.setVisible(false);
             canvasComp.setMenu(menu);
@@ -267,35 +267,22 @@ public class VizDisplayPane implements IDisplayPane {
      */
     protected void addCanvasListeners(Canvas canvas) {
         // Add canvas refresh,resize,dispose listeners
-        canvas.addListener(SWT.Paint, new Listener() {
-            @Override
-            public void handleEvent(Event event) {
-                refresh();
-            }
-        });
+        canvas.addListener(SWT.Paint, event -> refresh());
 
-        canvas.addListener(SWT.Resize, new Listener() {
-            @Override
-            public void handleEvent(Event event) {
-                resize();
-            }
-        });
+        canvas.addListener(SWT.Resize, event -> resize());
 
-        canvas.addListener(SWT.MouseMove, new Listener() {
-            @Override
-            public void handleEvent(Event event) {
-                double[] grid = screenToGrid(event.x, event.y, 0);
-                for (IDisplayPane pane : container.getDisplayPanes()) {
-                    if (pane instanceof VizDisplayPane) {
-                        VizDisplayPane gdp = (VizDisplayPane) pane;
-                        double[] screen = gdp.gridToScreen(grid);
-                        gdp.lastMouseX = (int) screen[0];
-                        gdp.lastMouseY = (int) screen[1];
-                    }
+        canvas.addListener(SWT.MouseMove, event -> {
+            double[] grid = screenToGrid(event.x, event.y, 0);
+            for (IDisplayPane pane : container.getDisplayPanes()) {
+                if (pane instanceof VizDisplayPane) {
+                    VizDisplayPane gdp = (VizDisplayPane) pane;
+                    double[] screen = gdp.gridToScreen(grid);
+                    gdp.lastMouseX = (int) screen[0];
+                    gdp.lastMouseY = (int) screen[1];
                 }
-                lastMouseX = event.x;
-                lastMouseY = event.y;
             }
+            lastMouseX = event.x;
+            lastMouseY = event.y;
         });
     }
 
@@ -832,13 +819,10 @@ public class VizDisplayPane implements IDisplayPane {
             menuJob = new Job("RightClickMgr") {
                 @Override
                 protected IStatus run(IProgressMonitor monitor) {
-                    VizApp.runSync(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!canvas.isDisposed()
-                                    && canvasComp.getMenu() != null) {
-                                showMenu();
-                            }
+                    VizApp.runSync(() -> {
+                        if (!canvas.isDisposed()
+                                && canvasComp.getMenu() != null) {
+                            showMenu();
                         }
                     });
                     synchronized (menuLock) {
@@ -888,4 +872,23 @@ public class VizDisplayPane implements IDisplayPane {
         }
     }
 
+    @Override
+    public void addListener(Listener listener) {
+        addListener(SWT.MouseUp, listener);
+        addListener(SWT.MouseDown, listener);
+        addListener(SWT.MouseMove, listener);
+        addListener(SWT.MouseWheel, listener);
+        addListener(SWT.MouseHover, listener);
+        addListener(SWT.MouseDoubleClick, listener);
+        addListener(SWT.KeyDown, listener);
+        addListener(SWT.KeyUp, listener);
+        addListener(SWT.MenuDetect, listener);
+        addListener(SWT.MouseExit, listener);
+        addListener(SWT.MouseEnter, listener);
+    }
+
+    @Override
+    public CanvasType getType() {
+        return type;
+    }
 }

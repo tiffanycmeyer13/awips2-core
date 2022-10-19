@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -47,26 +47,28 @@ import org.eclipse.ui.views.IViewRegistry;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
+import com.raytheon.uf.viz.core.DescriptorMap;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
+import com.raytheon.uf.viz.core.drawables.AbstractRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.uf.viz.core.procedures.Bundle;
 import com.raytheon.viz.ui.UiUtil.ContainerPart.Container;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.EditorInput;
-import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
 import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
 import com.raytheon.viz.ui.statusline.VizActionBarAdvisor;
 
 /**
  * UiUtil - contains UI utility methods
- * 
+ *
  * <pre>
- * 
+ *
  *    SOFTWARE HISTORY
- *   
+ *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Jul 30, 2007            chammack    Initial Creation.
@@ -78,9 +80,14 @@ import com.raytheon.viz.ui.statusline.VizActionBarAdvisor;
  * Mar 31, 2016 5519       bsteffen    Fix coolbar update on eclipse 4.
  * May 03, 2016 3292       bsteffen    Preserve editor order in getActiveDisplayMap.
  * Mar 12, 2018 6757       njensen     Copy active editor's loop properties for new editor
- * 
+ * Apr 01, 2022 8790       mapeters    Update determination of editor type to open, move
+ *                                     makeCompatible() to editor hierarchy
+ * Apr 22, 2022 8791       mapeters    Further update determination of editor type to open
+ * Sep 13, 2022 8792       mapeters    Add isDescriptorCompatibleWithActive() and
+ *                                     isDescriptorActive()
+ *
  * </pre>
- * 
+ *
  * @author chammack
  */
 public class UiUtil {
@@ -89,6 +96,8 @@ public class UiUtil {
 
     protected static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(UiUtil.class);
+
+    private static final String DEFAULT_MAP_EDITOR_ID = "com.raytheon.viz.ui.glmap.GLMapEditor";
 
     public static class ContainerPart {
 
@@ -110,7 +119,7 @@ public class UiUtil {
 
     /**
      * Get a map of all active CAVE panes, keyed by the editor or view
-     * 
+     *
      * @return the pane map
      */
     @SuppressWarnings("restriction")
@@ -194,7 +203,7 @@ public class UiUtil {
 
     /**
      * Return the list of displays from a display container
-     * 
+     *
      * @param container
      *            the container to retrieve from
      * @return the list of displays
@@ -219,7 +228,7 @@ public class UiUtil {
 
     /**
      * Get a reference to a view given the id.
-     * 
+     *
      * @param view
      *            the id of the view to find
      * @param createIfNotFound
@@ -255,6 +264,8 @@ public class UiUtil {
                         .getActivePage()
                         .showView(id, secondaryId, IWorkbenchPage.VIEW_VISIBLE);
             } catch (PartInitException e) {
+                statusHandler.error("Error creating view with IDs: " + id + ", "
+                        + secondaryId, e);
                 return null;
             }
         }
@@ -264,7 +275,7 @@ public class UiUtil {
 
     /**
      * Given the window, find the view and create if not found and desired
-     * 
+     *
      * @param windowToSearch
      * @param view
      * @param createIfNotFound
@@ -305,6 +316,7 @@ public class UiUtil {
             try {
                 return windowToSearch.getActivePage().showView(id);
             } catch (PartInitException e) {
+                statusHandler.error("Error creating view with ID: " + id, e);
                 return null;
             }
         }
@@ -314,7 +326,7 @@ public class UiUtil {
 
     /**
      * Given the id, determine if the id corresponds to a view
-     * 
+     *
      * @param id
      *            the id to check
      * @return true if id corresponds to view, false otherwise
@@ -340,7 +352,7 @@ public class UiUtil {
 
     /**
      * Given the id, determine if the id corresponds to an editor
-     * 
+     *
      * @param id
      *            the id to check
      * @return true if id corresponds to an editor, false otherwise
@@ -360,76 +372,85 @@ public class UiUtil {
     }
 
     /**
-     * Gets the currently active window
-     * 
-     * @return
+     * @return the currently active window
      */
     public static IWorkbenchWindow getCurrentWindow() {
         return VizWorkbenchManager.getInstance().getCurrentWindow();
     }
 
     /**
-     * Given the editor id and the renderable displays, create or open an editor
-     * with the given displays on the active window
-     * 
-     * @param editor
+     * Given the editor type info and the renderable displays, create or open an
+     * editor with the given displays on the active window.
+     *
+     * @param editorTypeInfo
+     *            info used to help determine the type of editor to open (e.g.
+     *            map, cross section, combo)
      * @param displays
-     * @return the created or opened editor
-     */
-    public static AbstractEditor createOrOpenEditor(String editor,
-            IRenderableDisplay... displays) {
-        return createOrOpenEditor(getCurrentWindow(), editor, displays);
-    }
-
-    /**
-     * Given the editor id and the renderable displays, create or open an editor
-     * with the given displays on the specified window
-     * 
-     * @param windowToLoadTo
-     * @param editor
-     * @param displays
+     *            the displays to load to the editor, one per pane
      * @return the created or opened editor
      */
     public static AbstractEditor createOrOpenEditor(
-            IWorkbenchWindow windowToLoadTo, String editor,
+            EditorTypeInfo editorTypeInfo, IRenderableDisplay... displays) {
+        return createOrOpenEditor(editorTypeInfo, false, displays);
+    }
+
+    /**
+     * Given the editor type info and the renderable displays, create or open an
+     * editor with the given displays on the active window.
+     *
+     * @param editorTypeInfo
+     *            info used to help determine the type of editor to open (e.g.
+     *            map, cross section, combo) - must not be null, although its
+     *            contained editor ID can be
+     * @param tryPerspectiveManagerOnCreate
+     *            if we need to create a new editor, try having the active
+     *            perspective manager open its default editor and see if it's
+     *            the appropriate editor type first, otherwise close it and fall
+     *            back to {@link #createEditor}
+     * @param displays
+     *            the displays to load to the editor, one per pane
+     * @return the created or opened editor
+     */
+    public static AbstractEditor createOrOpenEditor(
+            EditorTypeInfo editorTypeInfo,
+            boolean tryPerspectiveManagerOnCreate,
             IRenderableDisplay... displays) {
-        String editorName = (editor == null
-                ? "com.raytheon.viz.ui.glmap.GLMapEditor" : editor);
-        if (windowToLoadTo == null) {
-            windowToLoadTo = getCurrentWindow();
+        String editorId = editorTypeInfo.getEditorId();
+        if (editorId == null) {
+            editorId = DEFAULT_MAP_EDITOR_ID;
         }
 
         // Check the current editor first
-        IEditorPart ep = EditorUtil.getActiveEditor(windowToLoadTo);
+        IEditorPart ep = EditorUtil.getActiveEditor();
         LoopProperties loopProps = null;
         if (ep instanceof AbstractEditor) {
             AbstractEditor currentEditor = (AbstractEditor) ep;
             /*
-             * copy the current editor's loop properties in case we open a new
-             * editor
+             * Copy the current editor's loop properties in case we open a new
+             * editor at the end of this method
              */
             loopProps = new LoopProperties(currentEditor.getLoopProperties());
-            if (currentEditor.getEditorSite().getId().equals(editorName)) {
-                currentEditor = makeCompatible(currentEditor, displays);
-                if (currentEditor != null) {
+            if (currentEditor.getEditorSite().getId().equals(editorId)
+                    || !editorTypeInfo.isStrict()) {
+                if (currentEditor.makeCompatible(displays)) {
                     return currentEditor;
                 }
             }
         }
 
-        IWorkbenchPage activePage = windowToLoadTo.getActivePage();
-        IEditorReference[] references = new IEditorReference[0];
+        IWorkbenchPage activePage = getCurrentWindow().getActivePage();
+        IEditorReference[] references = {};
         if (activePage != null) {
             references = activePage.getEditorReferences();
         }
 
+        // Next check non-active editors that match the preferred editor ID
         for (IEditorReference ref : references) {
-            if (editorName.equals(ref.getId())) {
+            if (editorId.equals(ref.getId())) {
                 IEditorPart editorPart = ref.getEditor(false);
                 if (editorPart instanceof AbstractEditor) {
                     AbstractEditor aEditor = (AbstractEditor) editorPart;
-                    aEditor = makeCompatible(aEditor, displays);
-                    if (aEditor != null) {
+                    if (aEditor.makeCompatible(displays)) {
                         activePage.bringToTop(aEditor);
                         return aEditor;
                     }
@@ -437,73 +458,111 @@ public class UiUtil {
             }
         }
 
-        // If we get here, the editor isn't there, or has a different number of
-        // panes... construct it
-        return createEditor(windowToLoadTo, editorName, loopProps, displays);
-    }
-
-    private static AbstractEditor makeCompatible(AbstractEditor currentEditor,
-            IRenderableDisplay... displays) {
-        for (int i = 0; i < displays.length; i++) {
-            IDescriptor currentDesc = currentEditor.getDisplayPanes()[0]
-                    .getDescriptor();
-            if (i < currentEditor.getDisplayPanes().length) {
-                currentDesc = currentEditor.getDisplayPanes()[i]
-                        .getDescriptor();
-            }
-            IDescriptor newDesc = displays[i].getDescriptor();
-            if (!currentDesc.isCompatible(newDesc)) {
-                return null;
-            }
-        }
-        if (currentEditor instanceof IMultiPaneEditor) {
-            IMultiPaneEditor mpe = (IMultiPaneEditor) currentEditor;
-            if (currentEditor.getDisplayPanes().length < displays.length) {
-                currentEditor.getDisplayPanes()[0].clear();
-                IRenderableDisplay display = currentEditor.getDisplayPanes()[0]
-                        .getRenderableDisplay();
-                for (int i = 1; i < displays.length; ++i) {
-                    mpe.addPane(display.createNewDisplay());
+        /*
+         * Next, if the preferred editor ID isn't strict, check non-active
+         * editors that don't match the preferred ID
+         */
+        if (!editorTypeInfo.isStrict()) {
+            for (IEditorReference ref : references) {
+                if (!editorId.equals(ref.getId())) {
+                    IEditorPart editorPart = ref.getEditor(false);
+                    if (editorPart instanceof AbstractEditor) {
+                        AbstractEditor aEditor = (AbstractEditor) editorPart;
+                        if (aEditor.makeCompatible(displays)) {
+                            activePage.bringToTop(aEditor);
+                            return aEditor;
+                        }
+                    }
                 }
             }
-            return currentEditor;
-        } else if (currentEditor.getDisplayPanes().length == displays.length) {
-            return currentEditor;
         }
-        return null;
+
+        /*
+         * This part allows the perspective manager to make an editor which may
+         * have some customizations.
+         */
+        if (tryPerspectiveManagerOnCreate) {
+            AbstractVizPerspectiveManager mgr = VizPerspectiveListener
+                    .getInstance().getActivePerspectiveManager();
+            if (mgr != null) {
+                AbstractEditor editor = mgr.openNewEditor();
+                if (editor == null) {
+                    return null;
+                } else if (editorId.equals(editor.getEditorSite().getId())) {
+                    return editor;
+                } else {
+                    activePage.closeEditor(editor, false);
+                }
+            }
+        }
+
+        /*
+         * If we get here, an editor of the desired type doesn't exist or has a
+         * different number of panes. Construct a new one.
+         */
+        return createEditor(getCurrentWindow(), editorId, loopProps, displays);
+    }
+
+    /**
+     * Create or open an editor that supports the given bundle then being loaded
+     * to it. This does not load the bundle.
+     *
+     * @param bundle
+     *            the bundle to create or open an editor for
+     * @return the editor to load the bundle to
+     */
+    public static AbstractEditor createOrOpenEditorForBundle(Bundle bundle) {
+        String editorId = bundle.getEditor();
+        /*
+         * Editor ID is strict if it's in the bundle, it's not if it's just
+         * determined from the descriptor type.
+         */
+        boolean strictEditorId = editorId != null;
+        AbstractRenderableDisplay[] displays = bundle.getDisplays();
+        if (editorId == null && displays != null && displays.length > 0) {
+            editorId = DescriptorMap.getEditorId(displays[0]);
+        }
+
+        EditorTypeInfo editorTypeInfo = new EditorTypeInfo(editorId,
+                strictEditorId);
+        AbstractEditor editor = UiUtil.createOrOpenEditor(editorTypeInfo,
+                displays);
+
+        return editor;
     }
 
     /**
      * Opens a new editor with the specified displays on the currently active
      * window
-     * 
-     * @param editor
+     *
+     * @param editorId
      * @param displays
      * @return
      */
-    public static AbstractEditor createEditor(String editor,
+    public static AbstractEditor createEditor(String editorId,
             IRenderableDisplay... displays) {
-        return createEditor(getCurrentWindow(), editor, displays);
+        return createEditor(getCurrentWindow(), editorId, displays);
     }
 
     /**
      * Opens a new editor with the specified displays on the specified window
-     * 
+     *
      * @param windowToLoadTo
-     * @param editor
+     * @param editorId
      * @param displays
      * @return
      */
     public static AbstractEditor createEditor(IWorkbenchWindow windowToLoadTo,
-            String editor, IRenderableDisplay... displays) {
-        return createEditor(windowToLoadTo, editor, null, displays);
+            String editorId, IRenderableDisplay... displays) {
+        return createEditor(windowToLoadTo, editorId, null, displays);
     }
 
     public static AbstractEditor createEditor(IWorkbenchWindow windowToLoadTo,
-            String editor, LoopProperties loopProps,
+            String editorId, LoopProperties loopProps,
             IRenderableDisplay... displays) {
-        String editorName = (editor == null
-                ? "com.raytheon.viz.ui.glmap.GLMapEditor" : editor);
+        if (editorId == null) {
+            editorId = DEFAULT_MAP_EDITOR_ID;
+        }
         if (windowToLoadTo == null) {
             windowToLoadTo = getCurrentWindow();
         }
@@ -516,19 +575,20 @@ public class UiUtil {
             IWorkbenchPage activePage = windowToLoadTo.getActivePage();
             if (activePage != null) {
                 aEditor = (AbstractEditor) activePage.openEditor(cont,
-                        editorName);
+                        editorId);
             }
         } catch (PartInitException e) {
-            UiPlugin.getDefault().getLog().log(new Status(IStatus.ERROR,
-                    UiPlugin.PLUGIN_ID,
-                    "Error creating and opening editor " + editorName, e));
+            UiPlugin.getDefault().getLog()
+                    .log(new Status(IStatus.ERROR, UiPlugin.PLUGIN_ID,
+                            "Error creating and opening editor " + editorId,
+                            e));
         }
         return aEditor;
     }
 
     /**
      * Find all editors for a perspective in a window
-     * 
+     *
      * @param window
      * @return array of AbstractEditors in the perspective
      */
@@ -551,7 +611,7 @@ public class UiUtil {
      * Force update the size and layout of all the coolbar items. This is
      * necessary when a coolbar item changes size to prevent other items from
      * being hidden.
-     * 
+     *
      * @param window
      */
     public static void updateWindowCoolBar(IWorkbenchWindow window) {
@@ -581,4 +641,49 @@ public class UiUtil {
         }
     }
 
+    /**
+     * Determine if the given descriptor is compatible with the active
+     * descriptor in the given pane container.
+     *
+     * @param descriptor
+     *            descriptor to compare with the active descriptor
+     * @param paneContainer
+     *            pane container to get the active descriptor from
+     * @return true if the descriptor is compatible, false otherwise
+     */
+    public static boolean isDescriptorCompatibleWithActive(
+            IDescriptor descriptor, IDisplayPaneContainer paneContainer) {
+        if (paneContainer != null) {
+            for (IDisplayPane canvas : paneContainer
+                    .getCanvasesCompatibleWithActive()) {
+                if (canvas.getDescriptor() == descriptor) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if the given descriptor is the active descriptor in the given
+     * pane container.
+     *
+     * @param descriptor
+     *            descriptor to check if it matches the active descriptor
+     * @param paneContainer
+     *            pane container to get the active descriptor from
+     * @return true if the descriptor is active in the pane container, false
+     *         otherwise
+     */
+    public static boolean isDescriptorActive(IDescriptor descriptor,
+            IDisplayPaneContainer paneContainer) {
+        if (paneContainer != null) {
+            IDisplayPane canvas = paneContainer.getActiveDisplayPane();
+            if (canvas != null && canvas.getDescriptor() == descriptor) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

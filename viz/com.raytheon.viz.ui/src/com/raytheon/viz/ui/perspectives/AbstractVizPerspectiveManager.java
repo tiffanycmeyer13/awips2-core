@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -57,7 +57,6 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.internal.e4.compatibility.CompatibilityEditor;
-import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
 
 import com.raytheon.uf.common.localization.LocalizationFile;
@@ -85,10 +84,10 @@ import com.raytheon.viz.ui.tools.ModalToolManager;
 /**
  * Manager for generic perspectives. Default implementation for general GUI
  * interface management.
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer  Description
  * ------------- -------- --------- --------------------------------------------
  * Jul 22, 2008  1223     randerso  Initial creation
@@ -116,9 +115,10 @@ import com.raytheon.viz.ui.tools.ModalToolManager;
  *                                  perspectives.
  * Jul 09, 2018  7315     bsteffen  Keep hidden editors in the model so they can
  *                                  prompt to save on close.
- * 
+ * Apr 01, 2022  8790     mapeters  Add openNewEditor(String editorId)
+ *
  * </pre>
- * 
+ *
  * @author randerso
  */
 public abstract class AbstractVizPerspectiveManager
@@ -214,32 +214,26 @@ public abstract class AbstractVizPerspectiveManager
                      * before activating tools. Otherwise tools may not be valid
                      * because the context is not active.
                      */
-                    VizApp.runAsync(new Runnable() {
-
-                        @Override
-                        public void run() {
-                            try {
+                    VizApp.runAsync(() -> {
+                        try {
+                            mgr.activateDefaultTool(editor.getDefaultTool());
+                            if (mgr.getToolManager().getSelectedModalTools()
+                                    .isEmpty()) {
+                                /*
+                                 * Hack due to tool activation not sending
+                                 * whether it should be activated or deactivated
+                                 * and is just toggling instead. TODO: Make
+                                 * AbstractModalTool required command parameter
+                                 * for activate or deactivate
+                                 */
                                 mgr.activateDefaultTool(
                                         editor.getDefaultTool());
-                                if (mgr.getToolManager().getSelectedModalTools()
-                                        .isEmpty()) {
-                                    /*
-                                     * Hack due to tool activation not sending
-                                     * whether it should be activated or
-                                     * deactivated and is just toggling instead.
-                                     * TODO: Make AbstractModalTool required
-                                     * command parameter for activate or
-                                     * deactivate
-                                     */
-                                    mgr.activateDefaultTool(
-                                            editor.getDefaultTool());
-                                }
-                            } catch (VizException e) {
-                                statusHandler.handle(Priority.SIGNIFICANT,
-                                        "Error activating tool set", e);
                             }
-
+                        } catch (VizException e) {
+                            statusHandler.handle(Priority.SIGNIFICANT,
+                                    "Error activating tool set", e);
                         }
+
                     });
                 }
             }
@@ -286,34 +280,29 @@ public abstract class AbstractVizPerspectiveManager
      * be done here instead of the close() method because close() is not called
      * when the application is exiting.
      */
-    private final EventHandler closeHandler = new EventHandler() {
-
-        @Override
-        public void handleEvent(Event event) {
-            if (event.getProperty(UIEvents.EventTags.NEW_VALUE) != null) {
-                return;
-            }
-            Object element = event.getProperty(UIEvents.EventTags.ELEMENT);
-            if (!(element instanceof MPerspective)) {
-                return;
-            }
-            MPerspective perspective = (MPerspective) element;
-            if (!perspective.getElementId().equals(perspectiveId)) {
-                return;
-            }
-            EModelService modelService = perspectiveWindow
-                    .getService(EModelService.class);
-            List<MArea> localEditorAreas = modelService.findElements(
-                    perspective, getPerpectiveEditorAreaId(), MArea.class,
-                    null);
-            if (localEditorAreas != null) {
-                for (MArea localEditorArea : localEditorAreas) {
-                    localEditorArea.setToBeRendered(false);
-                    MElementContainer<MUIElement> parent = localEditorArea
-                            .getParent();
-                    if (parent != null) {
-                        parent.getChildren().remove(localEditorArea);
-                    }
+    private final EventHandler closeHandler = event -> {
+        if (event.getProperty(UIEvents.EventTags.NEW_VALUE) != null) {
+            return;
+        }
+        Object element = event.getProperty(UIEvents.EventTags.ELEMENT);
+        if (!(element instanceof MPerspective)) {
+            return;
+        }
+        MPerspective perspective = (MPerspective) element;
+        if (!perspective.getElementId().equals(perspectiveId)) {
+            return;
+        }
+        EModelService modelService = perspectiveWindow
+                .getService(EModelService.class);
+        List<MArea> localEditorAreas = modelService.findElements(perspective,
+                getPerpectiveEditorAreaId(), MArea.class, null);
+        if (localEditorAreas != null) {
+            for (MArea localEditorArea : localEditorAreas) {
+                localEditorArea.setToBeRendered(false);
+                MElementContainer<MUIElement> parent = localEditorArea
+                        .getParent();
+                if (parent != null) {
+                    parent.getChildren().remove(localEditorArea);
                 }
             }
         }
@@ -331,7 +320,7 @@ public abstract class AbstractVizPerspectiveManager
      * the perspective is opened. Items will be disposed and removed when closed
      * and just removed when deactivated. Always return new items from this
      * method as they will be automatically disposed
-     * 
+     *
      * @return
      */
     protected List<ContributionItem> getStatusLineItems() {
@@ -414,7 +403,7 @@ public abstract class AbstractVizPerspectiveManager
      * in the shared editor area into a perspective specific area so that it is
      * not visible in other perspectives but it will still be part of the model.
      * The shared editor area will be populated with a default empty part stack.
-     * 
+     *
      */
     private void hideEditors() {
         EModelService modelService = perspectiveWindow
@@ -571,7 +560,7 @@ public abstract class AbstractVizPerspectiveManager
 
     /**
      * Move all the children from one MArea to another.
-     * 
+     *
      * @param source
      *            one MArea
      * @param dest
@@ -593,7 +582,7 @@ public abstract class AbstractVizPerspectiveManager
      * Overridable set title method, takes original window title and
      * perspectives can display what they want. Default implementation sets
      * title to be "title - perspective"
-     * 
+     *
      * @param title
      */
     protected String getTitle(String title) {
@@ -602,7 +591,7 @@ public abstract class AbstractVizPerspectiveManager
 
     /**
      * Get the label for the perspective
-     * 
+     *
      * @return
      */
     protected final String getLabel() {
@@ -639,7 +628,7 @@ public abstract class AbstractVizPerspectiveManager
     /**
      * Can be overridden to allow perspectives to override the editor's default
      * tool to have a default perspective tool
-     * 
+     *
      * @param tool
      * @throws VizException
      */
@@ -651,7 +640,7 @@ public abstract class AbstractVizPerspectiveManager
      * WorkbenchWindow setter, should be called immediately after construction.
      * not passed in through constructor bc class will be instantiated through
      * eclipse extension point
-     * 
+     *
      * @param window
      */
     public void setPerspectiveWindow(IWorkbenchWindow window) {
@@ -661,7 +650,7 @@ public abstract class AbstractVizPerspectiveManager
 
     /**
      * Set the status line manager so the perspective can add to the status line
-     * 
+     *
      * @param statusLine
      */
     public void setStatusLineManager(IStatusLineManager statusLine) {
@@ -670,7 +659,7 @@ public abstract class AbstractVizPerspectiveManager
 
     /**
      * Set the perspective id registered with the manager in the plugin.xml
-     * 
+     *
      * @param perspectiveId
      */
     void setPerspectiveId(String perspectiveId) {
@@ -683,7 +672,7 @@ public abstract class AbstractVizPerspectiveManager
 
     /**
      * Add a perspective dialog
-     * 
+     *
      * @param dialog
      */
     public void addPerspectiveDialog(IPerspectiveSpecificDialog dialog) {
@@ -694,7 +683,7 @@ public abstract class AbstractVizPerspectiveManager
 
     /**
      * Remove a perspective dialog
-     * 
+     *
      * @param dialog
      */
     public void removePespectiveDialog(IPerspectiveSpecificDialog dialog) {
@@ -714,8 +703,8 @@ public abstract class AbstractVizPerspectiveManager
     }
 
     private void closeDialogs() {
-        List<IPerspectiveSpecificDialog> dialogsToClose = new ArrayList<>();
-        dialogsToClose.addAll(perspectiveDialogs);
+        List<IPerspectiveSpecificDialog> dialogsToClose = new ArrayList<>(
+                perspectiveDialogs);
         perspectiveDialogs.clear();
         for (IPerspectiveSpecificDialog dialog : dialogsToClose) {
             dialog.close();
@@ -763,7 +752,7 @@ public abstract class AbstractVizPerspectiveManager
     /**
      * Get an array of the editors in the perspective. Note: These editors may
      * not be visible and this perspective may not be the active perspective.
-     * 
+     *
      * @return Array of availble editors for the perspective
      */
     public AbstractEditor[] getPerspectiveEditors() {
@@ -781,7 +770,7 @@ public abstract class AbstractVizPerspectiveManager
 
     /**
      * Get the perspective id the manager manages
-     * 
+     *
      * @return
      */
     public String getPerspectiveId() {
@@ -789,11 +778,24 @@ public abstract class AbstractVizPerspectiveManager
     }
 
     /**
-     * Have the perspecitve manager open a new editor for the perspective
-     * 
+     * Have the perspective manager open a default new editor for the
+     * perspective
+     *
      * @return the new editor or null if no editor was opened
      */
-    public AbstractEditor openNewEditor() {
+    public final AbstractEditor openNewEditor() {
+        return openNewEditor(null);
+    }
+
+    /**
+     * Have the perspective manager open a new editor for the perspective
+     *
+     * @param editorId
+     *            the ID of the editor type to open, or null to allow the
+     *            perspective manager to use its default editor type
+     * @return the new editor or null if no editor was opened
+     */
+    public AbstractEditor openNewEditor(String editorId) {
         // default does nothing
         return null;
     }
@@ -824,7 +826,7 @@ public abstract class AbstractVizPerspectiveManager
     /**
      * Adds perspective specific context menu items to the specified
      * IMenuManager on the IDisplayPaneContainer for the IDisplayPane
-     * 
+     *
      * @param menuManager
      * @param container
      * @param pane
@@ -845,7 +847,7 @@ public abstract class AbstractVizPerspectiveManager
      * Notify perspective manager when heap space is running low. Default action
      * is to pop up a warning to the user. Perspectives can override the default
      * behavior to take more extreme actions to reduce memory usage.
-     * 
+     *
      * @param freeMemory
      *            free memory available in bytes
      * @return true if notification was displayed
@@ -853,20 +855,17 @@ public abstract class AbstractVizPerspectiveManager
     public boolean notifyLowMemory(long availMemory) {
         final String msg = getLowMemoryMessage(availMemory);
         final boolean[] status = new boolean[1];
-        VizApp.runSync(new Runnable() {
-            @Override
-            public void run() {
-                Display display = Display.getDefault();
-                status[0] = MessageDialog.open(MessageDialog.WARNING,
-                        display.getActiveShell(), "Low Memory", msg, SWT.NONE);
-            }
+        VizApp.runSync(() -> {
+            Display display = Display.getDefault();
+            status[0] = MessageDialog.open(MessageDialog.WARNING,
+                    display.getActiveShell(), "Low Memory", msg, SWT.NONE);
         });
         return status[0];
     }
 
     /**
      * Create the default low memory message to be displayed to the user
-     * 
+     *
      * @param availMemory
      *            free memory available in bytes
      * @return
