@@ -81,6 +81,8 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  *                                  replaced displayPanes list with map to also
  *                                  track LegacyPanes.
  * Oct 12, 2022  8946     mapeters  Added getCanvases(CanvasType)
+ * Oct 13, 2022  8955     mapeters  Update to make virtual cursors work for
+ *                                  combo editor panes in the D2D side view
  *
  * </pre>
  *
@@ -109,7 +111,7 @@ public class PaneManager extends AbstractPaneManager {
 
     private int displayedPaneCount = 0;
 
-    protected IDisplayPane[] lastHandledPanes = null;
+    protected List<IDisplayPane> lastHandledPanes = null;
 
     @Override
     public void initializeComponents(IDisplayPaneContainer container,
@@ -445,7 +447,11 @@ public class PaneManager extends AbstractPaneManager {
             return false;
         }
 
-        lastHandledPanes = getDisplayPanes();
+        /*
+         * getDisplayPanes() doesn't work here for combo editor panes in the D2D
+         * side view
+         */
+        lastHandledPanes = getCanvasesCompatibleWithActive();
         for (IDisplayPane pane : lastHandledPanes) {
             if (currentMouseHoverPane != pane) {
                 ((VizDisplayPane) pane).setVirtualCursor(c);

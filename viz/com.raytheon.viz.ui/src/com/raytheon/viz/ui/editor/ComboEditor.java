@@ -56,6 +56,7 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  *                                     update makeCompatible
  * Oct 10, 2022 8946       mapeters    Update to ensure all height scales in a
  *                                     single editor match
+ * Oct 13, 2022 8955       mapeters    Make replacePane public
  *
  * </pre>
  *
@@ -91,7 +92,16 @@ public class ComboEditor extends VizMultiPaneEditor
         return (ComboPaneManager) editorInput.getPaneManager();
     }
 
-    private void replacePane(IDisplayPane canvas, IRenderableDisplay display) {
+    /**
+     * Replace the pane containing the given canvas with a new pane created from
+     * the given display.
+     *
+     * @param canvas
+     *            a canvas in the pane to replace
+     * @param display
+     *            the display to create the new pane from
+     */
+    public void replacePane(IDisplayPane canvas, IRenderableDisplay display) {
         getPaneManager().replacePane(canvas, display);
     }
 
