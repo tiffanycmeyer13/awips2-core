@@ -29,10 +29,8 @@ import org.eclipse.core.commands.ExecutionException;
 
 import com.raytheon.uf.viz.core.DescriptorMap;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
-import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.exception.VizException;
 import com.raytheon.uf.viz.core.procedures.Bundle;
-import com.raytheon.uf.viz.core.rsc.ResourceProperties;
 import com.raytheon.viz.ui.BundleLoader;
 import com.raytheon.viz.ui.BundleLoader.BundleInfoType;
 import com.raytheon.viz.ui.BundleProductLoader;
@@ -57,6 +55,9 @@ import com.raytheon.viz.ui.editor.AbstractEditor;
  * Apr 01, 2022  8790     mapeters    Update determination of editor type to load
  *                                    bundle in
  * Apr 22, 2022  8791     mapeters    Further update determination of editor type
+ * Oct 21, 2022  8956     mapeters    DescriptorMap.getEditorId() now can take multiple
+ *                                    displays to determine if a Combo editor is needed,
+ *                                    update "full bundle load" handling
  *
  * </pre>
  *
@@ -95,10 +96,12 @@ public class LoadBundleHandler extends AbstractHandler {
             Bundle bundle = BundleLoader.getBundle(getBundleFile(event),
                     getVariableSubstitutions(event),
                     BundleInfoType.FILE_LOCATION);
-            boolean hasData = hasDataResource(bundle);
+            boolean hasData = hasProductResource(bundle);
+            boolean fullBundleLoad = isFullBundleLoad(event);
 
             AbstractEditor editor = UiUtil.createOrOpenEditor(
-                    getEditorTypeInfo(event, bundle), bundle.getDisplays());
+                    getEditorTypeInfo(event, bundle), !fullBundleLoad,
+                    bundle.getDisplays());
             if (hasData) {
                 /*
                  * If the editor is newly created from the bundle then the
@@ -122,13 +125,13 @@ public class LoadBundleHandler extends AbstractHandler {
                  * new editor, and the data resources weren't loaded, then close
                  * the editor since data didn't load.
                  */
-                if (newEditor && !hasDataResource(bundle)) {
+                if (newEditor && !hasProductResource(bundle)) {
                     editor.getSite().getPage().closeEditor(editor, false);
                 }
             }
 
             BundleLoader loader;
-            if (isFullBundleLoad(event)) {
+            if (fullBundleLoad) {
                 loader = new BundleLoader(editor, bundle);
             } else {
                 loader = new BundleProductLoader(editor, bundle);
@@ -185,20 +188,7 @@ public class LoadBundleHandler extends AbstractHandler {
         if (editorId != null) {
             return new EditorTypeInfo(editorId, true);
         } else {
-            for (IRenderableDisplay display : bundle.getDisplays()) {
-                String descEditorId = DescriptorMap.getEditorId(display);
-                if (descEditorId != null) {
-                    if (editorId == null) {
-                        editorId = descEditorId;
-                    } else if (!editorId.equals(descEditorId)) {
-                        /*
-                         * If this happens there are no reasonable guesses, just
-                         * let UIUtil figure it out.
-                         */
-                        return new EditorTypeInfo(null, false);
-                    }
-                }
-            }
+            editorId = DescriptorMap.getEditorId(bundle.getDisplays());
             return new EditorTypeInfo(editorId, false);
         }
     }
@@ -214,24 +204,18 @@ public class LoadBundleHandler extends AbstractHandler {
     }
 
     /**
-     * Determine if the bundle contains any data resources. For this function a
-     * data resources is considered any resource that is not flagged as a system
-     * resource or a map resource.
+     * Determine if the bundle contains any product resources. For this function
+     * a product resource is considered any resource that is not flagged as a
+     * system resource or a map resource.
      *
      * @param bundle
      *            the bundle to check
-     * @return true if there are any data resources.
+     * @return true if there are any product resources.
      */
-    private boolean hasDataResource(Bundle bundle) {
+    private boolean hasProductResource(Bundle bundle) {
         for (IRenderableDisplay display : bundle.getDisplays()) {
-            for (ResourcePair resourcePair : display.getDescriptor()
-                    .getResourceList()) {
-                ResourceProperties props = resourcePair.getProperties();
-                if (props != null) {
-                    if (!props.isMapLayer() && !props.isSystemResource()) {
-                        return true;
-                    }
-                }
+            if (UiUtil.isProductLoaded(display.getDescriptor())) {
+                return true;
             }
         }
         return false;

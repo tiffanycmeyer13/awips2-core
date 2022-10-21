@@ -18,7 +18,11 @@
  **/
 package com.raytheon.viz.ui.editor;
 
+import java.util.Arrays;
+
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.graphics.RGB;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorSite;
 import org.eclipse.ui.PartInitException;
@@ -32,6 +36,8 @@ import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.IScalableRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.IScalableRenderableDisplay.ScaleType;
 import com.raytheon.viz.ui.EditorUtil;
+import com.raytheon.viz.ui.UiUtil;
+import com.raytheon.viz.ui.VizWorkbenchManager;
 import com.raytheon.viz.ui.panes.ComboPaneManager;
 
 /**
@@ -57,6 +63,9 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  * Oct 10, 2022 8946       mapeters    Update to ensure all height scales in a
  *                                     single editor match
  * Oct 13, 2022 8955       mapeters    Make replacePane public
+ * Oct 19, 2022 8956       mapeters    Get user confirmation when replacing populated panes,
+ *                                     make Load to All Panes only load to compatible ones
+ *                                     if there are any
  *
  * </pre>
  *
@@ -140,10 +149,12 @@ public class ComboEditor extends VizMultiPaneEditor
      * @param existingCanvases
      *            the pre-existing canvases containing displays to be conformed
      *            to
+     * @return true if any display's scale was updated, false otherwise
      */
-    private void conformScales(IRenderableDisplay[] newDisplays,
+    private boolean conformScales(IRenderableDisplay[] newDisplays,
             IDisplayPane[] existingCanvases) {
         boolean updatedAnyScale = false;
+
         for (IRenderableDisplay newDisplay : newDisplays) {
             if (!(newDisplay instanceof IScalableRenderableDisplay)) {
                 continue;
@@ -165,14 +176,20 @@ public class ComboEditor extends VizMultiPaneEditor
             }
         }
 
-        if (updatedAnyScale) {
-            statusHandler.info(
-                    "Updated new display scales to match already loaded displays.");
-        }
+        return updatedAnyScale;
+    }
+
+    private boolean confirmReplacingActiveResources() {
+        String msg = "Loading this to the active Combo editor will replace existing"
+                + " resources. Would you still like to load it to the active editor?";
+        Shell shell = VizWorkbenchManager.getInstance().getCurrentWindow()
+                .getShell();
+        return MessageDialog.openQuestion(shell, "Replace Resources?", msg);
     }
 
     @Override
-    public boolean makeCompatible(IRenderableDisplay... newDisplays) {
+    public boolean makeCompatible(boolean loadToExisting,
+            IRenderableDisplay... newDisplays) {
         if (this != EditorUtil.getActiveEditor()) {
             // Only load to if active
             return false;
@@ -188,35 +205,80 @@ public class ComboEditor extends VizMultiPaneEditor
             }
         }
 
-        // Make sure scales of new displays match the existing canvases
-        conformScales(newDisplays, getMainCanvases());
+        IRenderableDisplay[] newBackgroundDisplays = Arrays.stream(newDisplays)
+                .map(this::getBackgroundDisplay)
+                .toArray(IRenderableDisplay[]::new);
+        IDisplayPane[] currentCanvases = getMainCanvases();
 
-        if (newDisplays.length == 1) {
+        if (!loadToExisting) {
             /*
-             * If loading only one display, either load to the selected Load
-             * pane if there is one, or load to all panes.
+             * The bundle to be loaded will replace all editor contents so that
+             * it contains exactly/only what's in the bundle. Ensure we have the
+             * correct number and type of panes.
              */
-            IRenderableDisplay newDisplay = newDisplays[0];
+            boolean dataLoaded = Arrays.stream(currentCanvases).anyMatch(
+                    canvas -> UiUtil.isProductLoaded(canvas.getDescriptor()));
+            if (dataLoaded && !confirmReplacingActiveResources()) {
+                return false;
+            }
+
+            for (int i = 0; i < newBackgroundDisplays.length; ++i) {
+                IRenderableDisplay newDisplay = newBackgroundDisplays[i];
+                if (i >= currentCanvases.length) {
+                    addPane(newDisplay);
+                } else {
+                    replacePane(currentCanvases[i], newDisplay);
+                }
+            }
+
+            for (int i = newBackgroundDisplays.length; i < currentCanvases.length; i++) {
+                removePane(currentCanvases[i]);
+            }
+
+            return true;
+        }
+
+        /*
+         * Update scales of the background displays so that differing scales
+         * don't make us think that we aren't compatible below. The scales of
+         * the displays passed into this method are updated at the end if we are
+         * compatible.
+         */
+        conformScales(newBackgroundDisplays, getMainCanvases());
+
+        if (newBackgroundDisplays.length == 1) {
+            IRenderableDisplay newDisplay = newBackgroundDisplays[0];
             IDisplayPane loadCanvas = getSelectedPane(LOAD_ACTION);
             if (loadCanvas != null) {
                 // Ensure Load pane is compatible
                 if (!loadCanvas.getDescriptor()
                         .isCompatible(newDisplay.getDescriptor())) {
-                    replacePane(loadCanvas, getBackgroundDisplay(newDisplay));
+                    if (UiUtil.isProductLoaded(loadCanvas.getDescriptor())
+                            && !confirmReplacingActiveResources()) {
+                        return false;
+                    }
+                    replacePane(loadCanvas, newDisplay);
                 }
             } else {
                 /*
-                 * TODO We should probably only load to panes that are already
-                 * compatible if possible. The code that loads the actual data
-                 * displays will need updating for that as well.
+                 * If any panes are already compatible, leave the editor alone
+                 * and only those panes will be loaded to, otherwise update all
+                 * panes to be compatible.
                  */
-                // Ensure all panes are compatible
-                IDisplayPane[] currentCanvases = getDisplayPanes();
-                for (IDisplayPane currentCanvas : currentCanvases) {
-                    if (!currentCanvas.getDescriptor()
-                            .isCompatible(newDisplay.getDescriptor())) {
-                        replacePane(currentCanvas,
-                                getBackgroundDisplay(newDisplay));
+                boolean anyCompatible = Arrays.stream(currentCanvases)
+                        .anyMatch(canvas -> newDisplay.getDescriptor()
+                                .isCompatible(canvas.getDescriptor()));
+                if (!anyCompatible) {
+                    boolean dataLoaded = Arrays.stream(currentCanvases)
+                            .anyMatch(canvas -> UiUtil
+                                    .isProductLoaded(canvas.getDescriptor()));
+                    if (dataLoaded && !confirmReplacingActiveResources()) {
+                        return false;
+                    }
+
+                    for (IDisplayPane currentCanvas : currentCanvases) {
+                        replacePane(currentCanvas, getBackgroundDisplay(
+                                newDisplay.createNewDisplay()));
                     }
                 }
             }
@@ -225,37 +287,57 @@ public class ComboEditor extends VizMultiPaneEditor
              * Ignore selected Load pane if multiple displays, just load the n
              * displays to the first n panes, adding panes if necessary.
              */
-            IDisplayPane[] currentCanvases = getMainCanvases();
+            for (int i = 0; i < Math.min(newBackgroundDisplays.length,
+                    currentCanvases.length); ++i) {
+                IDisplayPane currentCanvas = currentCanvases[i];
+                IRenderableDisplay newDisplay = newBackgroundDisplays[i];
+                if (!currentCanvas.getDescriptor()
+                        .isCompatible(newDisplay.getDescriptor())
+                        && UiUtil.isProductLoaded(
+                                currentCanvas.getDescriptor())) {
+                    if (confirmReplacingActiveResources()) {
+                        break;
+                    } else {
+                        return false;
+                    }
+                }
+            }
 
-            for (int i = 0; i < newDisplays.length; i++) {
+            for (int i = 0; i < newBackgroundDisplays.length; i++) {
                 if (i >= currentCanvases.length) {
                     /*
                      * Add new panes for any displays beyond the previous pane
                      * count
                      */
-                    addPane(getBackgroundDisplay(newDisplays[i]));
+                    addPane(newBackgroundDisplays[i]);
                 } else {
                     /*
                      * For displays that match up with an existing pane index,
                      * ensure the pane is compatible
                      */
                     IDisplayPane currentCanvas = currentCanvases[i];
-                    IRenderableDisplay newDisplay = newDisplays[i];
+                    IRenderableDisplay newDisplay = newBackgroundDisplays[i];
                     if (!currentCanvas.getDescriptor()
                             .isCompatible(newDisplay.getDescriptor())) {
-                        replacePane(currentCanvas,
-                                getBackgroundDisplay(newDisplay));
+                        replacePane(currentCanvas, newDisplay);
                     }
                 }
-
             }
         }
+
+        // We are compatible, update the scales of the passed in displays.
+        boolean updatedScales = conformScales(newDisplays, getMainCanvases());
+        if (updatedScales) {
+            statusHandler.info(
+                    "Updated new display scales to match already loaded displays.");
+        }
+
         return true;
     }
 
     /**
      * Get a background display (e.g. background map/graph display) for loading
-     * the given data display to.
+     * the given data display to. This always returns a new display instance.
      *
      * @param display
      *            the renderable display to load onto the background display

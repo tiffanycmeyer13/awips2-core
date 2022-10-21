@@ -50,6 +50,7 @@ import com.raytheon.uf.viz.core.IInsetMapDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IPane;
 import com.raytheon.uf.viz.core.IPane.CanvasType;
 import com.raytheon.uf.viz.core.IPaneCreator;
+import com.raytheon.uf.viz.core.IRenderableDisplayChangedListener.DisplayChangeType;
 import com.raytheon.uf.viz.core.VizApp;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
@@ -85,6 +86,10 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  *                                     to do some resource syncing
  * Oct 10, 2022 8946       mapeters    Update map/height scale menus depending
  *                                     on the types of the contained panes
+ * Oct 21, 2022 8956       mapeters    Moved background layer sharing into
+ *                                     renderable display changed listener so
+ *                                     it handles other places that directly
+ *                                     call IDisplayPane.setRenderableDisplay
  *
  * </pre>
  *
@@ -107,6 +112,30 @@ public class ComboPaneManager extends AbstractPaneManager
             Composite comp) {
         panes.clear();
         paneContainer = container;
+        paneContainer.addRenderableDisplayChangedListener(
+                (changedCanvas, changedRenderableDisplay, type) -> {
+                    /*
+                     * Share/unshare background layers (e.g. map/graph outline)
+                     * with other canvases of the same type
+                     */
+                    CanvasType canvasType = changedCanvas.getType();
+
+                    List<IDisplayPane> otherCanvases = new ArrayList<>(
+                            Arrays.asList(getCanvases(canvasType)));
+                    otherCanvases.remove(changedCanvas);
+
+                    if (type == DisplayChangeType.ADD) {
+                        shareBackgroundResources(changedRenderableDisplay,
+                                otherCanvases);
+                    } else if (type == DisplayChangeType.REMOVE) {
+                        unshareBackgroundResources(changedCanvas,
+                                otherCanvases);
+                    } else {
+                        throw new UnsupportedOperationException(
+                                "Unexpected renderable display change type: "
+                                        + type);
+                    }
+                });
 
         composite = comp;
         composite.setLayout(new FormLayout());
@@ -305,9 +334,6 @@ public class ComboPaneManager extends AbstractPaneManager
                             + renderableDisplay.getDescriptor());
         }
 
-        shareBackgroundResources(renderableDisplay,
-                Arrays.asList(getCanvases(CanvasType.MAIN)));
-
         IPane pane = null;
         try {
             pane = paneCreator.createPane(paneContainer, canvasComp,
@@ -401,13 +427,6 @@ public class ComboPaneManager extends AbstractPaneManager
                 paneIter.remove();
             }
         }
-
-        /*
-         * Undo background layer sharing (e.g. map/graph outline) that was done
-         * in addPane
-         */
-        unshareBackgroundResources(pane.getMainCanvas(),
-                Arrays.asList(getCanvases(CanvasType.MAIN)));
 
         pane.dispose();
 

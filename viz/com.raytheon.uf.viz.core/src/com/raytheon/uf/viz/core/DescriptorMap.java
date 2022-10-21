@@ -33,6 +33,7 @@ import org.eclipse.core.runtime.Platform;
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.uf.viz.core.util.EditorConstants;
 
 /**
  * Contains information about all available descriptors
@@ -45,6 +46,8 @@ import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
  * Apr 01, 2022 8790       mapeters    Added pane creators
  * Apr 22, 2022 8791       mapeters    Register pane creators through eclipse
  *                                     extensions, add convenience methods
+ * Oct 21, 2022 8956       mapeters    Update getEditorId() to take multiple displays
+ *                                     to determine if a Combo editor is needed
  *
  * </pre>
  *
@@ -122,18 +125,43 @@ public class DescriptorMap {
     }
 
     /**
-     * Get the default editor ID to load the given display to.
+     * Get the default editor ID to load the given displays to.
      *
-     * @param display
-     *            the renderable display to load
-     * @return the default editor ID (may be null)
+     * @param displays
+     *            the renderable displays to load
+     * @return the default editor ID (may be null if no editor supports all the
+     *         displays)
      */
-    public static String getEditorId(IRenderableDisplay display) {
-        String descClass = getDescClassName(display);
-        if (descClass == null) {
-            return null;
+    public static String getEditorId(IRenderableDisplay... displays) {
+        String editorId = null;
+        for (IRenderableDisplay display : displays) {
+            String displayEditorId = getEditorId(getDescClassName(display));
+            if (displayEditorId == null) {
+                // Editor has to be able to load all given displays
+                return null;
+            }
+
+            if (editorId == null) {
+                editorId = displayEditorId;
+            } else if (!editorId.equals(displayEditorId)) {
+                /*
+                 * Different displays require different type-specific editors,
+                 * must use combo editor if possible
+                 */
+                editorId = EditorConstants.COMBO_EDITOR_ID;
+            }
         }
-        return getEditorId(descClass);
+
+        if (EditorConstants.COMBO_EDITOR_ID.equals(editorId)) {
+            // Make sure combo editor actually supports all the displays
+            for (IRenderableDisplay display : displays) {
+                if (getPaneCreator(display) == null) {
+                    return null;
+                }
+            }
+        }
+
+        return editorId;
     }
 
     /**

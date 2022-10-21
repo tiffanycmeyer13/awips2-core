@@ -54,7 +54,9 @@ import com.raytheon.uf.viz.core.datastructure.LoopProperties;
 import com.raytheon.uf.viz.core.drawables.AbstractRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.IDescriptor;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.procedures.Bundle;
+import com.raytheon.uf.viz.core.rsc.ResourceProperties;
 import com.raytheon.viz.ui.UiUtil.ContainerPart.Container;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.EditorInput;
@@ -85,6 +87,7 @@ import com.raytheon.viz.ui.statusline.VizActionBarAdvisor;
  * Apr 22, 2022 8791       mapeters    Further update determination of editor type to open
  * Sep 13, 2022 8792       mapeters    Add isDescriptorCompatibleWithActive() and
  *                                     isDescriptorActive()
+ * Oct 19, 2022 8956       mapeters    Add isProductLoaded(), update createOrOpenEditor* methods
  *
  * </pre>
  *
@@ -384,36 +387,18 @@ public class UiUtil {
      *
      * @param editorTypeInfo
      *            info used to help determine the type of editor to open (e.g.
-     *            map, cross section, combo)
-     * @param displays
-     *            the displays to load to the editor, one per pane
-     * @return the created or opened editor
-     */
-    public static AbstractEditor createOrOpenEditor(
-            EditorTypeInfo editorTypeInfo, IRenderableDisplay... displays) {
-        return createOrOpenEditor(editorTypeInfo, false, displays);
-    }
-
-    /**
-     * Given the editor type info and the renderable displays, create or open an
-     * editor with the given displays on the active window.
-     *
-     * @param editorTypeInfo
-     *            info used to help determine the type of editor to open (e.g.
      *            map, cross section, combo) - must not be null, although its
      *            contained editor ID can be
-     * @param tryPerspectiveManagerOnCreate
-     *            if we need to create a new editor, try having the active
-     *            perspective manager open its default editor and see if it's
-     *            the appropriate editor type first, otherwise close it and fall
-     *            back to {@link #createEditor}
+     * @param loadToExisting
+     *            true if what will be loaded to the editor can be added to
+     *            existing resources, false if it will replace existing
+     *            resources
      * @param displays
      *            the displays to load to the editor, one per pane
      * @return the created or opened editor
      */
     public static AbstractEditor createOrOpenEditor(
-            EditorTypeInfo editorTypeInfo,
-            boolean tryPerspectiveManagerOnCreate,
+            EditorTypeInfo editorTypeInfo, boolean loadToExisting,
             IRenderableDisplay... displays) {
         String editorId = editorTypeInfo.getEditorId();
         if (editorId == null) {
@@ -421,10 +406,10 @@ public class UiUtil {
         }
 
         // Check the current editor first
-        IEditorPart ep = EditorUtil.getActiveEditor();
+        IEditorPart activeEditorPart = EditorUtil.getActiveEditor();
         LoopProperties loopProps = null;
-        if (ep instanceof AbstractEditor) {
-            AbstractEditor currentEditor = (AbstractEditor) ep;
+        if (activeEditorPart instanceof AbstractEditor) {
+            AbstractEditor currentEditor = (AbstractEditor) activeEditorPart;
             /*
              * Copy the current editor's loop properties in case we open a new
              * editor at the end of this method
@@ -432,7 +417,7 @@ public class UiUtil {
             loopProps = new LoopProperties(currentEditor.getLoopProperties());
             if (currentEditor.getEditorSite().getId().equals(editorId)
                     || !editorTypeInfo.isStrict()) {
-                if (currentEditor.makeCompatible(displays)) {
+                if (currentEditor.makeCompatible(loadToExisting, displays)) {
                     return currentEditor;
                 }
             }
@@ -448,9 +433,10 @@ public class UiUtil {
         for (IEditorReference ref : references) {
             if (editorId.equals(ref.getId())) {
                 IEditorPart editorPart = ref.getEditor(false);
-                if (editorPart instanceof AbstractEditor) {
+                if (editorPart != activeEditorPart
+                        && editorPart instanceof AbstractEditor) {
                     AbstractEditor aEditor = (AbstractEditor) editorPart;
-                    if (aEditor.makeCompatible(displays)) {
+                    if (aEditor.makeCompatible(loadToExisting, displays)) {
                         activePage.bringToTop(aEditor);
                         return aEditor;
                     }
@@ -466,9 +452,10 @@ public class UiUtil {
             for (IEditorReference ref : references) {
                 if (!editorId.equals(ref.getId())) {
                     IEditorPart editorPart = ref.getEditor(false);
-                    if (editorPart instanceof AbstractEditor) {
+                    if (editorPart != activeEditorPart
+                            && editorPart instanceof AbstractEditor) {
                         AbstractEditor aEditor = (AbstractEditor) editorPart;
-                        if (aEditor.makeCompatible(displays)) {
+                        if (aEditor.makeCompatible(loadToExisting, displays)) {
                             activePage.bringToTop(aEditor);
                             return aEditor;
                         }
@@ -479,16 +466,17 @@ public class UiUtil {
 
         /*
          * This part allows the perspective manager to make an editor which may
-         * have some customizations.
+         * have some customizations, such as including base maps and setting the
+         * map projection to something user friendly. If you try to load D2D map
+         * data without this when an incompatible editor is active and no Map
+         * editor is open, it loads without the background map.
          */
-        if (tryPerspectiveManagerOnCreate) {
-            AbstractVizPerspectiveManager mgr = VizPerspectiveListener
-                    .getInstance().getActivePerspectiveManager();
-            if (mgr != null) {
-                AbstractEditor editor = mgr.openNewEditor();
-                if (editor == null) {
-                    return null;
-                } else if (editorId.equals(editor.getEditorSite().getId())) {
+        AbstractVizPerspectiveManager mgr = VizPerspectiveListener.getInstance()
+                .getActivePerspectiveManager();
+        if (mgr != null) {
+            AbstractEditor editor = mgr.openNewEditor();
+            if (editor != null) {
+                if (editorId.equals(editor.getEditorSite().getId())) {
                     return editor;
                 } else {
                     activePage.closeEditor(editor, false);
@@ -509,9 +497,14 @@ public class UiUtil {
      *
      * @param bundle
      *            the bundle to create or open an editor for
+     * @param loadToExisting
+     *            true if what will be loaded to the editor can be added to
+     *            existing resources, false if it will replace existing
+     *            resources
      * @return the editor to load the bundle to
      */
-    public static AbstractEditor createOrOpenEditorForBundle(Bundle bundle) {
+    public static AbstractEditor createOrOpenEditorForBundle(Bundle bundle,
+            boolean loadToExisting) {
         String editorId = bundle.getEditor();
         /*
          * Editor ID is strict if it's in the bundle, it's not if it's just
@@ -520,13 +513,13 @@ public class UiUtil {
         boolean strictEditorId = editorId != null;
         AbstractRenderableDisplay[] displays = bundle.getDisplays();
         if (editorId == null && displays != null && displays.length > 0) {
-            editorId = DescriptorMap.getEditorId(displays[0]);
+            editorId = DescriptorMap.getEditorId(displays);
         }
 
         EditorTypeInfo editorTypeInfo = new EditorTypeInfo(editorId,
                 strictEditorId);
         AbstractEditor editor = UiUtil.createOrOpenEditor(editorTypeInfo,
-                displays);
+                loadToExisting, displays);
 
         return editor;
     }
@@ -682,6 +675,27 @@ public class UiUtil {
             IDisplayPane canvas = paneContainer.getActiveDisplayPane();
             if (canvas != null && canvas.getDescriptor() == descriptor) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Determine if any product resource (not background or system) is loaded to
+     * the given descriptor.
+     *
+     * @param descriptor
+     *            the descriptor to check
+     * @return true if any product resource is loaded, false otherwise
+     */
+    public static boolean isProductLoaded(IDescriptor descriptor) {
+        if (descriptor != null) {
+            for (ResourcePair resourcePair : descriptor.getResourceList()) {
+                ResourceProperties props = resourcePair.getProperties();
+                if (props != null && !props.isMapLayer()
+                        && !props.isSystemResource()) {
+                    return true;
+                }
             }
         }
         return false;

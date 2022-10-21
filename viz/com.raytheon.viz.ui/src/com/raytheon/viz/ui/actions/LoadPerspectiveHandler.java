@@ -88,6 +88,8 @@ import com.raytheon.viz.ui.editor.AbstractEditor;
  * Feb 11, 2016  5242     dgilling    Remove calls to deprecated Localization APIs.
  * Jun 22, 2017  4818     mapeters    Changed setCloseCallback to addCloseCallback
  * Apr 22, 2022  8791     mapeters    Update determination of editor type to load to
+ * Oct 19, 2022  8956     mapeters    Handle UiUtil.UiUtil.createOrOpenEditorForBundle
+ *                                    signature change
  *
  * </pre>
  *
@@ -233,7 +235,8 @@ public class LoadPerspectiveHandler
     }
 
     private void loadBundle(Bundle bundle) {
-        AbstractEditor editor = UiUtil.createOrOpenEditorForBundle(bundle);
+        AbstractEditor editor = UiUtil.createOrOpenEditorForBundle(bundle,
+                false);
 
         BundleLoader.loadTo(editor, bundle);
     }

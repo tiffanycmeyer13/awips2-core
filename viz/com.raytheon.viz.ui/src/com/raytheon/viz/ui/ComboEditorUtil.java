@@ -28,6 +28,7 @@ import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
+import com.raytheon.uf.viz.core.util.EditorConstants;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
 import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
@@ -43,6 +44,7 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 22, 2022 8790       mapeters    Initial creation
+ * Oct 21, 2022 8956       mapeters    Moved editor ID constant to EditorConstants
  *
  * </pre>
  *
@@ -52,8 +54,6 @@ public class ComboEditorUtil {
 
     private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(ComboEditorUtil.class);
-
-    public static final String EDITOR_ID = "com.raytheon.viz.ui.editor.ComboEditor";
 
     /**
      * Private constructor to prevent instantiation.
@@ -84,7 +84,7 @@ public class ComboEditorUtil {
                     displays.add(newDisplay);
                 }
             }
-            newEditor = UiUtil.createEditor(EDITOR_ID,
+            newEditor = UiUtil.createEditor(EditorConstants.COMBO_EDITOR_ID,
                     displays.toArray(new IRenderableDisplay[displays.size()]));
             if (newEditor != null) {
                 // Reset extents on renderable displays when getting new editor
@@ -98,7 +98,8 @@ public class ComboEditorUtil {
             AbstractVizPerspectiveManager perspManager = VizPerspectiveListener
                     .getCurrentPerspectiveManager();
             if (perspManager != null) {
-                newEditor = perspManager.openNewEditor(EDITOR_ID);
+                newEditor = perspManager
+                        .openNewEditor(EditorConstants.COMBO_EDITOR_ID);
             }
             if (newEditor == null) {
                 StringBuilder msg = new StringBuilder(

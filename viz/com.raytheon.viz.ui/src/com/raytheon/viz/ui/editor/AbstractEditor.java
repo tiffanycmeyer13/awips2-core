@@ -95,6 +95,7 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  *                                   panes if editor already has multiple panes
  * Sep 12, 2022  8792     mapeters   Added methods for new combo editor
  * Oct 10, 2022  8946     mapeters   Added statusHandler, getCanvases(CanvasType)
+ * Oct 19, 2022  8956     mapeters   Add loadToExisting param to makeCompatible()
  *
  * </pre>
  *
@@ -558,13 +559,18 @@ public abstract class AbstractEditor extends EditorPart
      * Prepare this editor to have the given renderable displays loaded to it,
      * and return whether or not we successfully made ourself compatible.
      *
+     * @param loadToExisting
+     *            true if what will be loaded to the editor can be added to
+     *            existing resources, false if it will replace existing
+     *            resources
      * @param displays
      *            the displays to be loaded to this editor (one per pane), if
      *            possible
      * @return true if this editor is now compatible to have the displays loaded
      *         to it, false otherwise
      */
-    public boolean makeCompatible(IRenderableDisplay... displays) {
+    public boolean makeCompatible(boolean loadToExisting,
+            IRenderableDisplay... displays) {
         /*
          * First check if the given displays' descriptors are compatible with
          * this editor's existing descriptors. Return false if any are not
