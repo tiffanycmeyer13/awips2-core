@@ -55,10 +55,14 @@ public class UnitConvertingDataFilter implements DataFilter {
 
     @Override
     public double filter(double value) {
-        if (Double.isNaN(value)) {
-            return value;
+        double convertedValue;
+        try {
+            convertedValue = unitConverter.convert(value);
+        } catch (NumberFormatException e) {
+            convertedValue = Double.NaN;
         }
-        return unitConverter.convert(value);
+
+        return convertedValue;
     }
 
     public static DataSource apply(DataSource source, UnitConverter converter) {

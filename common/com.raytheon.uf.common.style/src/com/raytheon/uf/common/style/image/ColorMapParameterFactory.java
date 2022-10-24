@@ -87,6 +87,7 @@ import com.raytheon.uf.common.util.GridUtil;
  * Jul 25, 2019  65809    ksunil      fixed potential cache issue in colormap
  *                                     when fill colors are overridden through XML
  * Oct 13, 2022  8905     lsingh      Check for invalid values when converting display max/min
+ * Oct 25, 2022  8905     lsingh      Check for NaN before converting units.
  * </pre>
  *
  * @author chammack
@@ -209,7 +210,13 @@ public class ColorMapParameterFactory {
 
         if ((definedMin == null || definedMax == null
                 || preferences.getDataScale().isAdaptive())) {
-            float max = 0, min = 0, colormapMin = 0, colormapMax = 0;
+            float max = 0;
+            float min = 0;
+            float colormapMin = 0;
+            float colormapMax = 0;
+            float displayMin;
+            float displayMax;
+
             if (data != null) {
                 // Repack the data
                 Number[] numArray = repackData(data);
@@ -289,35 +296,29 @@ public class ColorMapParameterFactory {
                 params.setColorMapMin(colormapMin);
                 params.setDataMax(max);
                 params.setDataMin(min);
-            }
 
-            float displayMin;
-            float displayMax;
+                try {
+                    displayMin = (dataToDisplay != null)
+                            ? (float) dataToDisplay.convert(colormapMin)
+                            : colormapMin;
+                } catch (NumberFormatException e) {
+                    // set value to NaN, which will cause the displayMin to be
+                    // set to the minimum value.
+                    displayMin = Float.NaN;
+                }
 
-            /*
-             * In some cases, the dataToDisplay converter can be an instance of
-             * PiecewiseLinearConverter plus a MultiplyConverter. The combined 2
-             * converters will throw a NumberFormatException if the input value
-             * is NaN, 0 or 1. So we check for that here.
-             */
-
-            try {
-                displayMin = (dataToDisplay != null)
-                        ? (float) dataToDisplay.convert(colormapMin)
-                        : colormapMin;
-            } catch (NumberFormatException e) {
-                // set value to NaN, which will cause the displayMin to be set
-                // to the minimum value.
+                try {
+                    displayMax = (dataToDisplay != null)
+                            ? (float) dataToDisplay.convert(colormapMax)
+                            : colormapMax;
+                } catch (NumberFormatException e) {
+                    // set value to NaN, which will cause the displayMax to be
+                    // set to the smallest max value.
+                    displayMax = Float.NaN;
+                }
+            } else {
+                // data is null, so no min and max
                 displayMin = Float.NaN;
-            }
-
-            try {
-                displayMax = (dataToDisplay != null)
-                        ? (float) dataToDisplay.convert(colormapMax)
-                        : colormapMax;
-            } catch (NumberFormatException e) {
-                // set value to NaN, which will cause the displayMax to be set
-                // to the smallest max value.
                 displayMax = Float.NaN;
             }
 
@@ -396,8 +397,19 @@ public class ColorMapParameterFactory {
             double dataMin;
             double dataMax;
             if (displayToData != null) {
-                dataMin = displayToData.convert(displayMin);
-                dataMax = displayToData.convert(displayMax);
+                // Skip the conversion if the min and max are NaN.
+                if (!Double.isNaN(displayMin)) {
+                    dataMin = displayToData.convert(displayMin);
+                } else {
+                    dataMin = Double.NaN;
+                }
+
+                if (!Double.isNaN(displayMax)) {
+                    dataMax = displayToData.convert(displayMax);
+                } else {
+                    dataMax = Double.NaN;
+                }
+
                 /*
                  * ColorMapParameters handles the case in which the conversion
                  * negates the values, making max < min
