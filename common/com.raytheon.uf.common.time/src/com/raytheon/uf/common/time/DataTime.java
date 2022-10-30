@@ -77,6 +77,7 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Jul 28, 2021  8611     randerso   Code cleanup. Created NO_LEVEL constant
  *                                   more in line with what is used in
  *                                   Level.INVALID_VALUE.
+ * Oct 28, 2022  8959     mapeters   Added levelType
  *
  * </pre>
  *
@@ -193,10 +194,20 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     @Transient
     private String legend;
 
+    /** The level value */
     @DynamicSerializeElement
     @XmlAttribute
     @Transient
     protected Double levelValue = NO_LEVEL;
+
+    /**
+     * The level type, such as the master level name. Indicates whether or not
+     * the level values of different times are comparable.
+     */
+    @DynamicSerializeElement
+    @XmlAttribute
+    @Transient
+    protected String levelType;
 
     private static final Pattern datePattern = Pattern
             .compile(TimeUtil.DATE_STRING);
@@ -435,15 +446,61 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
      * @return get the matching valid time
      */
     public long getMatchValid() {
+        /*
+         * TODO Dividing and multiplying seconds by 60 doesn't make much
+         * sense...
+         */
         return refTime.getTime() + (60 * ((((long) fcstTime) * 1000) / 60));
     }
 
+    /**
+     * @return the level value
+     */
     public Double getLevelValue() {
         return levelValue;
     }
 
+    /**
+     * DO NOT CALL THIS. This is only for serialization. Use
+     * {@link #setLevel(Double, String)} or {@link #clearLevel()} instead.
+     */
     public void setLevelValue(Double levelValue) {
         this.levelValue = levelValue == null ? NO_LEVEL : levelValue;
+    }
+
+    /**
+     * @return the level type
+     */
+    public String getLevelType() {
+        return levelType;
+    }
+
+    /**
+     * DO NOT CALL THIS. This is only for serialization. Use
+     * {@link #setLevel(Double, String)} or {@link #clearLevel()} instead.
+     */
+    public void setLevelType(String levelType) {
+        this.levelType = levelType;
+    }
+
+    /**
+     * Set the level value/type of this time.
+     *
+     * @param levelValue
+     *            the level value to set
+     * @param levelType
+     *            the level type to set
+     */
+    public void setLevel(Double levelValue, String levelType) {
+        setLevelValue(levelValue);
+        setLevelType(levelType);
+    }
+
+    /**
+     * Clear the level value.
+     */
+    public void clearLevel() {
+        setLevel(null, null);
     }
 
     public boolean isSpatial() {
@@ -547,9 +604,10 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
 
             if (cal.get(Calendar.MINUTE) == 0) {
                 minute = "";
-                if ((fcstTimeInSec > 864000)
-                        && ((fcstTimeInSec % 86400) == 0)) {
-                    forcastTime = nf2.format(fcstTimeInSec / 86400);
+                if ((fcstTimeInSec > TimeUtil.SECONDS_PER_DAY * 10)
+                        && ((fcstTimeInSec % TimeUtil.SECONDS_PER_DAY) == 0)) {
+                    forcastTime = nf2
+                            .format(fcstTimeInSec / TimeUtil.SECONDS_PER_DAY);
                     forcastTimeUnit = "DAYS";
                 }
             }
@@ -765,18 +823,17 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
         if (hasForecast && hasTimePeriod) {
             rval = new DataTime(this.getRefTimeAsCalendar(), this.getFcstTime(),
                     this.getValidPeriod().clone());
+        } else if (hasForecast) {
+            rval = new DataTime(this.getRefTimeAsCalendar(),
+                    this.getFcstTime());
+        } else if (hasTimePeriod) {
+            rval = new DataTime(this.getRefTimeAsCalendar(),
+                    this.getValidPeriod().clone());
         } else {
-            if (hasForecast) {
-                rval = new DataTime(this.getRefTimeAsCalendar(),
-                        this.getFcstTime());
-            } else if (hasTimePeriod) {
-                rval = new DataTime(this.getRefTimeAsCalendar(),
-                        this.getValidPeriod().clone());
-            } else {
-                rval = new DataTime(this.getRefTimeAsCalendar());
-            }
+            rval = new DataTime(this.getRefTimeAsCalendar());
         }
         rval.levelValue = levelValue;
+        rval.levelType = levelType;
         return rval;
     }
 }
