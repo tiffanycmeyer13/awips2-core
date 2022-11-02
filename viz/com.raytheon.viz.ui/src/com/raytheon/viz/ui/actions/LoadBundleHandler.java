@@ -58,6 +58,9 @@ import com.raytheon.viz.ui.editor.AbstractEditor;
  * Oct 21, 2022  8956     mapeters    DescriptorMap.getEditorId() now can take multiple
  *                                    displays to determine if a Combo editor is needed,
  *                                    update "full bundle load" handling
+ * Nov 02, 2022 8958      mapeters    Fix bug from last change where this could open
+ *                                    a new, empty editor for a bundle that doesn't
+ *                                    have data available
  *
  * </pre>
  *
@@ -99,8 +102,14 @@ public class LoadBundleHandler extends AbstractHandler {
             boolean hasData = hasProductResource(bundle);
             boolean fullBundleLoad = isFullBundleLoad(event);
 
+            /*
+             * Have to pass false for tryPerspectiveManagerOnCreate or else our
+             * attempt to close a new, empty editor below doesn't work right
+             * since we wouldn't try to load the actual product resources until
+             * the end of this method then.
+             */
             AbstractEditor editor = UiUtil.createOrOpenEditor(
-                    getEditorTypeInfo(event, bundle), !fullBundleLoad,
+                    getEditorTypeInfo(event, bundle), !fullBundleLoad, false,
                     bundle.getDisplays());
             if (hasData) {
                 /*

@@ -20,6 +20,7 @@
 package com.raytheon.viz.ui;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +58,9 @@ import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.procedures.Bundle;
 import com.raytheon.uf.viz.core.rsc.ResourceProperties;
+import com.raytheon.uf.viz.core.util.EditorConstants;
 import com.raytheon.viz.ui.UiUtil.ContainerPart.Container;
+import com.raytheon.viz.ui.actions.MultiPanes;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.EditorInput;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
@@ -88,6 +91,9 @@ import com.raytheon.viz.ui.statusline.VizActionBarAdvisor;
  * Sep 13, 2022 8792       mapeters    Add isDescriptorCompatibleWithActive() and
  *                                     isDescriptorActive()
  * Oct 19, 2022 8956       mapeters    Add isProductLoaded(), update createOrOpenEditor* methods
+ * Nov 02, 2022 8958       mapeters    Editor creation updates for Combo editors to prevent missing
+ *                                     map backgrounds and to support loading bundles with a number
+ *                                     of displays that doesn't match an available pane layout
  *
  * </pre>
  *
@@ -393,12 +399,18 @@ public class UiUtil {
      *            true if what will be loaded to the editor can be added to
      *            existing resources, false if it will replace existing
      *            resources
+     * @param tryPerspectiveManagerOnCreate
+     *            if we need to create a new editor, try having the active
+     *            perspective manager open its default editor and see if it's
+     *            the appropriate editor type first, otherwise close it and fall
+     *            back to {@link #createEditor}
      * @param displays
      *            the displays to load to the editor, one per pane
      * @return the created or opened editor
      */
     public static AbstractEditor createOrOpenEditor(
             EditorTypeInfo editorTypeInfo, boolean loadToExisting,
+            boolean tryPerspectiveManagerOnCreate,
             IRenderableDisplay... displays) {
         String editorId = editorTypeInfo.getEditorId();
         if (editorId == null) {
@@ -464,24 +476,49 @@ public class UiUtil {
             }
         }
 
-        /*
-         * This part allows the perspective manager to make an editor which may
-         * have some customizations, such as including base maps and setting the
-         * map projection to something user friendly. If you try to load D2D map
-         * data without this when an incompatible editor is active and no Map
-         * editor is open, it loads without the background map.
-         */
-        AbstractVizPerspectiveManager mgr = VizPerspectiveListener.getInstance()
-                .getActivePerspectiveManager();
-        if (mgr != null) {
-            AbstractEditor editor = mgr.openNewEditor();
-            if (editor != null) {
-                if (editorId.equals(editor.getEditorSite().getId())) {
-                    return editor;
-                } else {
-                    activePage.closeEditor(editor, false);
+        if (tryPerspectiveManagerOnCreate) {
+            /*
+             * This part allows the perspective manager to make an editor which
+             * may have some customizations, such as including base maps and
+             * setting the map projection to something user friendly. If you try
+             * to load D2D map data without this when an incompatible editor is
+             * active and no Map editor is open, it loads without the background
+             * map.
+             */
+            AbstractVizPerspectiveManager mgr = VizPerspectiveListener
+                    .getInstance().getActivePerspectiveManager();
+            if (mgr != null) {
+                AbstractEditor editor = mgr.openNewEditor();
+                if (editor != null) {
+                    if ((editorId.equals(editor.getSite().getId())
+                            || !editorTypeInfo.isStrict())
+                            && editor.makeCompatible(loadToExisting,
+                                    displays)) {
+                        return editor;
+                    } else {
+                        activePage.closeEditor(editor, false);
+                    }
                 }
             }
+        }
+
+        if (EditorConstants.COMBO_EDITOR_ID.equals(editorId)
+                || EditorConstants.MAP_EDITOR_ID.equals(editorId)) {
+            /*
+             * Map product displays don't include the background map with them,
+             * so create the editor with background versions of the displays
+             * first and let the calling code then load the product resources.
+             *
+             * Non-map displays don't need this because background displays are
+             * included in their product displays. Also for non-map displays, we
+             * want to create the editor with the actual products below so that
+             * the logic in LoadBundleHandler.execute for closing new, empty
+             * editors works correctly.
+             */
+            displays = Arrays.stream(displays)
+                    .map(display -> DescriptorMap.getPaneCreator(display)
+                            .getDefaultBackgroundDisplay(display))
+                    .toArray(IRenderableDisplay[]::new);
         }
 
         /*
@@ -489,6 +526,29 @@ public class UiUtil {
          * different number of panes. Construct a new one.
          */
         return createEditor(getCurrentWindow(), editorId, loopProps, displays);
+    }
+
+    /**
+     * Given the editor type info and the renderable displays, create or open an
+     * editor with the given displays on the active window.
+     *
+     * @param editorTypeInfo
+     *            info used to help determine the type of editor to open (e.g.
+     *            map, cross section, combo) - must not be null, although its
+     *            contained editor ID can be
+     * @param loadToExisting
+     *            true if what will be loaded to the editor can be added to
+     *            existing resources, false if it will replace existing
+     *            resources
+     * @param displays
+     *            the displays to load to the editor, one per pane
+     * @return the created or opened editor
+     */
+    public static AbstractEditor createOrOpenEditor(
+            EditorTypeInfo editorTypeInfo, boolean loadToExisting,
+            IRenderableDisplay... displays) {
+        return createOrOpenEditor(editorTypeInfo, loadToExisting, true,
+                displays);
     }
 
     /**
@@ -563,6 +623,49 @@ public class UiUtil {
         if (loopProps == null) {
             loopProps = new LoopProperties();
         }
+
+        if (EditorConstants.COMBO_EDITOR_ID.equals(editorId)
+                && displays.length > 1) {
+            /*
+             * Ensure the number of displays matches one of the supported
+             * multi-panel layouts. For example, if a 3-display bundle is
+             * loaded, ensure a blank 4th display is added since a 3-panel
+             * layout isn't supported.
+             *
+             * This might work for editors other than Combo editors too, but not
+             * needed for them currently.
+             */
+            for (MultiPanes paneLayout : MultiPanes.values()) {
+                int layoutNumPanes = paneLayout.numPanes();
+                if (displays.length == layoutNumPanes) {
+                    // The number of displays matches a supported layout
+                    break;
+                } else if (displays.length < layoutNumPanes) {
+                    /*
+                     * Layouts are in order of fewest panes to most, so if we
+                     * are between the last layout and the next layout, add
+                     * panes to match the next layout.
+                     */
+                    IRenderableDisplay[] newDisplays = new IRenderableDisplay[layoutNumPanes];
+                    for (int i = 0; i < newDisplays.length; ++i) {
+                        if (i < displays.length) {
+                            newDisplays[i] = displays[i];
+                        } else {
+                            /*
+                             * Seems like we should be able to just do
+                             * createNewDisplay(), but map scales are off then
+                             */
+                            newDisplays[i] = DescriptorMap
+                                    .getPaneCreator(displays[0])
+                                    .getDefaultBackgroundDisplay(displays[0]);
+                        }
+                    }
+                    displays = newDisplays;
+                    break;
+                }
+            }
+        }
+
         EditorInput cont = new EditorInput(loopProps, displays);
         try {
             IWorkbenchPage activePage = windowToLoadTo.getActivePage();
