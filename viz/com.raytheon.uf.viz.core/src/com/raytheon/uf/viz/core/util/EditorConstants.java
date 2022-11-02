@@ -28,6 +28,7 @@ package com.raytheon.uf.viz.core.util;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Oct 21, 2022 8956       mapeters    Initial creation
+ * Nov 02, 2022 8958       mapeters    Add MAP_EDITOR_ID
  *
  * </pre>
  *
@@ -36,6 +37,8 @@ package com.raytheon.uf.viz.core.util;
 public class EditorConstants {
 
     public static final String COMBO_EDITOR_ID = "com.raytheon.viz.ui.editor.ComboEditor";
+
+    public static final String MAP_EDITOR_ID = "com.raytheon.viz.ui.glmap.GLMapEditor";
 
     /**
      * Prevent instantiation since everything is static.

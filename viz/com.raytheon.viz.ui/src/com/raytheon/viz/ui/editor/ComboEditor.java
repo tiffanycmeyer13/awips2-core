@@ -38,6 +38,7 @@ import com.raytheon.uf.viz.core.drawables.IScalableRenderableDisplay.ScaleType;
 import com.raytheon.viz.ui.EditorUtil;
 import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.VizWorkbenchManager;
+import com.raytheon.viz.ui.actions.MultiPanes;
 import com.raytheon.viz.ui.panes.ComboPaneManager;
 
 /**
@@ -66,6 +67,8 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  * Oct 19, 2022 8956       mapeters    Get user confirmation when replacing populated panes,
  *                                     make Load to All Panes only load to compatible ones
  *                                     if there are any
+ * Nov 02, 2022 8958       mapeters    Update makeCompatible to ensure we end up with a
+ *                                     number of panes that is a supported layout
  *
  * </pre>
  *
@@ -321,6 +324,30 @@ public class ComboEditor extends VizMultiPaneEditor
                             .isCompatible(newDisplay.getDescriptor())) {
                         replacePane(currentCanvas, newDisplay);
                     }
+                }
+            }
+
+            /*
+             * Ensure we are a valid layout. For example, if a 3-display bundle
+             * is loaded, ensure a blank 4th panel is added since a 3-panel
+             * layout isn't supported.
+             */
+            int numPanes = getNumberofPanes();
+            for (MultiPanes supportedLayout : MultiPanes.values()) {
+                if (numPanes == supportedLayout.numPanes()) {
+                    // The number of displays matches a supported layout
+                    break;
+                } else if (numPanes < supportedLayout.numPanes()) {
+                    /*
+                     * Layouts are in order of fewest panes to most, so if we
+                     * are between the last layout and the next layout, add
+                     * panes to match the next layout.
+                     */
+                    for (int i = numPanes; i < supportedLayout
+                            .numPanes(); ++i) {
+                        addPane(newBackgroundDisplays[0].createNewDisplay());
+                    }
+                    break;
                 }
             }
         }
