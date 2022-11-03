@@ -90,6 +90,8 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  *                                     renderable display changed listener so
  *                                     it handles other places that directly
  *                                     call IDisplayPane.setRenderableDisplay
+ * Nov 03, 2022 8955       mapeters    Fix NPE when swapping multi-pane Combo
+ *                                     with multi-pane Combo in Side View
  *
  * </pre>
  *
@@ -354,11 +356,18 @@ public class ComboPaneManager extends AbstractPaneManager
                 }
                 if (!panes.isEmpty()) {
                     IDisplayPane existingCanvas = panes.get(0).getMainCanvas();
-                    newCanvas.getRenderableDisplay().setBackgroundColor(
-                            existingCanvas.getRenderableDisplay()
-                                    .getBackgroundColor());
-                    newCanvas.getDescriptor().synchronizeTimeMatching(
-                            existingCanvas.getDescriptor());
+                    IRenderableDisplay existingDisplay = existingCanvas
+                            .getRenderableDisplay();
+                    if (existingDisplay != null) {
+                        newCanvas.getRenderableDisplay().setBackgroundColor(
+                                existingDisplay.getBackgroundColor());
+                    }
+                    IDescriptor existingDescriptor = existingCanvas
+                            .getDescriptor();
+                    if (existingDescriptor != null) {
+                        newCanvas.getDescriptor()
+                                .synchronizeTimeMatching(existingDescriptor);
+                    }
                 } else if (paneContainer instanceof AbstractEditor) {
                     ((AbstractEditor) paneContainer).getBackgroundColor()
                             .setColor(BGColorMode.EDITOR,
