@@ -22,11 +22,16 @@ import java.util.List;
 
 import org.eclipse.swt.widgets.Composite;
 
+import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IPane;
 import com.raytheon.uf.viz.core.IPaneCreator;
+import com.raytheon.uf.viz.core.VizConstants;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.uf.viz.core.drawables.IScalableRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
+import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
 import com.raytheon.uf.viz.core.maps.scales.MapScalesManager;
 
 /**
@@ -43,12 +48,18 @@ import com.raytheon.uf.viz.core.maps.scales.MapScalesManager;
  *                                     removed getResourceType
  * Sep 08, 2022 8792       mapeters    Moved default map scale determination to
  *                                     MapScalesManager
+ * Nov 03, 2022 8958       mapeters    Try to use the display's scale and the
+ *                                     global property scale before the default
+ *
  *
  * </pre>
  *
  * @author mapeters
  */
 public class MapPaneCreator implements IPaneCreator {
+
+    private static final IUFStatusHandler statusHandler = UFStatus
+            .getHandler(MapPaneCreator.class);
 
     @Override
     public IPane createPane(IDisplayPaneContainer paneContainer, Composite comp,
@@ -61,8 +72,29 @@ public class MapPaneCreator implements IPaneCreator {
             IRenderableDisplay display) {
         /*
          * Map data displays don't include the background maps here, so need to
-         * get those separately.
+         * get those separately. Try to use the display's scale first, then the
+         * global property scale, then the default scale.
          */
+        String scale = null;
+        if (display instanceof IScalableRenderableDisplay) {
+            scale = ((IScalableRenderableDisplay) display).getScale();
+        }
+
+        if (scale == null) {
+            scale = (String) VizGlobalsManager.getCurrentInstance()
+                    .getProperty(VizConstants.MAP_SCALE_ID);
+        }
+
+        if (scale != null) {
+            try {
+                return MapScalesManager.getInstance().getScaleByName(scale)
+                        .getScaleBundle().getDisplays()[0];
+            } catch (Exception e) {
+                statusHandler.error("Error loading map scale display: " + scale,
+                        e);
+            }
+        }
+
         return MapScalesManager.getInstance().getDefaultScaleDisplay();
     }
 }
