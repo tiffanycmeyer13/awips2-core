@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.datastorage.StorageProperties;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
@@ -40,6 +41,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Feb 08, 2007           chammack  Initial Creation.
  * Dec 31, 2008           chammack  Added correlation object
  * Jun 10, 2021  8450     mapeters  Add serialVersionUID
+ * Nov 04, 2022  8931     smoorthy  Normalize group name
  *
  * </pre>
  *
@@ -162,7 +164,7 @@ public abstract class AbstractStorageRecord implements IDataRecord {
      */
     @Override
     public void setGroup(String group) {
-        this.group = group;
+        this.group = DataStoreFactory.normalizeAttributeName(group);
     }
 
     /**
@@ -292,5 +294,4 @@ public abstract class AbstractStorageRecord implements IDataRecord {
     public void setProps(StorageProperties props) {
         this.props = props;
     }
-
 }

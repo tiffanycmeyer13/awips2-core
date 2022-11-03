@@ -22,6 +22,7 @@ package com.raytheon.uf.common.datastorage.records;
 
 import java.util.Arrays;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -38,6 +39,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Nov 24, 2007  555      garmendariz  Added method to check dataset dimensions
  *                                     and override toString
  * Jun 10, 2021  8450     mapeters     Add serialVersionUID
+ * Nov 03, 2022  8931     smoorthy     Add group name normalization
  *
  * </pre>
  *
@@ -66,7 +68,7 @@ public class ShortDataRecord extends AbstractStorageRecord {
     public ShortDataRecord(String name, String group, short[] shortData,
             int dimension, long[] sizes) {
         this.shortData = shortData;
-        this.group = group;
+        this.group = DataStoreFactory.normalizeAttributeName(group);
         this.dimension = dimension;
         this.sizes = sizes;
         this.name = name;
