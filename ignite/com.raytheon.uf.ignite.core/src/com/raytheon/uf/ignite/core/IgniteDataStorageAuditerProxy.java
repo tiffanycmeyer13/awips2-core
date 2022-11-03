@@ -38,6 +38,7 @@ import com.raytheon.uf.common.serialization.SerializationException;
  * ------------ ---------- ----------- --------------------------
  * Sep 23, 2021 8608       mapeters    Initial creation
  * Jun 22, 2022 8865       mapeters    Let exceptions propagate in send()
+ * Sep 26, 2022 8920       smoorthy    Send to a specified URI.
  *
  * </pre>
  *
@@ -54,8 +55,8 @@ public class IgniteDataStorageAuditerProxy
     }
 
     @Override
-    protected void send(DataStorageAuditEvent event)
+    protected void send(DataStorageAuditEvent event, String uri)
             throws SerializationException, JMSException {
-        IgniteServerUtils.sendMessageToQueue(jmsConnectionFactory, URI, event);
+        IgniteServerUtils.sendMessageToQueue(jmsConnectionFactory, uri, event);
     }
 }

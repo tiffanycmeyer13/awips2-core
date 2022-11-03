@@ -40,6 +40,7 @@ import com.raytheon.uf.edex.database.plugin.PluginDao;
  * 2/17/22      8608       mapeters    Updates for data storage auditing
  * Jun 22, 2022 8865       mapeters    Update populateDataStore to return boolean and
  *                                     remove auditing since it's now done by calling code
+ * Aug 24, 2022 8920       mapeters    Add method to check if Auditor is enabled.
  * </pre>
  *
  * @author bphillip
@@ -62,6 +63,16 @@ public class DefaultPluginDao extends PluginDao {
     protected boolean populateDataStore(IDataStore dataStore, IPersistable obj)
             throws Exception {
         // Default no op
+        return false;
+    }
+
+    @Override
+    public boolean isAuditEnabled() {
+        /*
+         * Currently auditing's purpose is to keep metadata and hdf5 in sync.
+         * This class is for plugins that don't store to hdf5, so there's
+         * nothing to keep in sync.
+         */
         return false;
     }
 }
