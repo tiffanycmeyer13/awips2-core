@@ -386,13 +386,17 @@ public class DataStoreFactory {
 
     /**
      * "Normalize" an attribute so that there is only one "/" at the beginning
-     * and no "/" at the end. Empty string remains empty.
+     * and no "/" at the end. Empty string remains empty. Null param is just
+     * returned as is.
      *
      * @param attributeName
      *            The attribute string to normalize.
      * @return The normalized attribute string.
      */
     public static String normalizeAttributeName(String attributeName) {
+        if (attributeName == null) {
+            return attributeName;
+        }
         attributeName = attributeName.replaceAll(
                 DataStoreFactory.DEF_SEPARATOR + DataStoreFactory.DEF_SEPARATOR,
                 DataStoreFactory.DEF_SEPARATOR);
