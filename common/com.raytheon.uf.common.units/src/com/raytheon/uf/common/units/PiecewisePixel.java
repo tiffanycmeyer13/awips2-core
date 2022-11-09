@@ -44,6 +44,7 @@ import tech.units.indriya.AbstractUnit;
  *                                     Updated method names and implemented additional methods.
  * Oct 28, 2019 7961       tgurney     Change getDimension to return
  *                                     stdUnit.getDimension() instead of NONE.
+ * Nov 08, 2022 8905       lsingh      Check for NaN before converting units.
  *
  * </pre>
  *
@@ -81,7 +82,11 @@ public class PiecewisePixel<Q extends Quantity<Q>> extends AbstractUnit<Q> {
         UnitConverter toStd = dispUnit.getConverterTo(stdUnit);
         this.stdValues = new double[dispValues.length];
         for (int i = 0; i < dispValues.length; i++) {
-            stdValues[i] = toStd.convert(dispValues[i]);
+            try {
+                stdValues[i] = toStd.convert(dispValues[i]);
+            } catch (NumberFormatException e) {
+                stdValues[i] = Double.NaN;
+            }
         }
     }
 
