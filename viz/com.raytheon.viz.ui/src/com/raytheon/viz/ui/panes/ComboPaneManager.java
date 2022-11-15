@@ -92,6 +92,9 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  *                                     call IDisplayPane.setRenderableDisplay
  * Nov 03, 2022 8955       mapeters    Fix NPE when swapping multi-pane Combo
  *                                     with multi-pane Combo in Side View
+ * Nov 14, 2022 8977       mapeters    Set hidden panes to be the same size
+ *                                     as visible panes so that pan/zoom still
+ *                                     applies to them when rotating panels
  *
  * </pre>
  *
@@ -522,6 +525,13 @@ public class ComboPaneManager extends AbstractPaneManager
         int[] numRowsColumns = getNumRowsColumns();
         int numRows = numRowsColumns[0];
         int numCols = numRowsColumns[1];
+        if (numRows == 0 || numCols == 0) {
+            /*
+             * Can happen when rotating if we've hidden the previous pane but
+             * haven't shown the next pane yet
+             */
+            return;
+        }
 
         /*
          * Use FormLayout to ensure rows are equal height, which GridLayout
@@ -529,28 +539,26 @@ public class ComboPaneManager extends AbstractPaneManager
          */
         int cellNum = 0;
         for (IPane pane : panes) {
-            if (pane.isVisible()) {
-                FormData fd = new FormData();
-                int row = cellNum / numCols;
-                int col = cellNum % numCols;
-                // Fill one of the rows
-                fd.top = new FormAttachment(row, numRows, row == 0 ? 0 : 1);
-                fd.bottom = new FormAttachment(row + 1, numRows,
-                        row == numRows - 1 ? 0 : -1);
-                // Fill one of the columns
-                fd.left = new FormAttachment(col, numCols, col == 0 ? 0 : 1);
-                fd.right = new FormAttachment(col + 1, numCols,
-                        col == numCols - 1 ? 0 : -1);
-                pane.getComposite().setLayoutData(fd);
+            /*
+             * Set every pane to fill a row/column. Even invisible panes need to
+             * be set to be the size of a pane so that when we are in Rotate
+             * Panels mode, the hidden panels are updated on pan/zoom as well.
+             */
+            FormData fd = new FormData();
+            int row = cellNum / numCols;
+            int col = cellNum % numCols;
+            // Fill one of the rows
+            fd.top = new FormAttachment(row, numRows, row == 0 ? 0 : 1);
+            fd.bottom = new FormAttachment(row + 1, numRows,
+                    row == numRows - 1 ? 0 : -1);
+            // Fill one of the columns
+            fd.left = new FormAttachment(col, numCols, col == 0 ? 0 : 1);
+            fd.right = new FormAttachment(col + 1, numCols,
+                    col == numCols - 1 ? 0 : -1);
+            pane.getComposite().setLayoutData(fd);
 
+            if (pane.isVisible()) {
                 ++cellNum;
-            } else {
-                FormData fd = new FormData();
-                fd.top = new FormAttachment(0);
-                fd.bottom = new FormAttachment(0);
-                fd.left = new FormAttachment(0);
-                fd.right = new FormAttachment(0);
-                pane.getComposite().setLayoutData(fd);
             }
         }
         composite.layout();
