@@ -109,6 +109,8 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  *                                     contribute to the context menu.
  * Mar 23, 2022  8790     mapeters     Add addListener(Listener)
  * Oct 07, 2022  8792     mapeters     Add CanvasType field
+ * Nov 14, 2022  8955     mapeters     Send renderable display remove
+ *                                     notification before disposing display
  *
  *
  * </pre>
@@ -383,9 +385,14 @@ public class VizDisplayPane implements IDisplayPane {
 
             if (this.renderableDisplay != null
                     && !this.renderableDisplay.isSwapping()) {
-                this.renderableDisplay.dispose();
+                /*
+                 * Notify before disposing since a lot of listeners try to do
+                 * something with the resource list, which is cleared on
+                 * dispose.
+                 */
                 container.notifyRenderableDisplayChangedListeners(this,
                         renderableDisplay, DisplayChangeType.REMOVE);
+                this.renderableDisplay.dispose();
             }
         }
     }
