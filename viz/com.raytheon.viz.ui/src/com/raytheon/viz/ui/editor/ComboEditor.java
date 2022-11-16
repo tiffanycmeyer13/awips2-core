@@ -69,6 +69,8 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  *                                     if there are any
  * Nov 02, 2022 8958       mapeters    Update makeCompatible to ensure we end up with a
  *                                     number of panes that is a supported layout
+ * Nov 16, 2022 8956       mapeters    Move conforming of product displays from
+ *                                     makeCompatible() to BundleProductLoader
  *
  * </pre>
  *
@@ -125,7 +127,7 @@ public class ComboEditor extends VizMultiPaneEditor
      *            the display being loaded that may need its scale updated
      * @param existingDisplay
      *            the pre-existing display to be conformed to
-     * @return true if scale updated, false otherwise
+     * @return true if scale updated (and wasn't null before), false otherwise
      */
     private boolean conformScale(IScalableRenderableDisplay newDisplay,
             IScalableRenderableDisplay existingDisplay) {
@@ -135,9 +137,12 @@ public class ComboEditor extends VizMultiPaneEditor
          */
         if (newDisplay.getScaleType() == ScaleType.HEIGHT
                 && existingDisplay.getScaleType() == ScaleType.HEIGHT) {
-            if (!existingDisplay.getScale().equals(newDisplay.getScale())) {
+            String newDisplayScale = newDisplay.getScale();
+            if (!existingDisplay.getScale().equals(newDisplayScale)) {
                 newDisplay.setScale(existingDisplay.getScale());
-                return true;
+                if (newDisplayScale != null) {
+                    return true;
+                }
             }
         }
         return false;
@@ -149,15 +154,12 @@ public class ComboEditor extends VizMultiPaneEditor
      *
      * @param newDisplays
      *            the displays being loaded that may need their scales updated
-     * @param existingCanvases
-     *            the pre-existing canvases containing displays to be conformed
-     *            to
      * @return true if any display's scale was updated, false otherwise
      */
-    private boolean conformScales(IRenderableDisplay[] newDisplays,
-            IDisplayPane[] existingCanvases) {
+    public boolean conformScales(IRenderableDisplay[] newDisplays) {
         boolean updatedAnyScale = false;
 
+        IDisplayPane[] existingCanvases = getMainCanvases();
         for (IRenderableDisplay newDisplay : newDisplays) {
             if (!(newDisplay instanceof IScalableRenderableDisplay)) {
                 continue;
@@ -244,10 +246,10 @@ public class ComboEditor extends VizMultiPaneEditor
         /*
          * Update scales of the background displays so that differing scales
          * don't make us think that we aren't compatible below. The scales of
-         * the displays passed into this method are updated at the end if we are
-         * compatible.
+         * the product displays that are actually loaded are updated later on in
+         * BundleProductLoader.
          */
-        conformScales(newBackgroundDisplays, getMainCanvases());
+        conformScales(newBackgroundDisplays);
 
         if (newBackgroundDisplays.length == 1) {
             IRenderableDisplay newDisplay = newBackgroundDisplays[0];
@@ -350,13 +352,6 @@ public class ComboEditor extends VizMultiPaneEditor
                     break;
                 }
             }
-        }
-
-        // We are compatible, update the scales of the passed in displays.
-        boolean updatedScales = conformScales(newDisplays, getMainCanvases());
-        if (updatedScales) {
-            statusHandler.info(
-                    "Updated new display scales to match already loaded displays.");
         }
 
         return true;

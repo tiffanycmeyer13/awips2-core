@@ -17,6 +17,7 @@ import com.raytheon.uf.viz.core.rsc.AbstractResourceData;
 import com.raytheon.uf.viz.core.rsc.ResourceList;
 import com.raytheon.uf.viz.core.rsc.capabilities.ColorableCapability;
 import com.raytheon.viz.core.ColorUtil;
+import com.raytheon.viz.ui.editor.ComboEditor;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 
 /**
@@ -32,6 +33,9 @@ import com.raytheon.viz.ui.editor.IMultiPaneEditor;
  * ------------ ---------- ----------- --------------------------
  * Jan 08, 2013            mschenke    Initial creation
  * Oct 19, 2022 8956       mapeters    Only load to compatible panes
+ * Nov 16, 2022 8956       mapeters    When loading to a Combo editor, update
+ *                                     the display scales to match the editor
+ *                                     scales first
  *
  * </pre>
  *
@@ -48,6 +52,15 @@ public class BundleProductLoader extends BundleLoader {
             Bundle bundle) throws VizException {
         IDisplayPane[] containerPanes = container.getDisplayPanes();
         AbstractRenderableDisplay[] bundleDisplays = bundle.getDisplays();
+
+        if (container instanceof ComboEditor) {
+            boolean updatedScales = ((ComboEditor) container)
+                    .conformScales(bundleDisplays);
+            if (updatedScales) {
+                statusHandler.info(
+                        "Updated new display scales to match already loaded displays.");
+            }
+        }
 
         int bundleSize = bundleDisplays.length;
         int editorSize = containerPanes.length;
