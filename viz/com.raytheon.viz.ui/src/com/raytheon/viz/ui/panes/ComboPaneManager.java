@@ -95,6 +95,8 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  * Nov 14, 2022 8977       mapeters    Set hidden panes to be the same size
  *                                     as visible panes so that pan/zoom still
  *                                     applies to them when rotating panels
+ * Nov 17, 2022 8978       mapeters    Only share background resources among
+ *                                     main canvases
  *
  * </pre>
  *
@@ -124,6 +126,9 @@ public class ComboPaneManager extends AbstractPaneManager
                      * with other canvases of the same type
                      */
                     CanvasType canvasType = changedCanvas.getType();
+                    if (canvasType != CanvasType.MAIN) {
+                        return;
+                    }
 
                     List<IDisplayPane> otherCanvases = new ArrayList<>(
                             Arrays.asList(getCanvases(canvasType)));
