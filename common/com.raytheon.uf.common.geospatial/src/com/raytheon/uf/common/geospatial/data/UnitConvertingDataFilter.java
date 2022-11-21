@@ -55,14 +55,20 @@ public class UnitConvertingDataFilter implements DataFilter {
 
     @Override
     public double filter(double value) {
-        double convertedValue;
-        try {
-            convertedValue = unitConverter.convert(value);
-        } catch (NumberFormatException e) {
-            convertedValue = Double.NaN;
-        }
 
-        return convertedValue;
+        // unitConverter is a combination of PiecewiseLinearConverter, and a
+        // MultiplyConverter or RationalConverter. After jaxax.measure was
+        // updated to 2.0, the combined 2 converters will now throw a
+        // NumberFormatException if a NaN, 0 or 1 are passed into the converter.
+
+        // Here, the values NaN, 0 and 1 are checked explicitly, because using a
+        // try/catch to catch the NumberFormatException reduces performance in
+        // the Volume Browser dramatically.
+        if (!Double.isNaN(value) && value != 0 && value != 1) {
+            return unitConverter.convert(value);
+        } else {
+            return Double.NaN;
+        }
     }
 
     public static DataSource apply(DataSource source, UnitConverter converter) {

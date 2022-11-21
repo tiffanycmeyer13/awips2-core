@@ -51,6 +51,7 @@ import si.uom.NonSI;
  * Apr 11, 2014  2947     bsteffen    Perform unit conversion on more types of
  *                                    records.
  * Apr 27, 2015  4425     nabowle     Add DoubleDataRecord conversion.
+ * Nov 21, 2022  8905     lsingh      Check for NaN when converting units.
  * 
  * </pre>
  * 
@@ -143,7 +144,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     newData[c] = Float.NaN;
                 } else {
-                    newData[c] = (float) converter.convert(data[c]);
+                    try {
+                        newData[c] = (float) converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        newData[c] = Float.NaN;
+                    }
                 }
             }
         } else if (record instanceof ByteDataRecord) {
@@ -153,7 +158,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     newData[c] = Float.NaN;
                 } else {
-                    newData[c] = (float) converter.convert(data[c]);
+                    try {
+                        newData[c] = (float) converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        newData[c] = Float.NaN;
+                    }
                 }
             }
         } else if (record instanceof ShortDataRecord) {
@@ -163,7 +172,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     newData[c] = Float.NaN;
                 } else {
-                    newData[c] = (float) converter.convert(data[c]);
+                    try {
+                        newData[c] = (float) converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        newData[c] = Float.NaN;
+                    }
                 }
             }
         } else if (record instanceof IntegerDataRecord) {
@@ -173,7 +186,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     newData[c] = Float.NaN;
                 } else {
-                    newData[c] = (float) converter.convert(data[c]);
+                    try {
+                        newData[c] = (float) converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        newData[c] = Float.NaN;
+                    }
                 }
             }
         } else if (record instanceof DoubleDataRecord) {
@@ -183,7 +200,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     doubleData[c] = Double.NaN;
                 } else {
-                    doubleData[c] = converter.convert(data[c]);
+                    try {
+                        doubleData[c] = converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        doubleData[c] = Double.NaN;
+                    }
                 }
             }
             return new DoubleDataRecord(record.getName(), record.getGroup(),
@@ -191,17 +212,10 @@ public class AliasRequestableData extends AbstractRequestableData {
         } else {
             return record;
         }
-        return new FloatDataRecord(record.getName(), record.getGroup(),
-                newData, record.getDimension(), record.getSizes());
+        return new FloatDataRecord(record.getName(), record.getGroup(), newData,
+                record.getDimension(), record.getSizes());
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * com.raytheon.uf.viz.derivparam.data.AbstractRequestableData#getDependencies
-     * ()
-     */
     @Override
     public List<AbstractRequestableData> getDependencies() {
         return Arrays.asList(sourceRecord);
