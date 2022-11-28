@@ -227,12 +227,6 @@
          version="0.0.0"/>
 
    <plugin
-         id="javax.vecmath"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"/>
-
-   <plugin
          id="net.sf.ehcache"
          download-size="0"
          install-size="0"
