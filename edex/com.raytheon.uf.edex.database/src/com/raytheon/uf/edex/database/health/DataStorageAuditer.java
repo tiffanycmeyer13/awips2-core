@@ -24,11 +24,9 @@ import java.io.FileOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -77,8 +75,8 @@ import com.raytheon.uf.edex.core.IMessageProducer;
  *                                     persist state across EDEX restarts
  * Jun 28, 2022 8865       mapeters    Ensure exceptions thrown by cleanup() are logged,
  *                                     prevent methods from running when they shouldn't
- *
- *
+ * Aug 24, 2022 8920       mapeters    Optimizations; Swap key/values for statuses.
+ * Sep 26, 2022 8920       smoorthy    Revise for multiple Auditor instances.
  * </pre>
  *
  * @author mapeters
@@ -90,17 +88,26 @@ public class DataStorageAuditer
             .getLogger(DataStorageAuditer.class);
 
     /**
-     * Path to persist state to, so that data storage routes that occur around
-     * EDEX restarts are still audited correctly. Note that this must be a
-     * mounted/shared file, since only one instance of this auditer exists per
-     * EDEX cluster, and it may switch JVMs on restart.
+     * The ID of this auditor instance.
      */
-    private static final String PERSISTED_STATE_PATH = EDEXUtil.getEdexShare()
-            + File.separator + "dataStorageAuditerState.gz";
+    private final int AUDITOR_ID;
+
+    /**
+     * Path to persist state to, so that data storage routes that occur around
+     * EDEX restarts are still audited correctly. Needs to be combined with auditor ID and file extension for full name.
+     */
+    private static final String INSTANCE_PERSISTED_STATE_PATH_PREFIX = EDEXUtil.getEdexShare()
+            + File.separator + "dataStorageAuditerState";
+
+    /**File extension for persisted files */
+    private static final String PERSISTED_STATE_FILE_EXTENSION = ".gz";
 
     private final AtomicBoolean persistedStateLoaded = new AtomicBoolean(false);
 
     private final Map<String, DataStorageInfo> traceIdToInfo = new HashMap<>();
+
+    private final Map<String, DataStorageInfo> unmodifiableTraceIdToInfo = Collections
+            .unmodifiableMap(traceIdToInfo);
 
     private final long completedRetentionMillis = Long
             .getLong("data.storage.auditer.completed.retention.mins")
@@ -110,14 +117,14 @@ public class DataStorageAuditer
             .getLong("data.storage.auditer.pending.retention.mins")
             * TimeUtil.MILLIS_PER_MINUTE;
 
-    private final List<IDataStorageAuditListener> listeners = new ArrayList<>();
+    private final IDataStorageAuditListener auditListener;
 
     private final boolean enabled = "ignite"
             .equals(System.getenv("DATASTORE_PROVIDER"));
 
-    public DataStorageAuditer(IMessageProducer messageProducer) {
-        registerDataStatusListener(
-                new DefaultDataStorageAuditListener(messageProducer));
+    public DataStorageAuditer(IMessageProducer messageProducer, int id) {
+        auditListener = new DefaultDataStorageAuditListener(messageProducer);
+        AUDITOR_ID = id;
         logger.info("Data storage auditer {}.",
                 enabled ? "enabled" : "disabled");
     }
@@ -128,17 +135,20 @@ public class DataStorageAuditer
             return;
         }
 
-        MetadataAndDataId[] dataIds = event.getDataIds();
-        if (dataIds != null) {
-            processDataIds(dataIds);
-        }
-        Map<String, MetadataStatus> metaStatuses = event.getMetadataStatuses();
-        if (metaStatuses != null) {
-            processMetadataStatuses(metaStatuses);
-        }
-        Map<String, DataStatus> dataStatus = event.getDataStatuses();
-        if (dataStatus != null) {
-            processDataStatuses(dataStatus);
+        synchronized (traceIdToInfo) {
+            MetadataAndDataId[] dataIds = event.getDataIds();
+            if (dataIds != null) {
+                processDataIds(dataIds);
+            }
+            Map<MetadataStatus, String[]> metaStatuses = event
+                    .getMetadataStatuses();
+            if (metaStatuses != null) {
+                processMetadataStatuses(metaStatuses);
+            }
+            Map<DataStatus, String[]> dataStatus = event.getDataStatuses();
+            if (dataStatus != null) {
+                processDataStatuses(dataStatus);
+            }
         }
     }
 
@@ -147,45 +157,43 @@ public class DataStorageAuditer
         logger.debug("Processing metadata and data IDs: {}",
                 (Object) dataIdsArray);
         for (MetadataAndDataId dataIds : dataIdsArray) {
-            synchronized (traceIdToInfo) {
-                DataStorageInfo info = traceIdToInfo.computeIfAbsent(
-                        dataIds.getMetaId().getTraceId(), DataStorageInfo::new);
-                if (info.getMetaId() != null || info.getDataId() != null) {
-                    logger.error(
-                            "Metadata or data IDs already set on info:\nInfo: "
-                                    + info + "\nNew metadata and data IDs: "
-                                    + dataIds);
-                } else {
-                    IMetadataIdentifier metaId = dataIds.getMetaId();
-                    info.setMetaId(metaId);
-                    info.setDataId(dataIds.getDataId());
-                    if (metaId
-                            .getSpecificity() == MetadataSpecificity.NO_METADATA) {
-                        if (info.getMetaStatus() != null) {
-                            logger.error(
-                                    "Metadata status reported for data storage operation that shouldn't have any metadata: "
-                                            + info);
-                        } else {
-                            info.setMetaStatus(MetadataStatus.NA);
-                        }
+
+            DataStorageInfo info = traceIdToInfo.computeIfAbsent(
+                    dataIds.getMetaId().getTraceId(), DataStorageInfo::new);
+            if (info.getMetaId() != null || info.getDataId() != null) {
+                logger.error("Metadata or data IDs already set on info:\nInfo: "
+                        + info + "\nNew metadata and data IDs: " + dataIds);
+            } else {
+                IMetadataIdentifier metaId = dataIds.getMetaId();
+                info.setMetaId(metaId);
+                info.setDataId(dataIds.getDataId());
+                if (metaId
+                        .getSpecificity() == MetadataSpecificity.NO_METADATA) {
+                    if (info.getMetaStatus() != null) {
+                        logger.error(
+                                "Metadata status reported for data storage operation that shouldn't have any metadata: "
+                                        + info);
+                    } else {
+                        info.setMetaStatus(MetadataStatus.NA);
                     }
-                    if (info.isComplete()) {
-                        logger.debug("Data store completed: {}", info);
-                        handleDataStorageResult(info);
-                    }
+                }
+                if (info.isComplete()) {
+                    logger.debug("Data store completed: {}", info);
+                    handleDataStorageResult(info);
                 }
             }
         }
     }
 
     @Override
-    public void processMetadataStatuses(Map<String, MetadataStatus> statuses) {
+    public void processMetadataStatuses(
+            Map<MetadataStatus, String[]> statuses) {
         logger.debug("Processing metadata statuses: {}", statuses);
-        for (Entry<String, MetadataStatus> traceIdStatusEntry : statuses
+        for (Entry<MetadataStatus, String[]> traceIdStatusEntry : statuses
                 .entrySet()) {
-            String traceId = traceIdStatusEntry.getKey();
-            MetadataStatus status = traceIdStatusEntry.getValue();
-            synchronized (traceIdToInfo) {
+            MetadataStatus status = traceIdStatusEntry.getKey();
+            String[] traceIds = traceIdStatusEntry.getValue();
+            for (String traceId : traceIds) {
                 DataStorageInfo info = traceIdToInfo.computeIfAbsent(traceId,
                         t -> new DataStorageInfo(t));
                 MetadataStatus prevStatus = info.getMetaStatus();
@@ -228,13 +236,13 @@ public class DataStorageAuditer
     }
 
     @Override
-    public void processDataStatuses(Map<String, DataStatus> statuses) {
+    public void processDataStatuses(Map<DataStatus, String[]> statuses) {
         logger.debug("Processing data statuses: {}", statuses);
-        for (Entry<String, DataStatus> traceIdStatusEntry : statuses
+        for (Entry<DataStatus, String[]> traceIdStatusEntry : statuses
                 .entrySet()) {
-            String traceId = traceIdStatusEntry.getKey();
-            DataStatus status = traceIdStatusEntry.getValue();
-            synchronized (traceIdToInfo) {
+            DataStatus status = traceIdStatusEntry.getKey();
+            String[] traceIds = traceIdStatusEntry.getValue();
+            for (String traceId : traceIds) {
                 DataStorageInfo info = traceIdToInfo.computeIfAbsent(traceId,
                         t -> new DataStorageInfo(t));
                 DataStatus prevStatus = info.getDataStatus();
@@ -298,8 +306,8 @@ public class DataStorageAuditer
 
             synchronized (traceIdToInfo) {
                 logger.info(
-                        "Cleaning up expired data storage information from {} total operations...",
-                        traceIdToInfo.size());
+                        "Auditor {}: Cleaning up expired data storage information from {} total operations...",
+                        AUDITOR_ID, traceIdToInfo.size());
                 Iterator<DataStorageInfo> iter = traceIdToInfo.values()
                         .iterator();
                 while (iter.hasNext()) {
@@ -345,19 +353,8 @@ public class DataStorageAuditer
         }
     }
 
-    public void registerDataStatusListener(IDataStorageAuditListener listener) {
-        synchronized (listeners) {
-            listeners.add(listener);
-        }
-    }
-
     private void handleDataStorageResult(DataStorageInfo info) {
-        synchronized (listeners) {
-            for (IDataStorageAuditListener listener : listeners) {
-                listener.handleDataStorageResult(info,
-                        Collections.unmodifiableMap(traceIdToInfo));
-            }
-        }
+        auditListener.handleDataStorageResult(info, unmodifiableTraceIdToInfo);
     }
 
     @Override
@@ -375,10 +372,11 @@ public class DataStorageAuditer
         }
 
         // Load state from disk
-        Path persistedStatePath = Paths.get(PERSISTED_STATE_PATH);
+        String persistedFile = INSTANCE_PERSISTED_STATE_PATH_PREFIX + AUDITOR_ID + PERSISTED_STATE_FILE_EXTENSION;
+        Path persistedStatePath = Paths.get(persistedFile);
         if (Files.isRegularFile(persistedStatePath)) {
             try (FileInputStream fis = new FileInputStream(
-                    PERSISTED_STATE_PATH);
+                    persistedFile);
                     GZIPInputStream gzis = new GZIPInputStream(fis)) {
                 @SuppressWarnings("unchecked")
                 Map<String, DataStorageInfo> persistedTraceIdToInfo = SerializationUtil
@@ -388,18 +386,18 @@ public class DataStorageAuditer
                         traceIdToInfo.size());
             } catch (Exception e) {
                 logger.error("Error loading persisted state from "
-                        + PERSISTED_STATE_PATH, e);
+                        + persistedFile, e);
             }
             try {
                 Files.delete(persistedStatePath);
             } catch (Exception e) {
                 logger.error("Error deleting persisted state: "
-                        + PERSISTED_STATE_PATH, e);
+                        + persistedFile, e);
             }
         } else if (Files.exists(persistedStatePath)) {
             logger.error(
                     "Unable to load persisted state from non-regular file: "
-                            + PERSISTED_STATE_PATH);
+                            + persistedFile);
         } else {
             logger.info("No persisted state to load");
         }
@@ -432,13 +430,14 @@ public class DataStorageAuditer
 
         // Persist state to disk
         cleanup();
-        logger.info("Persisting info for {} data storage operations",
-                traceIdToInfo.size());
-        try (FileOutputStream fos = new FileOutputStream(PERSISTED_STATE_PATH);
+        logger.info("Auditor {}: Persisting info for {} data storage operations",
+                AUDITOR_ID, traceIdToInfo.size());
+        String persistedFile = INSTANCE_PERSISTED_STATE_PATH_PREFIX + AUDITOR_ID + PERSISTED_STATE_FILE_EXTENSION;
+        try (FileOutputStream fos = new FileOutputStream(persistedFile);
                 GZIPOutputStream gzos = new GZIPOutputStream(fos)) {
             SerializationUtil.transformToThriftUsingStream(traceIdToInfo, gzos);
         } catch (Exception e) {
-            logger.error("Error persisting state to " + PERSISTED_STATE_PATH,
+            logger.error("Error persisting state to " + persistedFile,
                     e);
         }
     }

@@ -39,6 +39,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *                                     {@link IDataIdentifier}
  * Jun 22, 2022 8865       mapeters    Fix class spelling (formerly
  *                                     Hdf5DataIdentifer)
+ * Aug 24, 2022 8920       mapeters    Remove traceId field.
  *
  * </pre>
  *
@@ -48,9 +49,6 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 public class Hdf5DataIdentifier implements IDataIdentifier {
 
     private static final long serialVersionUID = 1L;
-
-    @DynamicSerializeElement
-    private String traceId;
 
     @DynamicSerializeElement
     private String file;
@@ -64,25 +62,14 @@ public class Hdf5DataIdentifier implements IDataIdentifier {
     public Hdf5DataIdentifier() {
     }
 
-    public Hdf5DataIdentifier(String traceId, String file, String group) {
-        this(traceId, file, group, new HashSet<>());
+    public Hdf5DataIdentifier(String file, String group) {
+        this(file, group, new HashSet<>());
     }
 
-    public Hdf5DataIdentifier(String traceId, String file, String group,
-            Set<String> datasets) {
-        this.traceId = traceId;
+    public Hdf5DataIdentifier(String file, String group, Set<String> datasets) {
         this.file = file;
         this.group = group;
         this.datasets = datasets;
-    }
-
-    @Override
-    public String getTraceId() {
-        return traceId;
-    }
-
-    public void setTraceId(String traceId) {
-        this.traceId = traceId;
     }
 
     public String getFile() {
@@ -120,7 +107,7 @@ public class Hdf5DataIdentifier implements IDataIdentifier {
 
     @Override
     public String toString() {
-        return "Hdf5DataIdentifier [traceId=" + traceId + ", file=" + file
-                + ", group=" + group + ", datasets=" + datasets + "]";
+        return "Hdf5DataIdentifier [file=" + file + ", group=" + group
+                + ", datasets=" + datasets + "]";
     }
 }
