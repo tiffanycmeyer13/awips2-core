@@ -132,18 +132,17 @@ public class Colormapper {
                 if (converter != null) {
                     try {
                         cmapValue = converter.convert(dataValue);
+                        double index = getColorMappingIndex(cmapValue,
+                                parameters);
+                        index = capIndex(index);
+                        int cmapIndex = (int) Math.min(index * numColors,
+                                numColors - 1);
+                        rgbValue = indexedColors[cmapIndex];
                     } catch (NumberFormatException e) {
                         cmapValue = Double.NaN;
                     }
                 }
-
-                double index = getColorMappingIndex(cmapValue, parameters);
-                index = capIndex(index);
-                int cmapIndex = (int) Math.min(index * numColors,
-                        numColors - 1);
-                rgbValue = indexedColors[cmapIndex];
             }
-
             pixels[i] = rgbValue;
         }
 

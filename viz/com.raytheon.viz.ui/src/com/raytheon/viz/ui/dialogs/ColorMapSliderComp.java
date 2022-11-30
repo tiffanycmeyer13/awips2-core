@@ -58,7 +58,8 @@ import tech.units.indriya.function.AbstractConverter;
  *                                     units different from data units
  * Aug 04, 2014 3394       rferrel     Added okAction and verify listener on Text widgets.
  * May 07, 2018 7176       bsteffen    Improve handling of edge cases using '>'
- * Apr 15, 2019  7596      lsingh      Updated units framework to JSR-363.
+ * Apr 15, 2019 7596       lsingh      Updated units framework to JSR-363.
+ * Nov 30, 2022 8905       lsingh      Check for NaN when converting units.
  * 
  * </pre>
  * 
@@ -223,8 +224,8 @@ public class ColorMapSliderComp extends Composite {
             StringBuilder sb = new StringBuilder();
 
             if (invalidMax) {
-                sb.append("\"").append(maxValueText.getText().trim())
-                        .append("\" invalid Maximum value.\nRevert will change value to: ")
+                sb.append("\"").append(maxValueText.getText().trim()).append(
+                        "\" invalid Maximum value.\nRevert will change value to: ")
                         .append(currentCmapMax);
             }
 
@@ -232,8 +233,8 @@ public class ColorMapSliderComp extends Composite {
                 if (invalidMax) {
                     sb.append("\n\n");
                 }
-                sb.append("\"").append(minValueText.getText().trim())
-                        .append("\" invalid Minimum value.\nRevert will change value to: ")
+                sb.append("\"").append(minValueText.getText().trim()).append(
+                        "\" invalid Minimum value.\nRevert will change value to: ")
                         .append(currentCmapMin);
             }
 
@@ -296,8 +297,21 @@ public class ColorMapSliderComp extends Composite {
      * 
      */
     private void updateAbsolutes(float cmapAbsoluteMin, float cmapAbsoluteMax) {
-        double displayAbsMax = colorMapToDisplay.convert(cmapAbsoluteMax);
-        double displayAbsMin = colorMapToDisplay.convert(cmapAbsoluteMin);
+        double displayAbsMax;
+        double displayAbsMin;
+
+        try {
+            displayAbsMax = colorMapToDisplay.convert(cmapAbsoluteMax);
+        } catch (NumberFormatException e) {
+            displayAbsMax = Double.NaN;
+        }
+
+        try {
+            displayAbsMin = colorMapToDisplay.convert(cmapAbsoluteMin);
+        } catch (NumberFormatException e) {
+            displayAbsMin = Double.NaN;
+        }
+
         if (displayAbsMax < displayAbsMin) {
             float tmp = cmapAbsoluteMax;
             cmapAbsoluteMax = cmapAbsoluteMin;
@@ -358,7 +372,8 @@ public class ColorMapSliderComp extends Composite {
             // Attempt to parse and convert
             try {
                 float currentColorMapValue = textControl == maxValueText
-                        ? currentCmapMax : currentCmapMin;
+                        ? currentCmapMax
+                        : currentCmapMin;
                 int currentSliderValue = colorMapValueToSelection(
                         currentColorMapValue);
                 if (colorMapValueToText(currentColorMapValue).equals(text)) {
