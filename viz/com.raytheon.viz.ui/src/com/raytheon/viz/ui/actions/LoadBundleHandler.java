@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -29,13 +29,12 @@ import org.eclipse.core.commands.ExecutionException;
 
 import com.raytheon.uf.viz.core.DescriptorMap;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
-import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.exception.VizException;
 import com.raytheon.uf.viz.core.procedures.Bundle;
-import com.raytheon.uf.viz.core.rsc.ResourceProperties;
 import com.raytheon.viz.ui.BundleLoader;
 import com.raytheon.viz.ui.BundleLoader.BundleInfoType;
 import com.raytheon.viz.ui.BundleProductLoader;
+import com.raytheon.viz.ui.EditorTypeInfo;
 import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 
@@ -44,18 +43,27 @@ import com.raytheon.viz.ui.editor.AbstractEditor;
  * handler can be used from plugin.xml by using command parameters to specify
  * what to load. It can also be used directly by configuring it using a
  * constructor.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
  * Aug 30, 2013  2310     bsteffen    Initial creation
  * Mar 09, 2018  6731     bsteffen    Close empty editors when data is not loaded.
- * 
+ * Apr 01, 2022  8790     mapeters    Update determination of editor type to load
+ *                                    bundle in
+ * Apr 22, 2022  8791     mapeters    Further update determination of editor type
+ * Oct 21, 2022  8956     mapeters    DescriptorMap.getEditorId() now can take multiple
+ *                                    displays to determine if a Combo editor is needed,
+ *                                    update "full bundle load" handling
+ * Nov 02, 2022 8958      mapeters    Fix bug from last change where this could open
+ *                                    a new, empty editor for a bundle that doesn't
+ *                                    have data available
+ *
  * </pre>
- * 
+ *
  * @author bsteffen
  */
 public class LoadBundleHandler extends AbstractHandler {
@@ -91,10 +99,18 @@ public class LoadBundleHandler extends AbstractHandler {
             Bundle bundle = BundleLoader.getBundle(getBundleFile(event),
                     getVariableSubstitutions(event),
                     BundleInfoType.FILE_LOCATION);
-            boolean hasData = hasDataResource(bundle);
+            boolean hasData = hasProductResource(bundle);
+            boolean fullBundleLoad = isFullBundleLoad(event);
 
+            /*
+             * Have to pass false for tryPerspectiveManagerOnCreate or else our
+             * attempt to close a new, empty editor below doesn't work right
+             * since we wouldn't try to load the actual product resources until
+             * the end of this method then.
+             */
             AbstractEditor editor = UiUtil.createOrOpenEditor(
-                    getEditorType(event, bundle), bundle.getDisplays());
+                    getEditorTypeInfo(event, bundle), !fullBundleLoad, false,
+                    bundle.getDisplays());
             if (hasData) {
                 /*
                  * If the editor is newly created from the bundle then the
@@ -118,13 +134,13 @@ public class LoadBundleHandler extends AbstractHandler {
                  * new editor, and the data resources weren't loaded, then close
                  * the editor since data didn't load.
                  */
-                if (newEditor && !hasDataResource(bundle)) {
+                if (newEditor && !hasProductResource(bundle)) {
                     editor.getSite().getPage().closeEditor(editor, false);
                 }
             }
 
             BundleLoader loader;
-            if (isFullBundleLoad(event)) {
+            if (fullBundleLoad) {
                 loader = new BundleLoader(editor, bundle);
             } else {
                 loader = new BundleProductLoader(editor, bundle);
@@ -167,63 +183,48 @@ public class LoadBundleHandler extends AbstractHandler {
         }
     }
 
-    protected String getEditorType(ExecutionEvent event, Bundle bundle) {
+    protected EditorTypeInfo getEditorTypeInfo(ExecutionEvent event,
+            Bundle bundle) {
         if (this.editorType != null) {
-            return editorType;
+            return new EditorTypeInfo(editorType, true);
         } else if (event != null) {
             String editorType = event.getParameter("editorType");
             if (editorType != null) {
-                return editorType;
+                return new EditorTypeInfo(editorType, true);
             }
         }
-        String editorType = bundle.getEditor();
-        if (editorType == null) {
-            for (IRenderableDisplay display : bundle.getDisplays()) {
-                String descEditorType = DescriptorMap.getEditorId(
-                        display.getDescriptor().getClass().getName());
-                if (descEditorType != null) {
-                    if (editorType == null) {
-                        editorType = descEditorType;
-                    } else if (!editorType.equals(descEditorType)) {
-                        // If this happens there are no reasonable guesses, just
-                        // let UIUtil figure it out.
-                        return null;
-                    }
-                }
-            }
+        String editorId = bundle.getEditor();
+        if (editorId != null) {
+            return new EditorTypeInfo(editorId, true);
+        } else {
+            editorId = DescriptorMap.getEditorId(bundle.getDisplays());
+            return new EditorTypeInfo(editorId, false);
         }
-        return editorType;
     }
 
     protected boolean isFullBundleLoad(ExecutionEvent event) {
         if (this.fullBundleLoad != null) {
             return fullBundleLoad;
         } else if (event != null) {
-            return Boolean.valueOf(event.getParameter("fullBundleLoad"));
+            return Boolean.parseBoolean(event.getParameter("fullBundleLoad"));
         } else {
             return false;
         }
     }
 
     /**
-     * Determine if the bundle contains any data resources. For this function a
-     * data resources is considered any resource that is not flagged as a system
-     * resource or a map resource.
-     * 
+     * Determine if the bundle contains any product resources. For this function
+     * a product resource is considered any resource that is not flagged as a
+     * system resource or a map resource.
+     *
      * @param bundle
      *            the bundle to check
-     * @return true if there are any data resources.
+     * @return true if there are any product resources.
      */
-    private boolean hasDataResource(Bundle bundle) {
+    private boolean hasProductResource(Bundle bundle) {
         for (IRenderableDisplay display : bundle.getDisplays()) {
-            for (ResourcePair resourcePair : display.getDescriptor()
-                    .getResourceList()) {
-                ResourceProperties props = resourcePair.getProperties();
-                if (props != null) {
-                    if (!props.isMapLayer() && !props.isSystemResource()) {
-                        return true;
-                    }
-                }
+            if (UiUtil.isProductLoaded(display.getDescriptor())) {
+                return true;
             }
         }
         return false;

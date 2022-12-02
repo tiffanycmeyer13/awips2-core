@@ -32,14 +32,14 @@ import java.util.Map;
  * ------------ ---------- ----------- --------------------------
  * Sep 23, 2021 8608       mapeters    Initial creation
  * Jun 28, 2022 8865       mapeters    Rename uri to URI
+ * Aug 24, 2022 8920       mapeters    Optimizations; Swap key/values for statuses.
+ * Sep 26, 2022 8920       smoorthy    Scaling; Add multiple audit queues.
  *
  * </pre>
  *
  * @author mapeters
  */
 public interface IDataStorageAuditer {
-
-    String URI = "data.storage.audit.event";
 
     /**
      * Audit the metadata and data IDs of data being stored.
@@ -53,17 +53,17 @@ public interface IDataStorageAuditer {
      * Audit the statuses of metadata being persisted to the database.
      *
      * @param statuses
-     *            map of trace IDs to metadata persist status
+     *            map of metadata persist status to trace IDs per status
      */
-    void processMetadataStatuses(Map<String, MetadataStatus> statuses);
+    void processMetadataStatuses(Map<MetadataStatus, String[]> statuses);
 
     /**
      * Audit the statuses of data being persisted to the datastore.
      *
      * @param statuses
-     *            map of trace IDs to data persist status
+     *            map of data persist status to trace IDs per status
      */
-    void processDataStatuses(Map<String, DataStatus> statuses);
+    void processDataStatuses(Map<DataStatus, String[]> statuses);
 
     /**
      * Audit a data storage event. Other methods in this interface should

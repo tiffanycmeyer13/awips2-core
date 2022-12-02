@@ -89,6 +89,8 @@ import com.raytheon.uf.common.util.GridUtil;
  * Jul 01, 2022  8872     jsebahar    added check to correct array out of bounds
  *                                     exception for overridden gridImageryStyleRules
  *                                     specifically colorMapFillExtensions
+ * Oct 13, 2022  8905     lsingh      Check for invalid values when converting display max/min
+ * Oct 25, 2022  8905     lsingh      Check for NaN before converting units.
  * </pre>
  *
  * @author chammack
@@ -211,7 +213,13 @@ public class ColorMapParameterFactory {
 
         if ((definedMin == null || definedMax == null
                 || preferences.getDataScale().isAdaptive())) {
-            float max = 0, min = 0, colormapMin = 0, colormapMax = 0;
+            float max = 0;
+            float min = 0;
+            float colormapMin = 0;
+            float colormapMax = 0;
+            float displayMin;
+            float displayMax;
+
             if (data != null) {
                 // Repack the data
                 Number[] numArray = repackData(data);
@@ -293,14 +301,31 @@ public class ColorMapParameterFactory {
                 params.setColorMapMin(colormapMin);
                 params.setDataMax(max);
                 params.setDataMin(min);
-            }
 
-            float displayMin = dataToDisplay != null
-                    ? (float) dataToDisplay.convert(colormapMin)
-                    : colormapMin;
-            float displayMax = dataToDisplay != null
-                    ? (float) dataToDisplay.convert(colormapMax)
-                    : colormapMax;
+                try {
+                    displayMin = (dataToDisplay != null)
+                            ? (float) dataToDisplay.convert(colormapMin)
+                            : colormapMin;
+                } catch (NumberFormatException e) {
+                    // set value to NaN, which will cause the displayMin to be
+                    // set to the minimum value.
+                    displayMin = Float.NaN;
+                }
+
+                try {
+                    displayMax = (dataToDisplay != null)
+                            ? (float) dataToDisplay.convert(colormapMax)
+                            : colormapMax;
+                } catch (NumberFormatException e) {
+                    // set value to NaN, which will cause the displayMax to be
+                    // set to the smallest max value.
+                    displayMax = Float.NaN;
+                }
+            } else {
+                // data is null, so no min and max
+                displayMin = Float.NaN;
+                displayMax = Float.NaN;
+            }
 
             if (preferences.getColorbarLabeling() != null) {
                 extractLabelValues(preferences, displayMax, displayMin, params);
@@ -377,8 +402,19 @@ public class ColorMapParameterFactory {
             double dataMin;
             double dataMax;
             if (displayToData != null) {
-                dataMin = displayToData.convert(displayMin);
-                dataMax = displayToData.convert(displayMax);
+                // Skip the conversion if the min and max are NaN.
+                if (!Double.isNaN(displayMin)) {
+                    dataMin = displayToData.convert(displayMin);
+                } else {
+                    dataMin = Double.NaN;
+                }
+
+                if (!Double.isNaN(displayMax)) {
+                    dataMax = displayToData.convert(displayMax);
+                } else {
+                    dataMax = Double.NaN;
+                }
+
                 /*
                  * ColorMapParameters handles the case in which the conversion
                  * negates the values, making max < min

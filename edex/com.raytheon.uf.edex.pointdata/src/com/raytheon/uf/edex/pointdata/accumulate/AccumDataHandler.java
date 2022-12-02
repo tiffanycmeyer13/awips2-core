@@ -51,7 +51,7 @@ import com.raytheon.uf.edex.pointdata.PointDataPluginDao;
 import com.raytheon.uf.edex.pointdata.PointDataQuery;
 
 import si.uom.SI;
-import tec.uom.se.unit.MetricPrefix;
+import javax.measure.MetricPrefix;
 
 /**
  * Handler that calculates the accumulation of a parameter at multiple stations

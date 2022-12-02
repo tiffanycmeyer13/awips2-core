@@ -38,6 +38,7 @@ import com.raytheon.uf.edex.core.IMessageProducer;
  * Sep 23, 2021 8608       mapeters    Initial creation
  * Feb 23, 2022 8608       mapeters    Change queue to durable
  * Jun 22, 2022 8865       mapeters    Let exceptions propagate in send()
+ * Sep 26, 2022 8920       smoorthy    Send to a specified URI.
  *
  * </pre>
  *
@@ -48,7 +49,7 @@ public class EdexDataStorageAuditerProxy
 
     private final IMessageProducer messageProducer;
 
-    private static final String FULL_URI = "jms-durable:queue:" + URI;
+    private static final String JMS_URI_PART = "jms-durable:queue:";
 
     private final boolean enabled = "ignite"
             .equals(System.getenv("DATASTORE_PROVIDER"));
@@ -58,10 +59,11 @@ public class EdexDataStorageAuditerProxy
     }
 
     @Override
-    public void send(DataStorageAuditEvent event)
+    public void send(DataStorageAuditEvent event, String uri)
             throws EdexException, SerializationException {
         if (enabled) {
-            messageProducer.sendAsyncThriftUri(FULL_URI, event);
+            String fullUri = JMS_URI_PART + uri;
+            messageProducer.sendAsyncThriftUri(fullUri, event);
         }
     }
 }

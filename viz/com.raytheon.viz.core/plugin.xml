@@ -47,14 +47,6 @@
          point="org.eclipse.core.runtime.preferences">
       <initializer class="com.raytheon.viz.core.preferences.PreferenceInitializer"/>
    </extension>
-   <extension
-         point="com.raytheon.uf.viz.core.descriptor">
-      <descriptor
-      		name="MapDescriptor"
-            class="com.raytheon.uf.viz.core.map.MapDescriptor"
-            editor="com.raytheon.viz.ui.glmap.GLMapEditor">
-      </descriptor>
-   </extension>
 
    <extension
          point="com.raytheon.uf.viz.core.renderingOrder">

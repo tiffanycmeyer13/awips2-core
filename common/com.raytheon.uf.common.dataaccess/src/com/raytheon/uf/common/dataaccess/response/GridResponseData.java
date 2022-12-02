@@ -31,7 +31,7 @@ import com.raytheon.uf.common.numeric.dest.DataDestination;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * IGridData wrapper used as part of <code>GetGridDataResponse</code>.

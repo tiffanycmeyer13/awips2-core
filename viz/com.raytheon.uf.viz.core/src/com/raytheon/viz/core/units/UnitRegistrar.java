@@ -30,7 +30,7 @@ import org.eclipse.core.runtime.Platform;
 
 import com.raytheon.uf.viz.core.exception.VizException;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * TODO Add Description

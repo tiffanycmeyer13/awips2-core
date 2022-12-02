@@ -59,7 +59,7 @@
          <attribute name="class" type="string" use="required">
             <annotation>
                <documentation>
-                  
+                  the descriptor type to register
                </documentation>
                <appInfo>
                   <meta.attribute kind="java"/>
@@ -69,7 +69,14 @@
          <attribute name="editor" type="string" use="required">
             <annotation>
                <documentation>
-                  
+                  the default editor ID to load the descriptor to
+               </documentation>
+            </annotation>
+         </attribute>
+         <attribute name="paneCreator" type="string">
+            <annotation>
+               <documentation>
+                  creates combo editor panes for displaying a descriptor, may be omitted to not support loading to a combo editor
                </documentation>
             </annotation>
          </attribute>

@@ -20,10 +20,12 @@ package com.raytheon.uf.common.datastore.ignite.processor;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.cache.integration.CacheLoader;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -34,10 +36,15 @@ import org.apache.ignite.resources.LoggerResource;
 import com.raytheon.uf.common.datastorage.IDataStore.StoreOp;
 import com.raytheon.uf.common.datastorage.StorageException;
 import com.raytheon.uf.common.datastorage.StorageStatus;
+import com.raytheon.uf.common.datastorage.records.RecordAndMetadata;
 import com.raytheon.uf.common.datastore.ignite.DataStoreKey;
 import com.raytheon.uf.common.datastore.ignite.DataStoreValue;
 import com.raytheon.uf.common.datastore.ignite.IgniteCacheAccessor;
 import com.raytheon.uf.common.datastore.ignite.IgniteServerManager;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
+import com.raytheon.uf.common.time.util.IPerformanceTimer;
+import com.raytheon.uf.common.time.util.TimeUtil;
 
 /**
  *
@@ -83,12 +90,16 @@ import com.raytheon.uf.common.datastore.ignite.IgniteServerManager;
  *                                     and properly merge cached values
  * Jun 21, 2022 8879       mapeters    Handle signature change in methods for
  *                                     doing ignite operations (do*Op)
+ * Oct 11, 2022 8929       mapeters    Improve duplicate handling and logging
  *
  * </pre>
  *
  * @author mapeters
  */
 public class FastStoreCallable implements IgniteCallable<StorageStatus> {
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler(FastStoreCallable.class.getSimpleName() + ":");
 
     private static final long serialVersionUID = 1L;
 
@@ -112,15 +123,15 @@ public class FastStoreCallable implements IgniteCallable<StorageStatus> {
 
     private final DataStoreKey key;
 
-    private DataStoreValue value;
+    private final List<RecordAndMetadata> recordsAndMetadata;
 
     private final StoreOp storeOp;
 
     public FastStoreCallable(String cacheName, DataStoreKey key,
-            DataStoreValue value, StoreOp storeOp) {
+            List<RecordAndMetadata> recordsAndMetadata, StoreOp storeOp) {
         this.cacheName = cacheName;
         this.key = key;
-        this.value = value;
+        this.recordsAndMetadata = recordsAndMetadata;
         this.storeOp = storeOp;
     }
 
@@ -132,6 +143,12 @@ public class FastStoreCallable implements IgniteCallable<StorageStatus> {
 
     @Override
     public StorageStatus call() {
+        IPerformanceTimer timer = TimeUtil.getPerformanceTimer();
+        timer.start();
+
+        String msg = "Processing " + cacheName + " key: " + key;
+        logger.info(msg);
+
         StorageStatus status = new StorageStatus();
         Object lock = getLock(key);
 
@@ -155,14 +172,28 @@ public class FastStoreCallable implements IgniteCallable<StorageStatus> {
                             e.getRecord(), e);
                 }
 
+                List<RecordAndMetadata> prevRecordsAndMetadata = List.of();
                 if (prevValue != null) {
-                    value = StoreProcessor.merge(
-                            Arrays.asList(prevValue.getRecordsAndMetadata()),
-                            Arrays.asList(value.getRecordsAndMetadata()),
-                            storeOp, status);
+                    prevRecordsAndMetadata = Arrays
+                            .asList(prevValue.getRecordsAndMetadata());
                 }
+                /*
+                 * Call merge even if there is no previous data, since it can
+                 * still do merging among just the new values (e.g. handling
+                 * duplicates)
+                 */
+                Pair<DataStoreValue, List<StorageException>> mergeResult = StoreProcessor
+                        .merge(prevRecordsAndMetadata, recordsAndMetadata,
+                                storeOp, status);
 
-                cacheAccessor.doAsyncCacheOp(c -> c.putAsync(key, value), true);
+                cacheAccessor.doAsyncCacheOp(
+                        c -> c.putAsync(key, mergeResult.getLeft()), true);
+
+                List<StorageException> exceptions = mergeResult.getRight();
+                if (!exceptions.isEmpty()) {
+                    status.setExceptions(
+                            exceptions.toArray(StorageException[]::new));
+                }
             } catch (StorageException e) {
                 /*
                  * Store and return exceptions instead of letting them just
@@ -173,6 +204,9 @@ public class FastStoreCallable implements IgniteCallable<StorageStatus> {
                 status.setExceptions(new StorageException[] { e });
             }
         }
+
+        timer.stop();
+        perfLog.logDuration(msg, timer.getElapsedTime());
 
         return status;
     }

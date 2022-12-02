@@ -60,7 +60,7 @@ public class DensityCapability extends AbstractCapability {
 
     public DensityCapability() {
         this.density = (Double) VizGlobalsManager.getCurrentInstance()
-                .getPropery(VizConstants.DENSITY_ID);
+                .getProperty(VizConstants.DENSITY_ID);
         densityValues = DEFAULT_DENSITY_VALUES;
     }
 

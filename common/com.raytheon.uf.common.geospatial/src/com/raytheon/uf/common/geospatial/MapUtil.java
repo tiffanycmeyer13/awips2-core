@@ -90,6 +90,8 @@ import org.locationtech.jts.geom.Polygon;
  * May 27, 2014  3196     bsteffen    Remove jai.
  * Jun 05, 2014  3243     bsteffen    Add support for arbitrary latitude of
  *                                    origin for lambert conformal
+ * Sep 13, 2022  8858     lsingh      Force (longitude, latitude) axis order for
+ *                                    coordinates as part of Geotools 26.4 upgrade.
  * 
  * </pre>
  * 
@@ -103,26 +105,26 @@ public class MapUtil {
 
     public static final double AWIPS_EARTH_RADIUS = 6371229.0;
 
-    private static DefaultMathTransformFactory dmtFactory = new DefaultMathTransformFactory();
+    private static final DefaultMathTransformFactory dmtFactory = new DefaultMathTransformFactory();
 
     public static GeographicCRS LATLON_PROJECTION;
 
-    private static Map<Integer, MathTransform> fromLatLonMap = new LRUMap(250);
+    private static final Map<Integer, MathTransform> fromLatLonMap = new LRUMap(250);
 
-    private static Map<Integer, MathTransform> toLatLonMap = new LRUMap(250);
+    private static final Map<Integer, MathTransform> toLatLonMap = new LRUMap(250);
 
-    private static Map<Integer, MathTransform> toLatLonCellMap = new LRUMap(250);
+    private static final Map<Integer, MathTransform> toLatLonCellMap = new LRUMap(250);
 
-    private static Map<Integer, MathTransform> fromNativeMap = new LRUMap(250);
+    private static final Map<Integer, MathTransform> fromNativeMap = new LRUMap(250);
 
-    private static Map<Integer, GridGeometry2D> gridGeometriesMap = new LRUMap(
+    private static final Map<Integer, GridGeometry2D> gridGeometriesMap = new LRUMap(
             250);
 
-    public static GeometryFactory jtsGeometryFactory = new GeometryFactory();
+    public static final GeometryFactory jtsGeometryFactory = new GeometryFactory();
 
     static {
         try {
-            LATLON_PROJECTION = (GeographicCRS) CRS.decode("EPSG:4326");
+            LATLON_PROJECTION = (GeographicCRS) CRS.decode("EPSG:4326", true);
         } catch (FactoryException e) {
             // won't happen
         }
@@ -132,19 +134,19 @@ public class MapUtil {
      * AWIPS Lambert conformal projections use this CRS (211, 212, etc). Replace
      * the constructAWIPS211 with a WKT file implementation
      */
-    public static ProjectedCRS AWIPS_LAMBERT_NORTHAMERICA = constructLambertConformal(
+    public static final ProjectedCRS AWIPS_LAMBERT_NORTHAMERICA = constructLambertConformal(
             AWIPS_EARTH_RADIUS, AWIPS_EARTH_RADIUS, 25, 25, -95, 25);
 
-    public static ProjectedCRS AWIPS_POLARSTEREO_ALASKA = constructNorthPolarStereo(
+    public static final ProjectedCRS AWIPS_POLARSTEREO_ALASKA = constructNorthPolarStereo(
             AWIPS_EARTH_RADIUS, AWIPS_EARTH_RADIUS, 60, -150);
 
-    public static ProjectedCRS AWIPS_POLARSTEREO_NORTHAMERICA = constructNorthPolarStereo(
+    public static final ProjectedCRS AWIPS_POLARSTEREO_NORTHAMERICA = constructNorthPolarStereo(
             AWIPS_EARTH_RADIUS, AWIPS_EARTH_RADIUS, 60, -105);
 
-    public static ProjectedCRS AWIPS_MERCATOR_HAWAII = constructMercator(
+    public static final ProjectedCRS AWIPS_MERCATOR_HAWAII = constructMercator(
             AWIPS_EARTH_RADIUS, AWIPS_EARTH_RADIUS, 0, -160);
 
-    public static ProjectedCRS AWIPS_MERCATOR_PACIFIC = constructMercator(
+    public static final ProjectedCRS AWIPS_MERCATOR_PACIFIC = constructMercator(
             AWIPS_EARTH_RADIUS, AWIPS_EARTH_RADIUS, 0, 150);
 
     /**
@@ -494,7 +496,7 @@ public class MapUtil {
             FactoryException {
         DefaultProjectedCRS projCrs = null;
 
-        Map<String, Object> props = new HashMap<String, Object>();
+        Map<String, Object> props = new HashMap<>();
         props.put("name", name);
 
         DefiningConversion dc = new DefiningConversion(name, parameters);
@@ -785,7 +787,7 @@ public class MapUtil {
         return lat;
     }
 
-    public synchronized static GridGeometry2D getGridGeometry(ISpatialObject obj) {
+    public static synchronized GridGeometry2D getGridGeometry(ISpatialObject obj) {
         GridGeometry2D mapGeom = null;
         Integer pk = getGridGeomHash(obj);
         synchronized (gridGeometriesMap) {
@@ -868,9 +870,7 @@ public class MapUtil {
                 synchronized (fromLatLonMap) {
                     fromLatLonMap.put(pk, fromLatLon);
                 }
-            } catch (FactoryException e) {
-                statusHandler.handle(Priority.WARN, e.getLocalizedMessage(), e);
-            } catch (NoninvertibleTransformException e) {
+            } catch (FactoryException | NoninvertibleTransformException e) {
                 statusHandler.handle(Priority.WARN, e.getLocalizedMessage(), e);
             }
         }
@@ -974,8 +974,10 @@ public class MapUtil {
         double[] input = new double[coords.length * 2];
         int i = 0;
         for (Coordinate c : coords) {
-            input[i++] = c.x;
-            input[i++] = c.y;
+            input[i] = c.x;
+            i++;
+            input[i] = c.y;
+            i++;
         }
 
         double[] output = new double[input.length];
@@ -987,8 +989,10 @@ public class MapUtil {
 
         i = 0;
         for (Coordinate c : coords) {
-            c.x = output[i++];
-            c.y = output[i++];
+            c.x = output[i];
+            i++;
+            c.y = output[i];
+            i++;
         }
     }
 
@@ -1091,11 +1095,7 @@ public class MapUtil {
                             .getCoordinateReferenceSystem()),
                     a, a2);
             transformCoordinates(geometry.getGridToCRS().inverse(), a, a2);
-        } catch (InvalidGridGeometryException e) {
-            throw new RuntimeException(e);
-        } catch (FactoryException e) {
-            throw new RuntimeException(e);
-        } catch (NoninvertibleTransformException e) {
+        } catch (InvalidGridGeometryException | FactoryException | NoninvertibleTransformException e) {
             throw new RuntimeException(e);
         }
 
@@ -1139,18 +1139,23 @@ public class MapUtil {
         Coordinate[] coordinates = new Coordinate[2 * (nx + ny) + 1];
         int i = 0;
         for (int x = 0; x <= nx; x++) {
-            coordinates[i++] = new Coordinate(x, -1);
+            coordinates[i] = new Coordinate(x, -1);
+            i++;
         }
         for (int y = 0; y < ny; y++) {
-            coordinates[i++] = new Coordinate(nx, y);
+            coordinates[i] = new Coordinate(nx, y);
+            i++;
         }
         for (int x = nx - 1; x > 0; x--) {
-            coordinates[i++] = new Coordinate(x, ny - 1);
+            coordinates[i] = new Coordinate(x, ny - 1);
+            i++;
         }
         for (int y = ny - 1; y >= 0; y--) {
-            coordinates[i++] = new Coordinate(0, y);
+            coordinates[i] = new Coordinate(0, y);
+            i++;
         }
-        coordinates[i++] = coordinates[0];
+        coordinates[i] = coordinates[0];
+        i++;
 
         LinearRing shell = jtsGeometryFactory.createLinearRing(coordinates);
         Geometry g = jtsGeometryFactory.createPolygon(shell, null);

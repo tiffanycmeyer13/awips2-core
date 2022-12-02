@@ -16,18 +16,11 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
-package com.raytheon.uf.viz.core.status;
-
-import javax.jms.JMSException;
-
-import com.raytheon.uf.common.datastorage.audit.AbstractDataStorageAuditerProxy;
-import com.raytheon.uf.common.datastorage.audit.DataStorageAuditEvent;
-import com.raytheon.uf.common.datastorage.audit.IDataStorageAuditer;
-import com.raytheon.uf.common.serialization.SerializationException;
+package com.raytheon.uf.viz.core.drawables;
 
 /**
- * {@link IDataStorageAuditer} proxy implementation for sending data storage
- * events from a CAVE process.
+ * Extension of {@link IRenderableDisplay} interface for renderable displays
+ * that have a concept of scale that can be modified.
  *
  * <pre>
  *
@@ -35,19 +28,39 @@ import com.raytheon.uf.common.serialization.SerializationException;
  *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Sep 23, 2021 8608       mapeters    Initial creation
- * Jun 22, 2022 8865       mapeters    Let exceptions propagate in send()
+ * Sep 22, 2022 8946       mapeters    Initial creation
  *
  * </pre>
  *
  * @author mapeters
  */
-public class VizDataStorageAuditerProxy
-        extends AbstractDataStorageAuditerProxy {
+public interface IScalableRenderableDisplay extends IRenderableDisplay {
 
-    @Override
-    protected void send(DataStorageAuditEvent event)
-            throws JMSException, SerializationException {
-        MessageSender.sendToQueue(URI, event);
+    public enum ScaleType {
+        /*
+         * Displays with ScaleType of NONE probably shouldn't implement this but
+         * do
+         */
+        MAP, HEIGHT, NONE
     }
+
+    /**
+     * @return the current scale of this display
+     */
+    String getScale();
+
+    /**
+     * Set the scale of this display.
+     *
+     * @param scale
+     *            the scale to set
+     */
+    void setScale(String scale);
+
+    /**
+     * Get the type of scales that this display uses.
+     *
+     * @return the scale type
+     */
+    ScaleType getScaleType();
 }

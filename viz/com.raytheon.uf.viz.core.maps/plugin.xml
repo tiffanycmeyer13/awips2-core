@@ -154,4 +154,13 @@
          </description>
       </fontDefinition>
    </extension>
+   <extension
+         point="com.raytheon.uf.viz.core.descriptor">
+      <descriptor
+            name="MapDescriptor"
+            class="com.raytheon.uf.viz.core.map.MapDescriptor"
+            editor="com.raytheon.viz.ui.glmap.GLMapEditor"
+            paneCreator="com.raytheon.uf.viz.core.maps.display.MapPaneCreator">
+      </descriptor>
+   </extension>
 </plugin>

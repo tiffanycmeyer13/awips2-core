@@ -22,7 +22,7 @@ package com.raytheon.uf.common.geospatial.projection;
 import java.awt.geom.Point2D;
 
 import si.uom.SI;
-import tec.uom.se.AbstractUnit;
+import tech.units.indriya.AbstractUnit;
 
 import javax.measure.Unit;
 

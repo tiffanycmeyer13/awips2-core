@@ -88,7 +88,7 @@ public abstract class AbstractGlobalsButtonHandler extends
         lastElement = element;
         VizGlobalsManager mgr = VizGlobalsManager.getInstance(window);
         if (mgr != null) {
-            updateGlobalValue(window, lastElement, mgr.getPropery(globalId));
+            updateGlobalValue(window, lastElement, mgr.getProperty(globalId));
             if (updateCoolBar) {
                 UiUtil.updateWindowCoolBar(window);
             }

@@ -21,8 +21,8 @@
 
 #
 # Python wrapper class that wraps a Java DataTime behind familiar python objects.
-#  
-#    
+#
+#
 # SOFTWARE HISTORY
 #
 # Date          Ticket#  Engineer  Description
@@ -30,7 +30,8 @@
 # Dec 12, 2012           njensen   Initial Creation.
 # May 01, 2014  3095     bsteffen  Don't default fcstTime to 0 in init.
 # Jun 24, 2014  3096     mnash     Fix pieces of implementation to better match native python version
-# Feb 06, 2017  5959     randerso  Removed Java .toString() calls 
+# Feb 06, 2017  5959     randerso  Removed Java .toString() calls
+# Oct 28, 2022  8959     mapeters  Add levelType, fix levelValue getter
 #    
 # 
 #
@@ -51,47 +52,53 @@ class DataTime(JUtil.JavaWrapperClass):
             self.__dt = JavaDataTime(dtime)
         else:
             # assuming Java object
-            self.__dt = dtime                        
+            self.__dt = dtime
         # TODO add support for other possible types of dtime?
         if fcstTime is not None:
             self.__dt.setFcstTime(fcstTime)
-        
+
     def getRefTime(self):
         return self.__dt.getRefTime()
-    
+
     def setRefTime(self, refTime):
         self.__dt.setRefTime(refTime)
-        
+
     def getFcstTime(self):
         return self.__dt.getFcstTime().getTime()
-    
+
     def setFcstTime(self, fcstTime):
         self.__dt.setFcstTime(fcstTime)
-    
+
     def getValidPeriod(self):
         return TimeRange.TimeRange(self.__dt.getValidPeriod())
-    
+
     def setValidPeriod(self, tr):
         self.__dt.setValidPeriod(tr.toJavaObj())
-        
+
     def getUtilityFlags(self):
         self.__dt.getUtilityFlags()
-    
+
     def setUtilityFlags(self, utilityFlags):
         self.__dt.setUtilityFlags(utilityFlags)
-    
+
     def getLevelValue(self):
-        return self.levelValue
+        return self.__dt.getLevelValue()
 
     def setLevelValue(self, levelValue):
         self.__dt.setLevelValue(levelValue)
-    
+
+    def getLevelType(self):
+        return self.__dt.getLevelType()
+
+    def setLevelType(self, levelType):
+        self.__dt.setLevelType(levelType)
+
     def __eq__(self, other):
         return self.__dt.equals(other.toJavaObj())
-    
+
     def __ne__(self, other):
         return not self == other
-    
+
     def __lt__(self, other):
         return self.__dt.compareTo(other.toJavaObj()) < 0
 
@@ -103,14 +110,12 @@ class DataTime(JUtil.JavaWrapperClass):
 
     def __ge__(self, other):
         return self.__dt.compareTo(other.toJavaObj()) >= 0
-    
+
     def __str__(self):
         return str(self.__dt)
 
     def __repr__(self):
         return str(self.__dt)
-    
+
     def toJavaObj(self):
         return self.__dt
-
-        
