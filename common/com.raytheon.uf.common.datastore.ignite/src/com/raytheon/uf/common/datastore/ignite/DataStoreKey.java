@@ -67,8 +67,8 @@ public class DataStoreKey implements Comparable<DataStoreKey> {
     }
 
     public DataStoreKey(String path, String group) {
-        this.path = normalizeAttributeName(path);
-        this.group = normalizeAttributeName(group);
+        this.path = DataStoreFactory.normalizeAttributeName(path);
+        this.group = DataStoreFactory.normalizeAttributeName(group);
     }
 
     public String getPath() {
@@ -76,7 +76,7 @@ public class DataStoreKey implements Comparable<DataStoreKey> {
     }
 
     public void setPath(String path) {
-        this.path = normalizeAttributeName(path);
+        this.path = DataStoreFactory.normalizeAttributeName(path);
     }
 
     public String getGroup() {
@@ -84,7 +84,7 @@ public class DataStoreKey implements Comparable<DataStoreKey> {
     }
 
     public void setGroup(String group) {
-        this.group = normalizeAttributeName(group);
+        this.group = DataStoreFactory.normalizeAttributeName(group);
     }
 
     @Override
@@ -133,24 +133,5 @@ public class DataStoreKey implements Comparable<DataStoreKey> {
             return false;
         }
         return true;
-    }
-
-    private static String normalizeAttributeName(String attributeName) {
-        /*
-         * normalize attribute so that there is only one "/" at the beginning
-         * and no "/" at the end. Empty string remains empty.
-         */
-        attributeName = attributeName.replaceAll(
-                DataStoreFactory.DEF_SEPARATOR + DataStoreFactory.DEF_SEPARATOR,
-                DataStoreFactory.DEF_SEPARATOR);
-        if (attributeName.endsWith(DataStoreFactory.DEF_SEPARATOR)) {
-            attributeName = attributeName.substring(0, attributeName.length()
-                    - DataStoreFactory.DEF_SEPARATOR.length());
-        }
-        if (attributeName.length() > 0 && (!attributeName
-                .startsWith(DataStoreFactory.DEF_SEPARATOR))) {
-            attributeName = DataStoreFactory.DEF_SEPARATOR + attributeName;
-        }
-        return attributeName;
     }
 }
