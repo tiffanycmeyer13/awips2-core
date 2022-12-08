@@ -56,7 +56,7 @@ import com.raytheon.uf.edex.database.plugin.PluginFactory;
  * ------------ ---------- ----------- --------------------------
  * Sep 27, 2021 8608       mapeters    Initial creation
  * Feb 17, 2022 8608       mapeters    Ignore non-hdf5 data
- *
+ * Aug 24, 2022 8920       mapeters    Fix null check.
  * </pre>
  *
  * @author mapeters
@@ -100,15 +100,23 @@ public class DefaultDataStorageAuditListener
             return;
         }
 
+        logger.info("Data and metadata are out of sync for data store: {}",
+                info);
+
         if (dataStatus.exists()) {
             // data exists, metadata doesn't - delete data
+            /*
+             * TODO Maybe just delete this whole block - yeah we are out of sync
+             * but this case shouldn't cause any errors and I think purge should
+             * cleanup the orphaned hdf5 data?
+             */
             /*
              * Double check that metadata doesn't exist since this should be
              * very rare anyway. Could possibly have failed because of
              * duplicates if a storage route doesn't specially handle that.
              */
             PluginDataObject persistedMetadata = getPersistedMetadata(metaId);
-            if (persistedMetadata != null) {
+            if (persistedMetadata == null) {
                 /*
                  * Check if there are any pending metadata writes for the same
                  * metadata. If so, kick can down the road to when that data
