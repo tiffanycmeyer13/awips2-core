@@ -71,6 +71,8 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  *                                     number of panes that is a supported layout
  * Nov 16, 2022 8956       mapeters    Move conforming of product displays from
  *                                     makeCompatible() to BundleProductLoader
+ * Dec 01, 2022 8984       mapeters    Make graph panes still load with the correct
+ *                                     pan/zoom state when we conform their height scale
  *
  * </pre>
  *
@@ -156,7 +158,7 @@ public class ComboEditor extends VizMultiPaneEditor
      *            the displays being loaded that may need their scales updated
      * @return true if any display's scale was updated, false otherwise
      */
-    public boolean conformScales(IRenderableDisplay[] newDisplays) {
+    public boolean conformScales(IRenderableDisplay... newDisplays) {
         boolean updatedAnyScale = false;
 
         IDisplayPane[] existingCanvases = getMainCanvases();
@@ -210,8 +212,12 @@ public class ComboEditor extends VizMultiPaneEditor
             }
         }
 
-        IRenderableDisplay[] newBackgroundDisplays = Arrays.stream(newDisplays)
-                .map(this::getBackgroundDisplay)
+        /*
+         * Convert the new displays to background versions of themselves, as the
+         * actual data/products are loaded later on outside this method.
+         */
+        newDisplays = Arrays.stream(newDisplays)
+                .map(display -> getBackgroundDisplay(display, loadToExisting))
                 .toArray(IRenderableDisplay[]::new);
         IDisplayPane[] currentCanvases = getMainCanvases();
 
@@ -227,8 +233,8 @@ public class ComboEditor extends VizMultiPaneEditor
                 return false;
             }
 
-            for (int i = 0; i < newBackgroundDisplays.length; ++i) {
-                IRenderableDisplay newDisplay = newBackgroundDisplays[i];
+            for (int i = 0; i < newDisplays.length; ++i) {
+                IRenderableDisplay newDisplay = newDisplays[i];
                 if (i >= currentCanvases.length) {
                     addPane(newDisplay);
                 } else {
@@ -236,23 +242,15 @@ public class ComboEditor extends VizMultiPaneEditor
                 }
             }
 
-            for (int i = newBackgroundDisplays.length; i < currentCanvases.length; i++) {
+            for (int i = newDisplays.length; i < currentCanvases.length; i++) {
                 removePane(currentCanvases[i]);
             }
 
             return true;
         }
 
-        /*
-         * Update scales of the background displays so that differing scales
-         * don't make us think that we aren't compatible below. The scales of
-         * the product displays that are actually loaded are updated later on in
-         * BundleProductLoader.
-         */
-        conformScales(newBackgroundDisplays);
-
-        if (newBackgroundDisplays.length == 1) {
-            IRenderableDisplay newDisplay = newBackgroundDisplays[0];
+        if (newDisplays.length == 1) {
+            IRenderableDisplay newDisplay = newDisplays[0];
             IDisplayPane loadCanvas = getSelectedPane(LOAD_ACTION);
             if (loadCanvas != null) {
                 // Ensure Load pane is compatible
@@ -282,8 +280,8 @@ public class ComboEditor extends VizMultiPaneEditor
                     }
 
                     for (IDisplayPane currentCanvas : currentCanvases) {
-                        replacePane(currentCanvas, getBackgroundDisplay(
-                                newDisplay.createNewDisplay()));
+                        replacePane(currentCanvas,
+                                newDisplay.createNewDisplay());
                     }
                 }
             }
@@ -292,10 +290,10 @@ public class ComboEditor extends VizMultiPaneEditor
              * Ignore selected Load pane if multiple displays, just load the n
              * displays to the first n panes, adding panes if necessary.
              */
-            for (int i = 0; i < Math.min(newBackgroundDisplays.length,
+            for (int i = 0; i < Math.min(newDisplays.length,
                     currentCanvases.length); ++i) {
                 IDisplayPane currentCanvas = currentCanvases[i];
-                IRenderableDisplay newDisplay = newBackgroundDisplays[i];
+                IRenderableDisplay newDisplay = newDisplays[i];
                 if (!currentCanvas.getDescriptor()
                         .isCompatible(newDisplay.getDescriptor())
                         && UiUtil.isProductLoaded(
@@ -308,20 +306,20 @@ public class ComboEditor extends VizMultiPaneEditor
                 }
             }
 
-            for (int i = 0; i < newBackgroundDisplays.length; i++) {
+            for (int i = 0; i < newDisplays.length; i++) {
                 if (i >= currentCanvases.length) {
                     /*
                      * Add new panes for any displays beyond the previous pane
                      * count
                      */
-                    addPane(newBackgroundDisplays[i]);
+                    addPane(newDisplays[i]);
                 } else {
                     /*
                      * For displays that match up with an existing pane index,
                      * ensure the pane is compatible
                      */
                     IDisplayPane currentCanvas = currentCanvases[i];
-                    IRenderableDisplay newDisplay = newBackgroundDisplays[i];
+                    IRenderableDisplay newDisplay = newDisplays[i];
                     if (!currentCanvas.getDescriptor()
                             .isCompatible(newDisplay.getDescriptor())) {
                         replacePane(currentCanvas, newDisplay);
@@ -347,7 +345,7 @@ public class ComboEditor extends VizMultiPaneEditor
                      */
                     for (int i = numPanes; i < supportedLayout
                             .numPanes(); ++i) {
-                        addPane(newBackgroundDisplays[0].createNewDisplay());
+                        addPane(newDisplays[0].createNewDisplay());
                     }
                     break;
                 }
@@ -363,18 +361,26 @@ public class ComboEditor extends VizMultiPaneEditor
      *
      * @param display
      *            the renderable display to load onto the background display
+     * @param loadToExisting
+     *            true if what will be loaded to the editor can be added to
+     *            existing resources, false if it will replace existing
+     *            resources
      * @return the background renderable display
      */
-    private IRenderableDisplay getBackgroundDisplay(
-            IRenderableDisplay display) {
-        /*
-         * First try to create a new background display from a compatible pane,
-         * so that we match its pan/zoom/scale state.
-         */
-        for (IDisplayPane canvas : getPaneManager()
-                .getCanvases(CanvasType.MAIN)) {
-            if (canvas.getDescriptor().isCompatible(display.getDescriptor())) {
-                return canvas.getRenderableDisplay().createNewDisplay();
+    private IRenderableDisplay getBackgroundDisplay(IRenderableDisplay display,
+            boolean loadToExisting) {
+        if (loadToExisting) {
+            /*
+             * Try to create a new background display from a compatible pane, so
+             * that we match its pan/zoom/scale state.
+             */
+            display = display.createNewDisplay();
+            conformScales(display);
+            for (IDisplayPane canvas : getMainCanvases()) {
+                if (canvas.getDescriptor()
+                        .isCompatible(display.getDescriptor())) {
+                    return canvas.getRenderableDisplay().createNewDisplay();
+                }
             }
         }
 
