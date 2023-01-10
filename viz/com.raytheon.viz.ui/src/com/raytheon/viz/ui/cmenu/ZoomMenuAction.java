@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -38,22 +38,23 @@ import com.raytheon.uf.viz.core.map.IMapDescriptor;
 
 /**
  * ZoomMenuAction
- * 
+ *
  * <pre>
- * 
- *    SOFTWARE HISTORY
- *   
- *    Date         Ticket#     Engineer    Description
- *    ------------ ----------  ----------- --------------------------
- *    Dec 14, 2007             chammack    Initial Creation.
- * 
+ *
+ * SOFTWARE HISTORY
+ *
+ * Date         Ticket#     Engineer    Description
+ * ------------ ----------  ----------- ---------------------------------------
+ * Dec 14, 2007             chammack    Initial Creation.
+ * Jan 04, 2023 8989        mapeters    Only zoom canvases that are compatible
+ *                                      with the active canvas
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1
  */
-public class ZoomMenuAction extends AbstractRightClickAction implements
-        IMenuCreator {
+public class ZoomMenuAction extends AbstractRightClickAction
+        implements IMenuCreator {
 
     private Menu menu;
 
@@ -61,11 +62,7 @@ public class ZoomMenuAction extends AbstractRightClickAction implements
 
     private int currentWidth;
 
-    private int lastX, lastY;
-
-    private IDisplayPane activePane;
-
-    public static double[] ZOOM_LEVELS = new double[] { 1, Math.sqrt(2), 2,
+    private static final double[] ZOOM_LEVELS = { 1, Math.sqrt(2), 2,
             2 * Math.sqrt(2), 4, 6.3, 10, 16 };
 
     /**
@@ -74,36 +71,18 @@ public class ZoomMenuAction extends AbstractRightClickAction implements
     public ZoomMenuAction(IDisplayPaneContainer container) {
         super(SWT.DROP_DOWN);
         setContainer(container);
-        this.activePane = container.getActiveDisplayPane();
-        this.lastX = activePane.getLastMouseX();
-        this.lastY = activePane.getLastMouseY();
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.jface.action.Action#run()
-     */
     @Override
     public void run() {
 
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.jface.action.Action#getText()
-     */
     @Override
     public String getText() {
         return "Zoom";
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.jface.action.IMenuCreator#dispose()
-     */
     @Override
     public void dispose() {
         if (menu != null) {
@@ -111,13 +90,6 @@ public class ZoomMenuAction extends AbstractRightClickAction implements
         }
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * org.eclipse.jface.action.IMenuCreator#getMenu(org.eclipse.swt.widgets
-     * .Menu)
-     */
     @Override
     public Menu getMenu(Menu parent) {
         if (menu != null) {
@@ -131,16 +103,17 @@ public class ZoomMenuAction extends AbstractRightClickAction implements
     }
 
     private class ZoomInternalAction extends Action {
-        DecimalFormat df = new DecimalFormat("0.0x");
 
-        int width;
+        private final DecimalFormat df = new DecimalFormat("0.0x");
 
-        boolean preSelected;
+        private final int width;
+
+        private final boolean preSelected;
 
         /**
          * Constructor
-         * 
-         * @param sz
+         *
+         * @param width
          */
         public ZoomInternalAction(int width) {
             super("", Action.AS_RADIO_BUTTON);
@@ -149,44 +122,37 @@ public class ZoomMenuAction extends AbstractRightClickAction implements
             this.setChecked(preSelected);
         }
 
-        /*
-         * (non-Javadoc)
-         * 
-         * @see org.eclipse.jface.action.Action#run()
-         */
         @Override
         public void run() {
             // Don't do anything if we were selected already
             if (preSelected) {
                 return;
             }
-            IDisplayPane[] panes = getContainer().getDisplayPanes();
-            int mouseX = activePane.getLastClickX();
-            int mouseY = activePane.getLastClickY();
 
-            double[] c2 = activePane.screenToGrid(mouseX, mouseY, 0.0);
-            c2 = activePane.getDescriptor().pixelToWorld(c2);
+            IDisplayPane activeCanvas = getContainer().getActiveDisplayPane();
+
+            int mouseX = activeCanvas.getLastClickX();
+            int mouseY = activeCanvas.getLastClickY();
+
+            double[] c2 = activeCanvas.screenToGrid(mouseX, mouseY, 0.0);
+            c2 = activeCanvas.getDescriptor().pixelToWorld(c2);
             double zoomLevel = (double) width / mapWidth;
-            for (IDisplayPane pane : panes) {
-                pane.getRenderableDisplay().getExtent().reset();
+            for (IDisplayPane canvas : getContainer()
+                    .getCanvasesCompatibleWithActive()) {
+                canvas.getRenderableDisplay().getExtent().reset();
                 if (zoomLevel < 1.0) {
-                    pane.getRenderableDisplay().recenter(c2);
-                    pane.getRenderableDisplay().zoom(zoomLevel);
+                    canvas.getRenderableDisplay().recenter(c2);
+                    canvas.getRenderableDisplay().zoom(zoomLevel);
                 } else {
-                    pane.getRenderableDisplay().scaleToClientArea(
-                            pane.getBounds());
+                    canvas.getRenderableDisplay()
+                            .scaleToClientArea(canvas.getBounds());
                 }
-                pane.refresh();
+                canvas.refresh();
             }
 
             getContainer().refresh();
         }
 
-        /*
-         * (non-Javadoc)
-         * 
-         * @see org.eclipse.jface.action.Action#getText()
-         */
         @Override
         public String getText() {
             IDescriptor descriptor = container.getActiveDisplayPane()
@@ -214,9 +180,6 @@ public class ZoomMenuAction extends AbstractRightClickAction implements
         return menu;
     }
 
-    /**
-     * 
-     */
     private void fillMenu(Menu menu) {
         IDescriptor descriptor = container.getActiveDisplayPane()
                 .getDescriptor();
@@ -226,16 +189,19 @@ public class ZoomMenuAction extends AbstractRightClickAction implements
             mapWidth = 10000;
         }
 
-        IDisplayPane pane = getContainer().getActiveDisplayPane();
-        currentWidth = (int) (mapWidth * pane.getRenderableDisplay().getZoom());
+        IDisplayPane activeCanvas = getContainer().getActiveDisplayPane();
+        currentWidth = (int) (mapWidth
+                * activeCanvas.getRenderableDisplay().getZoom());
 
         // Create the basic list of zoom ratios
-        List<Integer> widths = new ArrayList<Integer>();
+        List<Integer> widths = new ArrayList<>();
 
         for (double d : ZOOM_LEVELS) {
             int width = (int) (mapWidth / d);
-            // If this width is close enough to the current width(within 1%)
-            // then substitute in current width to avoid near duplicates
+            /*
+             * If this width is close enough to the current width (within 1%)
+             * then substitute in current width to avoid near duplicates
+             */
             if (Math.abs(width - currentWidth) < mapWidth / 100) {
                 width = currentWidth;
             }
@@ -258,13 +224,15 @@ public class ZoomMenuAction extends AbstractRightClickAction implements
         }
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.jface.action.Action#getMenuCreator()
-     */
     @Override
     public IMenuCreator getMenuCreator() {
         return this;
+    }
+
+    /**
+     * @return the number of zoom level options that this menu provides
+     */
+    public static int getNumZoomLevels() {
+        return ZOOM_LEVELS.length;
     }
 }
