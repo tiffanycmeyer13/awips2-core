@@ -53,6 +53,7 @@ import com.raytheon.uf.viz.core.rsc.capabilities.AbstractCapability;
  * Nov 18, 2013  2544     bsteffen  Clear dataTimes in disposeInternal to fix
  *                                  recycle.
  * Nov 28, 2017  5863     bsteffen  Change dataTimes to a NavigableSet
+ * Apr 14, 2022  21057    smoorthy  Do not remove newest frames.
  * 
  * </pre>
  * 
@@ -254,6 +255,14 @@ public abstract class AbstractPluginDataObjectResource<T extends AbstractResourc
     public final void remove(DataTime dataTime) {
         Frame frame = null;
         synchronized (this) {
+            DataTime latestTime = null;
+            if (!dataTimes.isEmpty()){
+                latestTime = this.dataTimes.last();
+            }
+            //Only remove this DataTime if it's before the latest frame time.
+            if (latestTime != null && !(dataTime.getRefTime().before(latestTime.getRefTime()))){
+                return;
+            }
             super.remove(dataTime);
             frame = frames.remove(dataTime);
         }
