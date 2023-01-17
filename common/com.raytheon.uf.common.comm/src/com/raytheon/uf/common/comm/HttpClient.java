@@ -113,6 +113,7 @@ import com.raytheon.uf.common.util.rate.TokenBucket;
  * Mar 24, 2017  DR 19830    D. Friedman Retry with delay on connection or 503 errors.
  * Aug 06, 2021  DR 22528    smoorthy    Added functionality to provide ServerName property in case of Http Proxy Server.
  *                                       Added method to retrieve credentials based on AuthScope.
+ * Jan 17, 2023  DR 22528    smoorthy    Handle case for proxy server without authentication by returning null Credentials.
  *
  * </pre>
  *
@@ -183,9 +184,8 @@ public class HttpClient {
 
     private final HttpClientConfig config;
 
-    /** map of host to ServerName property. Used for the Http Proxy Server*/
+    /** map of host to ServerName property. Used for the Http Proxy Server */
     private Map<String, String> serverNameMap = new ConcurrentHashMap<>();
-
 
     /**
      * The credentials provider takes care of adding the Authorization header
@@ -461,7 +461,8 @@ public class HttpClient {
                         "Invalid URI: " + put.getURI().toString());
             }
 
-            //add the ServerName to request header if exists (for the Proxy scenerio)
+            // add the ServerName to request header if exists (for the Proxy
+            // scenerio)
             String serverName = serverNameMap.get(host);
             if (serverName != null) {
                 put.addHeader("Host", serverName);
@@ -491,17 +492,18 @@ public class HttpClient {
                 try {
                     resp = postRequest(put);
                     if (resp.getStatusLine().getStatusCode() == 503) {
-                        /* If EDEX starts a shutdown with in-flight requests, the
-                         * port will not be closed immediately.  Instead, it
-                         * responds to new requests with a 503.  If the specific
-                         * type of service had no in-flight requests, but some other
-                         * service type did,  EDEX may return 404 instead.
-                         * However, testing for just 503 should cover the most common
-                         * case for thrift requests.
+                        /*
+                         * If EDEX starts a shutdown with in-flight requests,
+                         * the port will not be closed immediately. Instead, it
+                         * responds to new requests with a 503. If the specific
+                         * type of service had no in-flight requests, but some
+                         * other service type did, EDEX may return 404 instead.
+                         * However, testing for just 503 should cover the most
+                         * common case for thrift requests.
                          *
-                         * Need to wait a bit to ensure LVS has deactivated the route
-                         * to the EDEX that is shutting down.  Otherwise, the retry
-                         * may just go to the same server again.
+                         * Need to wait a bit to ensure LVS has deactivated the
+                         * route to the EDEX that is shutting down. Otherwise,
+                         * the retry may just go to the same server again.
                          */
                         put.abort();
                         wantRetryDelay = true;
@@ -540,7 +542,8 @@ public class HttpClient {
                             try {
                                 Thread.sleep(config.getRetryDelay());
                             } catch (InterruptedException e) {
-                                throw new CommunicationException("Interrupted while waiting to retry");
+                                throw new CommunicationException(
+                                        "Interrupted while waiting to retry");
                             }
                         }
                         retry = true;
@@ -613,12 +616,14 @@ public class HttpClient {
                     // if there was an error reading the input stream,
                     // notify but continue
                     statusHandler.handle(Priority.EVENTB,
-                            "Error reading InputStream, assuming closed");
+                            "Error reading InputStream, assuming closed", e);
                 }
                 try {
                     SafeGzipDecompressingEntity.close();
                 } catch (IOException e) {
-                    // ignore
+                    statusHandler.handle(Priority.EVENTB,
+                            "Exception while closing SafeGzipDecompressingEntity",
+                            e);
                 }
             }
         }
@@ -657,15 +662,16 @@ public class HttpClient {
         if (gzipRequests) {
             PooledByteArrayOutputStream byteStream = ByteArrayOutputStreamPool
                     .getInstance().getStream(message.length);
-            GZIPOutputStream gzipStream = new GZIPOutputStream(byteStream);
-            gzipStream.write(message);
-            gzipStream.finish();
-            gzipStream.flush();
-            byte[] gzipMessage = byteStream.toByteArray();
-            gzipStream.close();
-            if (message.length > gzipMessage.length) {
-                message = gzipMessage;
-                put.setHeader("Content-Encoding", "gzip");
+            try (GZIPOutputStream gzipStream = new GZIPOutputStream(
+                    byteStream)) {
+                gzipStream.write(message);
+                gzipStream.finish();
+                gzipStream.flush();
+                byte[] gzipMessage = byteStream.toByteArray();
+                if (message.length > gzipMessage.length) {
+                    message = gzipMessage;
+                    put.setHeader("Content-Encoding", "gzip");
+                }
             }
         }
 
@@ -932,7 +938,7 @@ public class HttpClient {
      * @author chammack
      * @version 1.0
      */
-    public static interface IStreamHandler {
+    public interface IStreamHandler {
 
         /**
          * Implementation method for stream callbacks
@@ -944,8 +950,7 @@ public class HttpClient {
          * @param is
          * @throws CommunicationException
          */
-        public abstract void handleStream(InputStream is)
-                throws CommunicationException;
+        void handleStream(InputStream is) throws CommunicationException;
     }
 
     /**
@@ -953,9 +958,8 @@ public class HttpClient {
      * once for a given entity. See postBinary(String, OStreamHandler) for
      * details.
      */
-    public static interface OStreamHandler {
-        public void writeToStream(OutputStream os)
-                throws CommunicationException;
+    public interface OStreamHandler {
+        void writeToStream(OutputStream os) throws CommunicationException;
     }
 
     /**
@@ -1003,7 +1007,8 @@ public class HttpClient {
                     try {
                         baos.close();
                     } catch (IOException e) {
-                        // ignore
+                        statusHandler.handle(Priority.EVENTB,
+                                "Error closing outputstream", e);
                     }
                 }
             }
@@ -1036,34 +1041,35 @@ public class HttpClient {
                 new UsernamePasswordCredentials(username, password));
     }
 
-
     /**
      * Get credentials based on AuthScope
      *
      * @param AuthScope
      *            Authentication scope information
-     * @return Credentials
-     *            User credentials for a particular AuthScope
+     * @return Credentials User credentials for a particular AuthScope or null
+     *         if they don't exist.
      */
     public Credentials getCredentials(AuthScope authScope) {
-        return credentialsMap.get(authScope.getHost()).getCredentials(authScope);
+        CredentialsProvider provider = credentialsMap.get(authScope.getHost());
+        if (provider == null) {
+            return null;
+        }
+        return provider.getCredentials(authScope);
     }
 
-
     /**
-     * 
-     * Map ServerName attribute for a particular host. 
+     *
+     * Map ServerName attribute for a particular host.
      *
      * @param host
      *            The host
      * @param serverName
-     *            The ServerName attribute on the corresponding virtual host node (used for Proxy Server)
+     *            The ServerName attribute on the corresponding virtual host
+     *            node (used for Proxy Server)
      */
     public void setHostHeader(String host, String serverName) {
         this.serverNameMap.put(host, serverName);
     }
-
-
 
     /**
      * Gets a thread local HttpContext to use for an http or https request.

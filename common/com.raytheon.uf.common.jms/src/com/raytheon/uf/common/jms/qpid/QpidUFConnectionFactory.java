@@ -67,6 +67,8 @@ import io.netty.handler.proxy.ProxyHandler;
  *                                     keystore files. Deleted temp store
  *                                     files on exception when URI building
  *                                     fails
+ * Jan 17, 2023 22528      smoorthy    Pass empty credentials for proxy handler if proxy server
+ *                                     doesn't require authentication. Add default ssl port 443.
  * </pre>
  *
  * @author tgurney
@@ -107,6 +109,12 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
             URI proxyURI = new URI(proxyAddr);
             proxyHost = proxyURI.getHost();
             proxyPort = proxyURI.getPort();
+
+            if (proxyPort < 0) {
+                // default ssl port if no port entered
+                proxyPort = 443;
+            }
+
         } catch (URISyntaxException e) {
             throw new JMSConfigurationException(
                     "Problem processing proxy address string", e);
@@ -117,8 +125,16 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
                 AuthScope.ANY_REALM, AuthSchemes.BASIC);
         UsernamePasswordCredentials creds = (UsernamePasswordCredentials) HttpClient
                 .getInstance().getCredentials(authScope);
-        String username = creds.getUserName();
-        String password = creds.getPassword();
+
+        String username;
+        String password;
+        if (creds != null) {
+            username = creds.getUserName();
+            password = creds.getPassword();
+        } else {
+            username = "";
+            password = "";
+        }
 
         // add the proxy handler extension
         String host = proxyHost;
