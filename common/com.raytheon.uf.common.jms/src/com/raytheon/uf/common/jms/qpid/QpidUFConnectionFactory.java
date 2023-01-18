@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map.Entry;
 import java.util.function.Supplier;
@@ -62,6 +63,10 @@ import io.netty.handler.proxy.ProxyHandler;
  * Aug 06, 2021 22528      smoorthy    Add proxy handler extension to ConnectionFactory
  * Apr 12, 2022 8677       tgurney     Minor changes to SSL configuration API.
  *                                     Minor refactoring
+ * Jan 03, 2023 8982       thuggins    RCM Process fills /tmp inode count with
+ *                                     keystore files. Deleted temp store
+ *                                     files on exception when URI building
+ *                                     fails
  * </pre>
  *
  * @author tgurney
@@ -73,6 +78,10 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
     private final JmsConnectionFactory connectionFactory;
 
     private static final String JMS_USERNAME = "guest";
+
+    public static final String KEY_STORE_LOCATION = "transport.keyStoreLocation";
+
+    public static final String TRUST_STORE_LOCATION = "transport.trustStoreLocation";
 
     public QpidUFConnectionFactory(JMSConnectionInfo connectionInfo)
             throws JMSConfigurationException {
@@ -188,15 +197,16 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
         try {
             String password = sslConfig.getStorePassword();
 
-            uriBuilder.addParameter("transport.trustStoreLocation",
+            uriBuilder.addParameter(TRUST_STORE_LOCATION,
                     trustStorePath.toString());
             uriBuilder.addParameter("transport.trustStorePassword", password);
-            uriBuilder.addParameter("transport.keyStoreLocation",
+            uriBuilder.addParameter(KEY_STORE_LOCATION,
                     keyStorePath.toString());
             uriBuilder.addParameter("transport.keyStorePassword", password);
 
             return uriBuilder;
         } catch (Exception e) {
+            deleteTempStores(sslConfig);
             throw new JMSConfigurationException(
                     "Could not decrypt JMS password.", e);
         }
@@ -205,4 +215,25 @@ public class QpidUFConnectionFactory implements ConnectionFactory {
     public QueueConnection createQueueConnection() throws JMSException {
         return connectionFactory.createQueueConnection();
     }
+
+    public static boolean deleteTempStores(JmsSslConfiguration sslConfig)
+            throws JMSConfigurationException {
+        boolean retVal = false;
+        if (sslConfig != null) {
+            Path trustStorePath = sslConfig.getJavaTrustStoreFile();
+            Path keyStorePath = sslConfig.getJavaKeyStoreFile();
+            try {
+                retVal = Files.deleteIfExists(trustStorePath)
+                        && Files.deleteIfExists(keyStorePath);
+            } catch (Exception e) {
+                throw new JMSConfigurationException(
+                        "Could not delete temporary keystore: " + keyStorePath
+                                + " and truststore: " + trustStorePath,
+                        e);
+            }
+        }
+
+        return retVal;
+    }
+
 }
