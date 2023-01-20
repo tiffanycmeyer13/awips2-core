@@ -34,6 +34,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Sep 23, 2021 8608       mapeters    Initial creation
+ * Aug 24, 2022 8920       mapeters    Optimizations; Swap key/values for statuses.
  *
  * </pre>
  *
@@ -46,10 +47,10 @@ public class DataStorageAuditEvent {
     private MetadataAndDataId[] dataIds;
 
     @DynamicSerializeElement
-    private Map<String, MetadataStatus> metadataStatuses;
+    private Map<MetadataStatus, String[]> metadataStatuses;
 
     @DynamicSerializeElement
-    private Map<String, DataStatus> dataStatuses;
+    private Map<DataStatus, String[]> dataStatuses;
 
     public DataStorageAuditEvent() {
     }
@@ -62,20 +63,20 @@ public class DataStorageAuditEvent {
         this.dataIds = dataIds;
     }
 
-    public Map<String, MetadataStatus> getMetadataStatuses() {
+    public Map<MetadataStatus, String[]> getMetadataStatuses() {
         return metadataStatuses;
     }
 
     public void setMetadataStatuses(
-            Map<String, MetadataStatus> metadataStatuses) {
+            Map<MetadataStatus, String[]> metadataStatuses) {
         this.metadataStatuses = metadataStatuses;
     }
 
-    public Map<String, DataStatus> getDataStatuses() {
+    public Map<DataStatus, String[]> getDataStatuses() {
         return dataStatuses;
     }
 
-    public void setDataStatuses(Map<String, DataStatus> dataStatuses) {
+    public void setDataStatuses(Map<DataStatus, String[]> dataStatuses) {
         this.dataStatuses = dataStatuses;
     }
 

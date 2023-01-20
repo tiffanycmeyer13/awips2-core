@@ -22,9 +22,7 @@ import java.awt.Point;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
@@ -60,6 +58,8 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Sep 23, 2021  8608     mapeters  Add metadata handling
  * Apr 13, 2022  8845     njensen   Fix dimension value in processPoint()
  * Jun 08, 2022  8866     mapeters  Update requests to better match pypies
+ * Sep 27, 2022  8930     mapeters  Return records in the same order as the
+ *                                  requested datasets
  *
  * </pre>
  *
@@ -74,7 +74,7 @@ public class RetrieveProcessor implements
     protected Request request = Request.ALL;
 
     /** Optional, null means all */
-    protected Set<String> datasets = null;
+    protected List<String> datasets = null;
 
     public RetrieveProcessor() {
 
@@ -84,12 +84,12 @@ public class RetrieveProcessor implements
         this.request = request;
     }
 
-    public RetrieveProcessor(String datasets, Request request) {
+    public RetrieveProcessor(String dataset, Request request) {
         this.request = request;
-        this.datasets = Collections.singleton(datasets);
+        this.datasets = List.of(dataset);
     }
 
-    public RetrieveProcessor(Set<String> datasets, Request request) {
+    public RetrieveProcessor(List<String> datasets, Request request) {
         this.request = request;
         this.datasets = datasets;
     }
@@ -102,11 +102,11 @@ public class RetrieveProcessor implements
         this.request = request;
     }
 
-    public Set<String> getDatasets() {
+    public List<String> getDatasets() {
         return datasets;
     }
 
-    public void setDatasets(Set<String> datasets) {
+    public void setDatasets(List<String> datasets) {
         this.datasets = datasets;
     }
 
@@ -114,9 +114,9 @@ public class RetrieveProcessor implements
     public List<IDataRecord> process(
             MutableEntry<DataStoreKey, DataStoreValue> entry, Object... args)
             throws EntryProcessorException {
+        DataStoreKey key = entry.getKey();
         if (!entry.exists()) {
-            throw new EntryProcessorException(
-                    "No data found for " + entry.getKey());
+            throw new EntryProcessorException("No data found for " + key);
         }
 
         IPerformanceTimer timer = TimeUtil.getPerformanceTimer();
@@ -131,17 +131,26 @@ public class RetrieveProcessor implements
                 result.add(applyRequest(record));
             }
         } else {
-            for (RecordAndMetadata rm : rms) {
-                IDataRecord record = rm.getRecord();
-                if (datasets.contains(record.getName())) {
-                    result.add(applyRequest(record));
+            for (String dataset : datasets) {
+                IDataRecord processedRecord = null;
+                for (RecordAndMetadata rm : rms) {
+                    IDataRecord record = rm.getRecord();
+                    if (dataset.equals(record.getName())) {
+                        processedRecord = applyRequest(record);
+                        break;
+                    }
                 }
+                if (processedRecord == null) {
+                    throw new EntryProcessorException(
+                            "Dataset '" + dataset + "' does not exist in "
+                                    + key.getPath() + "/" + key.getGroup());
+                }
+                result.add(processedRecord);
             }
         }
 
         timer.stop();
-        perfLog.logDuration("Processing " + entry.getKey(),
-                timer.getElapsedTime());
+        perfLog.logDuration("Processing " + key, timer.getElapsedTime());
         return result;
     }
 

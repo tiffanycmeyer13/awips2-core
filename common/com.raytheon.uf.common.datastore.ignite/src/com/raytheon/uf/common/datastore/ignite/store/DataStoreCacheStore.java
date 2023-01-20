@@ -83,6 +83,7 @@ import com.raytheon.uf.common.util.Pair;
  * Feb 17, 2022  8608     mapeters  Remove illegal write behind checking, handle new
  *                                  MetadataSpecificity values, optimize
  *                                  validateMetadataSpecificity() some
+ * Aug 24, 2022  8920     mapeters  Optimizations; Swap key/values for traceId/status mapping.
  *
  * </pre>
  *
@@ -464,12 +465,13 @@ public class DataStoreCacheStore
                             + successfulTraceIds);
         }
 
-        Map<String, DataStatus> traceIdToStatuses = new HashMap<>();
+        Map<DataStatus, String[]> traceIdToStatuses = new HashMap<>();
         DataStatus failureStatus = synchronous ? DataStatus.FAILURE_SYNC
                 : DataStatus.FAILURE_ASYNC;
-        failedTraceIds.forEach(id -> traceIdToStatuses.put(id, failureStatus));
-        successfulTraceIds
-                .forEach(id -> traceIdToStatuses.put(id, DataStatus.SUCCESS));
+        traceIdToStatuses.put(failureStatus,
+                failedTraceIds.toArray(String[]::new));
+        traceIdToStatuses.put(DataStatus.SUCCESS,
+                successfulTraceIds.toArray(String[]::new));
         DataStorageAuditerContainer.getInstance().getAuditer()
                 .processDataStatuses(traceIdToStatuses);
     }

@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.persistence.PersistenceException;
 
@@ -149,6 +150,7 @@ import com.raytheon.uf.edex.database.query.DatabaseQuery;
  * Feb 17, 2022  8608     mapeters    Add auditMissingPiecesForDatabaseOnlyPdos()
  * Jun 22, 2022  8865     mapeters    Updates to hdf5 storage methods to audit missing pieces
  *                                    for PDOs that are filtered out
+ * Aug 24, 2022  8920     mapeters    Optimizations; Swap key/values for statuses. Add "enabled" check.
  *
  * </pre>
  *
@@ -208,6 +210,10 @@ public abstract class PluginDao extends CoreDao {
         this.pluginName = pluginName;
         PLUGIN_HDF5_DIR = pluginName + File.separator;
         pathProvider = PluginFactory.getInstance().getPathProvider(pluginName);
+    }
+
+    public boolean isAuditEnabled() {
+        return true;
     }
 
     /**
@@ -451,15 +457,30 @@ public abstract class PluginDao extends CoreDao {
             Collection<? extends PersistableDataObject> persisted,
             Collection<? extends PersistableDataObject> duplicates,
             Collection<? extends PersistableDataObject> all) {
-        Map<String, MetadataStatus> traceIdToStatuses = new HashMap<>();
-        persisted.forEach(pdo -> traceIdToStatuses.put(pdo.getTraceId(),
-                MetadataStatus.SUCCESS));
-        duplicates.forEach(pdo -> traceIdToStatuses.put(pdo.getTraceId(),
-                MetadataStatus.DUPLICATE));
-        for (PersistableDataObject<?> pdo : all) {
-            String traceId = pdo.getTraceId();
-            traceIdToStatuses.putIfAbsent(traceId, MetadataStatus.FAILURE);
+        if (!isAuditEnabled()) {
+            return;
         }
+        Map<MetadataStatus, String[]> traceIdToStatuses = new HashMap<>();
+        Set<String> persistedTraceIds = persisted.stream()
+                .map(PersistableDataObject::getTraceId)
+                .collect(Collectors.toSet());
+        traceIdToStatuses.put(MetadataStatus.SUCCESS,
+                persistedTraceIds.toArray(String[]::new));
+        Set<String> duplicateTraceIds = duplicates.stream()
+                .map(PersistableDataObject::getTraceId)
+                .collect(Collectors.toSet());
+        traceIdToStatuses.put(MetadataStatus.DUPLICATE,
+                duplicateTraceIds.toArray(String[]::new));
+
+        if (all.size() > persisted.size() + duplicates.size()) {
+            String[] failureTraceIds = all.stream()
+                    .map(PersistableDataObject::getTraceId)
+                    .filter(id -> !persistedTraceIds.contains(id)
+                            && !duplicateTraceIds.contains(id))
+                    .toArray(String[]::new);
+            traceIdToStatuses.put(MetadataStatus.FAILURE, failureTraceIds);
+        }
+
         DataStorageAuditerContainer.getInstance().getAuditer()
                 .processMetadataStatuses(traceIdToStatuses);
     }
@@ -476,19 +497,23 @@ public abstract class PluginDao extends CoreDao {
      */
     public void auditMissingPiecesForDatabaseOnlyPdos(
             PluginDataObject... pdos) {
-        if (pdos.length == 0) {
+        if (pdos.length == 0 || !isAuditEnabled()) {
             return;
         }
 
         List<MetadataAndDataId> dataIds = new ArrayList<>(pdos.length);
         for (PluginDataObject pdo : pdos) {
-
-            String traceId = pdo.getTraceId();
             DataUriMetadataIdentifier metaId = new DataUriMetadataIdentifier(
                     pdo, MetadataSpecificity.NO_DATA);
-            IDataIdentifier dataId = new NoDataIdentifier(traceId);
+            IDataIdentifier dataId = new NoDataIdentifier();
             dataIds.add(new MetadataAndDataId(metaId, dataId));
         }
+
+        /*
+         * TODO Maybe some dbOnlyTraceIds field in DataStorageAuditEvent so we
+         * can just send trace IDs to save space - auditer can determine all
+         * fields from that
+         */
         DataStorageAuditEvent databaseOnlyAuditEvent = new DataStorageAuditEvent();
         databaseOnlyAuditEvent
                 .setDataIds(dataIds.toArray(new MetadataAndDataId[0]));

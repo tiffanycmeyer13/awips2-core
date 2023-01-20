@@ -31,18 +31,11 @@ import java.io.Serializable;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- ----------------------------------------
  * Feb 04, 2022 8608       mapeters    Initial creation
+ * Aug 24, 2022 8920       mapeters    Remove traceId getter.
  *
  * </pre>
  *
  * @author mapeters
  */
 public interface IDataIdentifier extends Serializable {
-
-    /**
-     * Get the trace ID that uniquely identifies the combination of this data
-     * and its current data storage route.
-     *
-     * @return the trace ID
-     */
-    String getTraceId();
 }

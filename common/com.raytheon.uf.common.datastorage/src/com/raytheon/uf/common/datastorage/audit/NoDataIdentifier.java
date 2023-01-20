@@ -19,7 +19,6 @@
 package com.raytheon.uf.common.datastorage.audit;
 
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
-import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
  * Data identifier implementation that doesn't actually identify any data. Used
@@ -32,6 +31,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- ----------------------------------------
  * Feb 04, 2022 8608       mapeters    Initial creation
+ * Aug 24, 2022 8920       mapeters    Remove traceId functionality.
  *
  * </pre>
  *
@@ -42,30 +42,11 @@ public class NoDataIdentifier implements IDataIdentifier {
 
     private static final long serialVersionUID = 1L;
 
-    @DynamicSerializeElement
-    private String traceId;
-
-    /**
-     * Empty constructor for serialization.
-     */
     public NoDataIdentifier() {
-    }
-
-    public NoDataIdentifier(String traceId) {
-        this.traceId = traceId;
-    }
-
-    @Override
-    public String getTraceId() {
-        return traceId;
-    }
-
-    public void setTraceId(String traceId) {
-        this.traceId = traceId;
     }
 
     @Override
     public String toString() {
-        return "NoDataIdentifier [traceId=" + traceId + "]";
+        return "NoDataIdentifier";
     }
 }

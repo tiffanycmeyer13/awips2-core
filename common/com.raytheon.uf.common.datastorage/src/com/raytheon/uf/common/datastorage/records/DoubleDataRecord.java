@@ -22,6 +22,7 @@ package com.raytheon.uf.common.datastorage.records;
 
 import java.util.Arrays;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -37,6 +38,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Sep 08, 2014           kustert   Initial Creation.
  * Apr 24, 2015  4425     nabowle   Bring in.
  * Jun 10, 2021  8450     mapeters  Add serialVersionUID
+ * Nov 03, 2022  8931     smoorthy  Add group name normalization
  *
  * </pre>
  *
@@ -71,7 +73,7 @@ public class DoubleDataRecord extends AbstractStorageRecord {
     public DoubleDataRecord(String name, String group, double[] doubleData,
             int dimension, long[] sizes) {
         this.doubleData = doubleData;
-        this.group = group;
+        this.group = DataStoreFactory.normalizeAttributeName(group);
         this.dimension = dimension;
         this.sizes = sizes;
         this.name = name;
