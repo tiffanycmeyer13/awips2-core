@@ -104,6 +104,7 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Sep 27, 2022  8930     mapeters  Update retrieveDatasets to return records in
  *                                  the same order as the requested datasets
  * Oct 11, 2022  8929     mapeters  Handle FastStoreCallable constructor update
+ * Nov 04, 2022  8931     smoorthy  Normalize path name.
  *
  * </pre>
  *
@@ -136,7 +137,7 @@ public class IgniteDataStore implements IDataStore {
     public IgniteDataStore(File file, IgniteClientManager igniteClientManager,
             IgniteCacheAccessor<DataStoreKey, DataStoreValue> igniteCacheAccessor,
             IDataStore throughDataStore) {
-        path = file.getPath();
+        path = DataStoreFactory.normalizeAttributeName(file.getPath());
         this.igniteClientManager = igniteClientManager;
         this.igniteCacheAccessor = igniteCacheAccessor;
         this.throughDataStore = throughDataStore;
@@ -824,4 +825,5 @@ public class IgniteDataStore implements IDataStore {
         timer.stop();
         perfLog.logDuration(msg, timer.getElapsedTime());
     }
+
 }
