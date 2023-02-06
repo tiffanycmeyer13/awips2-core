@@ -77,6 +77,7 @@ import com.raytheon.uf.edex.core.IMessageProducer;
  *                                     prevent methods from running when they shouldn't
  * Aug 24, 2022 8920       mapeters    Optimizations; Swap key/values for statuses.
  * Sep 26, 2022 8920       smoorthy    Revise for multiple Auditor instances.
+ * Jan 05, 2023 8994       smoorthy    Add ability to disable auditing via environment variable.
  * </pre>
  *
  * @author mapeters
@@ -94,12 +95,13 @@ public class DataStorageAuditer
 
     /**
      * Path to persist state to, so that data storage routes that occur around
-     * EDEX restarts are still audited correctly. Needs to be combined with auditor ID and file extension for full name.
+     * EDEX restarts are still audited correctly. Needs to be combined with
+     * auditor ID and file extension for full name.
      */
-    private static final String INSTANCE_PERSISTED_STATE_PATH_PREFIX = EDEXUtil.getEdexShare()
-            + File.separator + "dataStorageAuditerState";
+    private static final String INSTANCE_PERSISTED_STATE_PATH_PREFIX = EDEXUtil
+            .getEdexShare() + File.separator + "dataStorageAuditerState";
 
-    /**File extension for persisted files */
+    /** File extension for persisted files */
     private static final String PERSISTED_STATE_FILE_EXTENSION = ".gz";
 
     private final AtomicBoolean persistedStateLoaded = new AtomicBoolean(false);
@@ -120,7 +122,8 @@ public class DataStorageAuditer
     private final IDataStorageAuditListener auditListener;
 
     private final boolean enabled = "ignite"
-            .equals(System.getenv("DATASTORE_PROVIDER"));
+            .equals(System.getenv("DATASTORE_PROVIDER"))
+            && Boolean.parseBoolean(System.getenv("AUDITOR_ENABLED"));
 
     public DataStorageAuditer(IMessageProducer messageProducer, int id) {
         auditListener = new DefaultDataStorageAuditListener(messageProducer);
@@ -372,11 +375,11 @@ public class DataStorageAuditer
         }
 
         // Load state from disk
-        String persistedFile = INSTANCE_PERSISTED_STATE_PATH_PREFIX + AUDITOR_ID + PERSISTED_STATE_FILE_EXTENSION;
+        String persistedFile = INSTANCE_PERSISTED_STATE_PATH_PREFIX + AUDITOR_ID
+                + PERSISTED_STATE_FILE_EXTENSION;
         Path persistedStatePath = Paths.get(persistedFile);
         if (Files.isRegularFile(persistedStatePath)) {
-            try (FileInputStream fis = new FileInputStream(
-                    persistedFile);
+            try (FileInputStream fis = new FileInputStream(persistedFile);
                     GZIPInputStream gzis = new GZIPInputStream(fis)) {
                 @SuppressWarnings("unchecked")
                 Map<String, DataStorageInfo> persistedTraceIdToInfo = SerializationUtil
@@ -385,14 +388,15 @@ public class DataStorageAuditer
                 logger.info("Loaded info for {} data storage operations",
                         traceIdToInfo.size());
             } catch (Exception e) {
-                logger.error("Error loading persisted state from "
-                        + persistedFile, e);
+                logger.error(
+                        "Error loading persisted state from " + persistedFile,
+                        e);
             }
             try {
                 Files.delete(persistedStatePath);
             } catch (Exception e) {
-                logger.error("Error deleting persisted state: "
-                        + persistedFile, e);
+                logger.error("Error deleting persisted state: " + persistedFile,
+                        e);
             }
         } else if (Files.exists(persistedStatePath)) {
             logger.error(
@@ -430,15 +434,16 @@ public class DataStorageAuditer
 
         // Persist state to disk
         cleanup();
-        logger.info("Auditor {}: Persisting info for {} data storage operations",
+        logger.info(
+                "Auditor {}: Persisting info for {} data storage operations",
                 AUDITOR_ID, traceIdToInfo.size());
-        String persistedFile = INSTANCE_PERSISTED_STATE_PATH_PREFIX + AUDITOR_ID + PERSISTED_STATE_FILE_EXTENSION;
+        String persistedFile = INSTANCE_PERSISTED_STATE_PATH_PREFIX + AUDITOR_ID
+                + PERSISTED_STATE_FILE_EXTENSION;
         try (FileOutputStream fos = new FileOutputStream(persistedFile);
                 GZIPOutputStream gzos = new GZIPOutputStream(fos)) {
             SerializationUtil.transformToThriftUsingStream(traceIdToInfo, gzos);
         } catch (Exception e) {
-            logger.error("Error persisting state to " + persistedFile,
-                    e);
+            logger.error("Error persisting state to " + persistedFile, e);
         }
     }
 }
