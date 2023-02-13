@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.IntStream;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
@@ -47,6 +48,7 @@ import com.raytheon.uf.common.status.UFStatus;
  * Sep 26, 2022 8920       smoorthy    Scale Auditor; Send to one of multiple URIs.
  * Jan 05, 2023 8994       smoorthy    Add ability to disable sending audit events,
  *                                     primarily for debugging purposes.
+ * Feb 03, 2023 9019       mapeters    Adjust for configurable number of audit threads.
  * </pre>
  *
  * @author mapeters
@@ -65,9 +67,10 @@ public abstract class AbstractDataStorageAuditerProxy
     protected final IUFStatusHandler statusHandler = UFStatus
             .getHandler(getClass());
 
-    private static final String[] URI_LIST = { "data.storage.audit.event1",
-            "data.storage.audit.event2", "data.storage.audit.event3",
-            "data.storage.audit.event4", "data.storage.audit.event5" };
+    private static final String[] URI_LIST = IntStream
+            .rangeClosed(1, DataStorageAuditUtils.NUM_QUEUES)
+            .mapToObj(i -> DataStorageAuditUtils.QUEUE_ROOT_NAME + i)
+            .toArray(String[]::new);
 
     public AbstractDataStorageAuditerProxy() {
         if (auditorProxyEnabled) {
