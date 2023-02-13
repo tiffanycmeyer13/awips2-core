@@ -52,6 +52,7 @@ import com.raytheon.uf.common.util.collections.BoundedMap;
  *                                  ProcessHandle to get pid.
  * Nov 19, 2020  8239     randerso  Use short hostname instead of FQDN
  * Sep 29, 2021  8608     mapeters  Added no-arg {@link #getClientID()}
+ * Feb 13, 2023  9020     tgurney   getLocalAddress skip dummy interfaces
  *
  * </pre>
  *
@@ -102,6 +103,11 @@ public class SystemUtil {
                 while (addrToUse == null && nis.hasMoreElements()) {
                     NetworkInterface ni = nis.nextElement();
                     Enumeration<InetAddress> addrs = ni.getInetAddresses();
+                    if (ni.getInterfaceAddresses().stream().anyMatch(
+                            ifaddr -> ifaddr.getNetworkPrefixLength() == 32)) {
+                        // dummy interface
+                        continue;
+                    }
                     while (addrToUse == null && addrs.hasMoreElements()) {
                         InetAddress addr = addrs.nextElement();
                         if (!addr.isLinkLocalAddress()
