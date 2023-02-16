@@ -2,7 +2,7 @@
 <feature
       id="com.raytheon.uf.edex.foss.org.apache.commons.net.feature"
       label="org.apache.commons.net Feature"
-      version="3.3"
+      version="3.9.0"
       provider-name="RAYTHEON">
 
    <description url="http://www.example.com/description">
@@ -21,6 +21,6 @@
          id="org.apache.commons.net"
          download-size="0"
          install-size="0"
-         version="3.3"/>
+         version="3.9.0"/>
 
 </feature>
