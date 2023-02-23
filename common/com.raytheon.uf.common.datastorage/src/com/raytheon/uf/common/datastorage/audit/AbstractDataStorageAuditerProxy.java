@@ -45,6 +45,8 @@ import com.raytheon.uf.common.status.UFStatus;
  * Jun 28, 2022 8865       mapeters    Consolidate exception handling
  * Aug 24, 2022 8920       mapeters    Optimizations; Swap key/values for statuses.
  * Sep 26, 2022 8920       smoorthy    Scale Auditor; Send to one of multiple URIs.
+ * Jan 05, 2023 8994       smoorthy    Add ability to disable sending audit events,
+ *                                     primarily for debugging purposes.
  * </pre>
  *
  * @author mapeters
@@ -52,12 +54,28 @@ import com.raytheon.uf.common.status.UFStatus;
 public abstract class AbstractDataStorageAuditerProxy
         implements IDataStorageAuditer {
 
+    /**
+     * If environment variable AUDITOR_PROXY_ENABLED is set to "true", this
+     * proxy sends audit events to the auditor queues for processing. If set to
+     * anything else, sending is disabled.
+     */
+    private final boolean auditorProxyEnabled = Boolean
+            .parseBoolean(System.getenv("AUDITOR_PROXY_ENABLED"));
+
     protected final IUFStatusHandler statusHandler = UFStatus
             .getHandler(getClass());
 
     private static final String[] URI_LIST = { "data.storage.audit.event1",
             "data.storage.audit.event2", "data.storage.audit.event3",
             "data.storage.audit.event4", "data.storage.audit.event5" };
+
+    public AbstractDataStorageAuditerProxy() {
+        if (auditorProxyEnabled) {
+            statusHandler.info("sending enabled for auditor proxy");
+        } else {
+            statusHandler.info("sending disabled for auditor proxy");
+        }
+    }
 
     @Override
     public void processDataIds(MetadataAndDataId[] dataIds) {
@@ -90,6 +108,11 @@ public abstract class AbstractDataStorageAuditerProxy
 
     @Override
     public void processEvent(DataStorageAuditEvent event) {
+
+        // return if Proxy is off
+        if (!auditorProxyEnabled) {
+            return;
+        }
 
         /*
          * split up event into multiple events so that each event has has the
