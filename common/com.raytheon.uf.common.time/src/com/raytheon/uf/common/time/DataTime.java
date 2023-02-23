@@ -78,6 +78,7 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  *                                   more in line with what is used in
  *                                   Level.INVALID_VALUE.
  * Oct 28, 2022  8959     mapeters   Added levelType
+ * Feb 10, 2023  9010     mapeters   Added hasFcst()
  *
  * </pre>
  *
@@ -405,6 +406,13 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
     }
 
     /**
+     * @return true if this data time has a forecast component, false otherwise
+     */
+    public boolean hasFcst() {
+        return fcstTime > 0 || utilityFlags.contains(FLAG.FCST_USED);
+    }
+
+    /**
      * @return the validPeriod
      */
     public TimeRange getValidPeriod() {
@@ -591,7 +599,7 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
 
         // code initial time like a green time and the forecast time in hours if
         // forecast time is non-zero.
-        if ((fcstTime > 0) || utilityFlags.contains(FLAG.FCST_USED)) {
+        if (hasFcst()) {
 
             long fcstTimeInSec = fcstTime;
             Calendar cal = new GregorianCalendar(TimeUtil.GMT_TIME_ZONE);
@@ -816,14 +824,12 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
 
     @Override
     public DataTime clone() {
-        boolean hasForecast = utilityFlags.contains(FLAG.FCST_USED)
-                || (fcstTime > 0);
         boolean hasTimePeriod = utilityFlags.contains(FLAG.PERIOD_USED);
         DataTime rval = null;
-        if (hasForecast && hasTimePeriod) {
+        if (hasFcst() && hasTimePeriod) {
             rval = new DataTime(this.getRefTimeAsCalendar(), this.getFcstTime(),
                     this.getValidPeriod().clone());
-        } else if (hasForecast) {
+        } else if (hasFcst()) {
             rval = new DataTime(this.getRefTimeAsCalendar(),
                     this.getFcstTime());
         } else if (hasTimePeriod) {
