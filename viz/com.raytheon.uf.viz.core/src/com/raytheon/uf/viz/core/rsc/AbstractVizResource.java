@@ -86,6 +86,8 @@ import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
  * Feb 18, 2021  8343     mchan      Added performance logging to capture how look
  *                                   took to initialize and paint a resource
  * Dec 06, 2021  8341     randerso   Added getResourceId for contour logging
+ * Feb 21, 2023  23465    dhaines    Paint logging should only happen when it takes 
+ *                                   > 500ms                                   
  *
  * </pre>
  *
@@ -548,10 +550,12 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
                 long startTime = System.currentTimeMillis();
                 paintInternal(target, paintProps);
                 long elapsedTime = System.currentTimeMillis() - startTime;
-                perfLog.logDuration(
-                        "painting: " + this.getClass().getSimpleName() + " "
-                                + this.getSafeName(),
-                        elapsedTime);
+                if (elapsedTime >= 500) {
+	                perfLog.logDuration(
+	                        "painting: " + this.getClass().getSimpleName() + " "
+	                                + this.getSafeName(),
+	                        elapsedTime);
+                }
             } catch (VizException e) {
                 updatePaintStatus(PaintStatus.ERROR);
                 throw e;
