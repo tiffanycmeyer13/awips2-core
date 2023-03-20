@@ -41,4 +41,9 @@
                 class="com.raytheon.uf.common.serialization.adapters.JavaSerializableAdapter" />
         </constructor-arg>
     </bean>
+
+    <bean
+        class="com.raytheon.uf.common.units.CustomNumberSystem"
+        factory-method="setAsCurrentNumberSystem">
+    </bean>
 </beans>
