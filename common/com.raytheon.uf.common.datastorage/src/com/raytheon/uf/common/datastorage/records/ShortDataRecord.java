@@ -42,6 +42,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *                                     AbstractStoreageRecord. Code cleanup.
  * Jun 10, 2021  8450     mapeters     Add serialVersionUID
  * Nov 03, 2022  8931     smoorthy     Add group name normalization
+ * Mar 23, 2023  2031674  mapeters     Support shallow cloning
  *
  * </pre>
  *
@@ -72,7 +73,8 @@ public class ShortDataRecord extends AbstractStorageRecord {
      */
     public ShortDataRecord(String name, String group, short[] shortData,
             int dimension, long[] sizes) {
-        super(name, DataStoreFactory.normalizeAttributeName(group), dimension, sizes);
+        super(name, DataStoreFactory.normalizeAttributeName(group), dimension,
+                sizes);
         this.shortData = shortData;
     }
 
@@ -140,10 +142,14 @@ public class ShortDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected AbstractStorageRecord cloneInternal() {
+    protected AbstractStorageRecord cloneInternal(boolean deep) {
         ShortDataRecord record = new ShortDataRecord();
         if (shortData != null) {
-            record.shortData = Arrays.copyOf(shortData, shortData.length);
+            if (deep) {
+                record.shortData = Arrays.copyOf(shortData, shortData.length);
+            } else {
+                record.shortData = shortData;
+            }
         }
         return record;
     }
