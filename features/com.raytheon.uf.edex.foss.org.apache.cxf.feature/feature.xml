@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <feature
-      id="com.raytheon.uf.edex.foss.org.apache.commons.net.feature"
-      label="org.apache.commons.net Feature"
-      version="3.9.0"
+      id="com.raytheon.uf.edex.foss.org.apache.cxf.feature"
+      label="org.apache.cxf Feature"
+      version="3.4.10"
       provider-name="RAYTHEON">
 
    <description url="http://www.example.com/description">
@@ -18,9 +18,9 @@
    </license>
 
    <plugin
-         id="org.apache.commons.net"
+         id="org.apache.cxf"
          download-size="0"
          install-size="0"
-         version="3.9.0"/>
+         version="3.4.10"/>
 
 </feature>

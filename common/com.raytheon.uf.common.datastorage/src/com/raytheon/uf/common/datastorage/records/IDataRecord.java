@@ -41,6 +41,8 @@ import com.raytheon.uf.common.datastorage.StorageProperties;
  *                                     AbstractStorageRecord and all the Python
  *                                     record classes.
  * Jun 10, 2021  8450     mapeters     Implement {@link Serializable}
+ * Mar 23, 2023  2031674  mapeters     Add clone(boolean)
+ *
  *
  * </pre>
  *
@@ -230,4 +232,13 @@ public interface IDataRecord extends Serializable {
      * @return a deep copy of this record
      */
     IDataRecord clone();
+
+    /**
+     * Clone the record
+     *
+     * @param deep
+     *            true to do a deep clone, false to do a shallow clone
+     * @return a copy of this record
+     */
+    IDataRecord clone(boolean deep);
 }
