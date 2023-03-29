@@ -26,4 +26,5 @@ Import-Package: com.raytheon.uf.common.comm,
  com.raytheon.uf.common.units
 Require-Bundle: javax.measure,
  javax.persistence,
- org.geotools
+ org.geotools,
+ org.apache.commons.lang3
