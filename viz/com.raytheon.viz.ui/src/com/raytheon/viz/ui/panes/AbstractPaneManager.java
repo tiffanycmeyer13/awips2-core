@@ -286,7 +286,15 @@ public abstract class AbstractPaneManager extends InputAdapter
      */
     protected int[] getNumRowsColumns() {
         int paneCount = displayedPaneCount();
-        int numColums = (int) Math.ceil(Math.sqrt(paneCount));
+        /*
+         * 8453 changed the line below to:
+         *
+         * int numColums = (int) Math.ceil(Math.sqrt(paneCount));
+         *
+         * Due to user complaints when displaying with 6, 8, 10, etc panes, it
+         * has been changed back.
+         */
+        int numColums = (int) Math.sqrt(paneCount);
         int numRows = (int) Math.ceil(paneCount / (double) numColums);
         return new int[] { numRows, numColums };
     }

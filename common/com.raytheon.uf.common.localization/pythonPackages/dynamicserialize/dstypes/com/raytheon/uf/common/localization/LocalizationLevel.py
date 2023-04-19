@@ -22,12 +22,20 @@ knownLevels = {"BASE": {"text" : "BASE",
                         "order" : 0,
                         "systemLevel" : True,
                         },
+               "REGION": {"text" : "REGION",
+                        "order" : 150,
+                        "systemLevel" : False,
+                        },
                "CONFIGURED": {"text" : "CONFIGURED",
                         "order" : 250,
                         "systemLevel" : True,
                         },
                "SITE": {"text" : "SITE",
                         "order" : 500,
+                        "systemLevel" : False,
+                        },
+               "WORKSTATION": {"text" : "WORKSTATION",
+                        "order" : 750,
                         "systemLevel" : False,
                         },
                "USER": {"text" : "USER",
@@ -63,13 +71,13 @@ class LocalizationLevel(object):
 
     def setOrder(self, order):
         self.order = int(order)
-        
+
     def isSystemLevel(self):
         return self.systemLevel
-        
+
     def __str__(self):
         return self.__repr__()
-    
+
     def __repr__(self):
         return str(self.text)
 

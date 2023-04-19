@@ -27,6 +27,18 @@
             id="com.raytheon.uf.viz.localization.localizationRepositoryProvider">
       </repository>
     </extension>
+    <extension point="org.eclipse.ui.preferencePages">
+      <page
+            class="com.raytheon.uf.viz.localization.perspective.LocalizationPerspectivePreferences"
+            id="com.raytheon.uf.viz.localization.perspective.LocalizationPerspectivePreferences"
+            name="Localization Perspective"
+            category="com.raytheon.uf.viz.core.localization.LocalizationPreferences">
+      </page>            
+   </extension>
+   <extension
+       point="org.eclipse.core.runtime.preferences">
+      <initializer class="com.raytheon.uf.viz.localization.perspective.LocalizationPerspectivePreferenceInitializer"/>
+   </extension>
 	<extension
       point="org.eclipse.ui.contexts">
 	   <context

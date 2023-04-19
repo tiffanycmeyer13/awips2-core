@@ -53,7 +53,7 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
 
 /**
  * Manages panes. If virtual cursor is not desired, override InputAdapter
- * functions
+ * functions.
  *
  * <pre>
  *
@@ -83,6 +83,9 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  * Oct 12, 2022  8946     mapeters  Added getCanvases(CanvasType)
  * Oct 13, 2022  8955     mapeters  Update to make virtual cursors work for
  *                                  combo editor panes in the D2D side view
+ * Mar 06, 2023  9073     njensen   Undo previous change (one line of code from
+ *                                  8453) due to user complaints when displaying
+ *                                  with 6, 8, 10, etc panes
  *
  * </pre>
  *
