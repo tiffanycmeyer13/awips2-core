@@ -64,7 +64,7 @@ import com.raytheon.viz.ui.input.InputManager;
 
 /**
  * Manages panes. If virtual cursor is not desired, override InputAdapter
- * functions functions
+ * functions.
  *
  * <pre>
  *
@@ -85,6 +85,9 @@ import com.raytheon.viz.ui.input.InputManager;
  * Jul 08, 2020  80637    tjensen   Reset display bounds on clear
  * Jun 07, 2021  8453     randerso  Make 2 panel display left/right vs
  *                                  top/bottom
+ * Mar 06, 2023  9073     njensen   Undo previous change (one line of code from
+ *                                  8453) due to user complaints when displaying
+ *                                  with 6, 8, 10, etc panes
  *
  * </pre>
  *
@@ -234,7 +237,15 @@ public class PaneManager extends InputAdapter implements IMultiPaneEditor {
         if (composite == null || composite.isDisposed()) {
             return;
         }
-        int numColums = (int) Math.ceil(Math.sqrt(paneCount));
+        /*
+         * 8453 changed the line below to:
+         *
+         * int numColums = (int) Math.ceil(Math.sqrt(paneCount));
+         *
+         * Due to user complaints when displaying with 6, 8, 10, etc panes, it
+         * has been changed back.
+         */
+        int numColums = (int) Math.sqrt(paneCount);
         int numRows = (int) Math.ceil(paneCount / (double) numColums);
         GridLayout gl = new GridLayout(numColums, true);
         int width = composite.getBounds().width;
