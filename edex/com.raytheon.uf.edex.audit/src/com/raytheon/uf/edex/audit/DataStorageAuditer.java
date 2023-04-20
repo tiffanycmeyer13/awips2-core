@@ -16,7 +16,7 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
-package com.raytheon.uf.edex.database.health;
+package com.raytheon.uf.edex.audit;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -78,6 +78,8 @@ import com.raytheon.uf.edex.core.IMessageProducer;
  * Aug 24, 2022 8920       mapeters    Optimizations; Swap key/values for statuses.
  * Sep 26, 2022 8920       smoorthy    Revise for multiple Auditor instances.
  * Jan 05, 2023 8994       smoorthy    Add ability to disable auditing via environment variable.
+ * Feb 03, 2023 9019       mapeters    Add getter method for auditor id.
+ * Feb 10, 2023 9019       smoorthy    Migrate to separate plugin.
  * </pre>
  *
  * @author mapeters
@@ -130,6 +132,10 @@ public class DataStorageAuditer
         AUDITOR_ID = id;
         logger.info("Data storage auditer {}.",
                 enabled ? "enabled" : "disabled");
+    }
+
+    public int getId() {
+        return AUDITOR_ID;
     }
 
     @Override
