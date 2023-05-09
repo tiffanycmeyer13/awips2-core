@@ -19,7 +19,6 @@
 package com.raytheon.uf.edex.audit;
 
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.spring.GenericBeansException;
 import org.apache.camel.spring.SpringCamelContext;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
@@ -76,7 +75,7 @@ public class DataStorageAuditContextsBuilder
             try {
                 camelContext.addRoutes(routeBuilder);
             } catch (Exception e) {
-                throw new GenericBeansException(
+                throw new RuntimeException(
                         "Error configuring data storage audit routes", e);
             }
             beanFactory.initializeBean(camelContext, camelContextId);
