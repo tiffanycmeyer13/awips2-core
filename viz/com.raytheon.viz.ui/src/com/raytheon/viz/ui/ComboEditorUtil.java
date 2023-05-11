@@ -30,6 +30,7 @@ import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
 import com.raytheon.uf.viz.core.util.EditorConstants;
 import com.raytheon.viz.ui.editor.AbstractEditor;
+import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
 import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
 
@@ -45,6 +46,7 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  * ------------ ---------- ----------- --------------------------
  * Mar 22, 2022 8790       mapeters    Initial creation
  * Oct 21, 2022 8956       mapeters    Moved editor ID constant to EditorConstants
+ * May 11, 2023 2029803    mapeters    Support horizontal panel layouts
  *
  * </pre>
  *
@@ -87,6 +89,14 @@ public class ComboEditorUtil {
             newEditor = UiUtil.createEditor(EditorConstants.COMBO_EDITOR_ID,
                     displays.toArray(new IRenderableDisplay[displays.size()]));
             if (newEditor != null) {
+                if (activeEditor instanceof IMultiPaneEditor
+                        && newEditor instanceof IMultiPaneEditor) {
+                    // Preserve vertical/horizontal orientation
+                    ((IMultiPaneEditor) newEditor).setHorizontalLayout(
+                            ((IMultiPaneEditor) activeEditor)
+                                    .isHorizontalLayout());
+                }
+
                 // Reset extents on renderable displays when getting new editor
                 for (IDisplayPane pane : newEditor.getDisplayPanes()) {
                     pane.getRenderableDisplay().getView().getExtent().reset();

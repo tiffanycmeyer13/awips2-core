@@ -42,6 +42,7 @@ import com.raytheon.uf.viz.core.drawables.ResourcePair;
 import com.raytheon.uf.viz.core.rsc.AbstractVizResource;
 import com.raytheon.uf.viz.core.rsc.IInputHandler;
 import com.raytheon.uf.viz.core.rsc.ResourceList;
+import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
 import com.raytheon.viz.ui.input.InputAdapter;
@@ -57,6 +58,7 @@ import com.raytheon.viz.ui.input.InputAdapter;
  * ------------ ---------- ----------- --------------------------
  * Mar 22, 2022 8790       mapeters    Initial creation (abstracted from PaneManager)
  * Apr 22, 2022 8791       mapeters    Abstract out background resource sharing to here
+ * May 11, 2023 2029803    mapeters    Support horizontal panel layouts
  *
  * </pre>
  *
@@ -72,6 +74,8 @@ public abstract class AbstractPaneManager extends InputAdapter
     protected Composite composite;
 
     protected final Set<ISelectedPanesChangedListener> listeners = new HashSet<>();
+
+    protected boolean horizontalLayout;
 
     protected AbstractPaneManager() {
         inputManager = new InputManager(this);
@@ -140,6 +144,19 @@ public abstract class AbstractPaneManager extends InputAdapter
     @Override
     public void setLoopProperties(LoopProperties loopProperties) {
         paneContainer.setLoopProperties(loopProperties);
+    }
+
+    @Override
+    public boolean isHorizontalLayout() {
+        return horizontalLayout;
+    }
+
+    @Override
+    public void setHorizontalLayout(boolean horizontalLayout) {
+        if (this.horizontalLayout != horizontalLayout) {
+            this.horizontalLayout = horizontalLayout;
+            adjustPaneLayout();
+        }
     }
 
     /**
@@ -280,23 +297,19 @@ public abstract class AbstractPaneManager extends InputAdapter
     }
 
     /**
+     * Update the layout of the managed panels for the current panel count and
+     * horizontal/vertical orientation.
+     */
+    protected abstract void adjustPaneLayout();
+
+    /**
      * Get the number of rows and columns to organize the managed panes in.
      *
      * @return int array consisting of { numRows, numColumns }
      */
     protected int[] getNumRowsColumns() {
-        int paneCount = displayedPaneCount();
-        /*
-         * 8453 changed the line below to:
-         *
-         * int numColums = (int) Math.ceil(Math.sqrt(paneCount));
-         *
-         * Due to user complaints when displaying with 6, 8, 10, etc panes, it
-         * has been changed back.
-         */
-        int numColums = (int) Math.sqrt(paneCount);
-        int numRows = (int) Math.ceil(paneCount / (double) numColums);
-        return new int[] { numRows, numColums };
+        return UiUtil.getNumRowsColumns(displayedPaneCount(),
+                isHorizontalLayout());
     }
 
     /**

@@ -601,6 +601,13 @@
           value="colormaps" 
           recursive="true">
        </path>
+       <path
+          application="D2D"
+          localizationType="CAVE_STATIC"
+          name="Panel Layouts"
+          value="panelLayouts"
+          recursive="true">
+       </path>
    </extension>
    <extension
          id="VizUIModelProcessors"

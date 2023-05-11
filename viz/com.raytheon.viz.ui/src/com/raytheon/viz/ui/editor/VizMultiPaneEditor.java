@@ -37,6 +37,7 @@ import com.raytheon.viz.ui.panes.PaneManager;
  * Mar 02, 2015  4204      njensen     Only add "n Panel" to title if not already there
  * Oct 21, 2015  5023      njensen     Smarter updateTitle() logic
  * Apr 01, 2022  8790      mapeters    Handle pane manager refactor
+ * May 11, 2023  2029803   mapeters    Add horizontal layout methods
  *
  * </pre>
  *
@@ -148,5 +149,15 @@ public class VizMultiPaneEditor extends AbstractEditor
     @Override
     protected AbstractPaneManager getNewPaneManager() {
         return new PaneManager();
+    }
+
+    @Override
+    public boolean isHorizontalLayout() {
+        return editorInput.getPaneManager().isHorizontalLayout();
+    }
+
+    @Override
+    public void setHorizontalLayout(boolean horizontalLayout) {
+        editorInput.getPaneManager().setHorizontalLayout(horizontalLayout);
     }
 }
