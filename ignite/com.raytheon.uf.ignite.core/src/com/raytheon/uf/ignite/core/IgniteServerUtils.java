@@ -49,6 +49,7 @@ import com.raytheon.uf.common.serialization.SerializationUtil;
  *                                     com.raytheon.uf.common.datastorage.ignite
  * Jun 22, 2022 8865       mapeters    Update sendMessageToQueue to throw
  *                                     exception on failure
+ * Mar 15, 2023 9076       smoorthy    Gzip message before send
  *
  * </pre>
  *
@@ -129,8 +130,8 @@ public class IgniteServerUtils {
                         Session session = connection.createSession()) {
                     Queue destinationQueue = session.createQueue(uri);
                     BytesMessage bytesMessage = session.createBytesMessage();
-                    bytesMessage.writeBytes(
-                            SerializationUtil.transformToThrift(message));
+                    bytesMessage.writeBytes(SerializationUtil
+                            .transformToThriftAndGzip(message));
                     session.createProducer(destinationQueue).send(bytesMessage);
                     // Success, break
                     break;
