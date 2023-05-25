@@ -24,12 +24,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.zip.GZIPOutputStream;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 
 import com.raytheon.uf.common.serialization.DynamicSerializationManager.SerializationType;
+import com.raytheon.uf.common.util.ByteArrayOutputStreamPool;
 import com.raytheon.uf.common.util.DataUnzipper;
+import com.raytheon.uf.common.util.PooledByteArrayOutputStream;
 import com.raytheon.uf.common.util.ServiceLoaderUtil;
 
 /**
@@ -54,6 +57,7 @@ import com.raytheon.uf.common.util.ServiceLoaderUtil;
  * Apr 16, 2014 2928       rjpeter      Added jaxbMarshalToStream.
  * Jul 15, 2014 3373       bclement     jaxb manager api changes
  * Sep 04, 2014 3582       mapeters     Deprecated all JAXB/XML methods.
+ * Mar 15, 2023 9076       smoorthy     Add method for Gzip stream.
  * </pre>
  * 
  * @author chammack
@@ -63,6 +67,11 @@ import com.raytheon.uf.common.util.ServiceLoaderUtil;
 public final class SerializationUtil {
 
     private static volatile JAXBManager jaxbManager;
+
+    /**
+     * Buffer size.
+     */
+    private static final int GZIP_BUFFER_SIZE = 4096;
 
     private SerializationUtil() {
 
@@ -249,8 +258,8 @@ public final class SerializationUtil {
      *             instead.
      */
     @Deprecated
-    public static <T> T jaxbUnmarshalFromXmlFile(Class<T> clazz, String filePath)
-            throws SerializationException {
+    public static <T> T jaxbUnmarshalFromXmlFile(Class<T> clazz,
+            String filePath) throws SerializationException {
         try {
             return getJaxbManager().unmarshalFromXmlFile(clazz, filePath);
         } catch (JAXBException e) {
@@ -383,6 +392,29 @@ public final class SerializationUtil {
     }
 
     /**
+     * Call transformToThriftUsingStream() using a GZIPOutputStream.
+     * 
+     * @param obj
+     *            object to convert to bytes
+     * @return the object as bytes
+     * @throws SerializationException
+     */
+    public static byte[] transformToThriftAndGzip(Object obj)
+            throws SerializationException {
+        PooledByteArrayOutputStream baos = ByteArrayOutputStreamPool
+                .getInstance().getStream();
+        try (GZIPOutputStream gzippedEvent = new GZIPOutputStream(baos,
+                GZIP_BUFFER_SIZE)) {
+            SerializationUtil.transformToThriftUsingStream(obj, gzippedEvent);
+            gzippedEvent.finish();
+            gzippedEvent.flush();
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new SerializationException("Exception with GZIP, Object: " + obj.toString(), e);
+        }
+    }
+
+    /**
      * Transforms a byte array from the thrift protocol to an object using
      * DynamicSerialize
      * 
@@ -449,4 +481,5 @@ public final class SerializationUtil {
             throw new SerializationException(cce);
         }
     }
+
 }

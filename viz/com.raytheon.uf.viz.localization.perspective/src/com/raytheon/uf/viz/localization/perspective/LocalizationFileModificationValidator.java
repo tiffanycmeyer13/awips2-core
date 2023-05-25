@@ -33,6 +33,7 @@ import org.eclipse.core.resources.team.FileModificationValidationContext;
 import org.eclipse.core.resources.team.FileModificationValidator;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
@@ -77,6 +78,7 @@ import com.raytheon.viz.ui.dialogs.SWTMessageBox;
  * Jun 22, 2017  4818     mapeters  Changed setCloseCallback to addCloseCallback
  * Aug 10, 2020  81368    mroos     Added XML well-formed save validation
  * Nov 03, 2020  84588    tjensen   Added null check on save validation
+ * Mar 27, 2023  2029546  hvandam   Add preference for XML validation on file save
  *
  * </pre>
  *
@@ -162,7 +164,15 @@ public class LocalizationFileModificationValidator
         boolean goodXML = true;
         if (input.getFile().getFileExtension() != null
                 && input.getFile().getFileExtension().matches("xml")) {
-            goodXML = xmlCheck(doc, input);
+
+            IPreferenceStore store = Activator.getDefault()
+                    .getPreferenceStore();
+            Boolean validateXML = store
+                    .getBoolean(Activator.P_LOCALIZATION_VALIDATE_XML);
+            if (validateXML) {
+                goodXML = xmlCheck(doc, input);
+            }
+
         }
         if (!goodXML) {
             return Status.CANCEL_STATUS;
@@ -254,7 +264,6 @@ public class LocalizationFileModificationValidator
         SAXParserFactory factory = SAXParserFactory.newInstance();
         factory.setValidating(false);
         factory.setNamespaceAware(true);
-
         try {
             SAXParser parser = factory.newSAXParser();
             XMLReader reader = parser.getXMLReader();
