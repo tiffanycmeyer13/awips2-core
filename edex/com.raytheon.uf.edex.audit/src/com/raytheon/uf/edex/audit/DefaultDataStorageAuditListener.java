@@ -16,7 +16,7 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
-package com.raytheon.uf.edex.database.health;
+package com.raytheon.uf.edex.audit;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -57,6 +57,7 @@ import com.raytheon.uf.edex.database.plugin.PluginFactory;
  * Sep 27, 2021 8608       mapeters    Initial creation
  * Feb 17, 2022 8608       mapeters    Ignore non-hdf5 data
  * Aug 24, 2022 8920       mapeters    Fix null check.
+ * Feb 10, 2023 9019       smoorthy    Migrate to separate plugin
  * </pre>
  *
  * @author mapeters

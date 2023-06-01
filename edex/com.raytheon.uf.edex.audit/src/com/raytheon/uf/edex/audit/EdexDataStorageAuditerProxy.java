@@ -16,12 +16,14 @@
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
-package com.raytheon.uf.edex.database.health;
+package com.raytheon.uf.edex.audit;
 
 import com.raytheon.uf.common.datastorage.audit.AbstractDataStorageAuditerProxy;
 import com.raytheon.uf.common.datastorage.audit.DataStorageAuditEvent;
+import com.raytheon.uf.common.datastorage.audit.DataStorageAuditUtils;
 import com.raytheon.uf.common.datastorage.audit.IDataStorageAuditer;
 import com.raytheon.uf.common.serialization.SerializationException;
+import com.raytheon.uf.common.serialization.SerializationUtil;
 import com.raytheon.uf.edex.core.EdexException;
 import com.raytheon.uf.edex.core.IMessageProducer;
 
@@ -39,7 +41,10 @@ import com.raytheon.uf.edex.core.IMessageProducer;
  * Feb 23, 2022 8608       mapeters    Change queue to durable
  * Jun 22, 2022 8865       mapeters    Let exceptions propagate in send()
  * Sep 26, 2022 8920       smoorthy    Send to a specified URI.
- *
+ * Feb 03, 2023 9019       mapeters    Get JMS URI from DataStorageAuditUtils
+ * Feb 10, 2023 9019       smoorthy    Migrate to separate plugin
+ * Mar 15, 2023 9076       smoorthy    Adjust send() header for serialized and 
+ *                                     gzipped event.
  * </pre>
  *
  * @author mapeters
@@ -48,8 +53,6 @@ public class EdexDataStorageAuditerProxy
         extends AbstractDataStorageAuditerProxy {
 
     private final IMessageProducer messageProducer;
-
-    private static final String JMS_URI_PART = "jms-durable:queue:";
 
     private final boolean enabled = "ignite"
             .equals(System.getenv("DATASTORE_PROVIDER"));
@@ -62,8 +65,9 @@ public class EdexDataStorageAuditerProxy
     public void send(DataStorageAuditEvent event, String uri)
             throws EdexException, SerializationException {
         if (enabled) {
-            String fullUri = JMS_URI_PART + uri;
-            messageProducer.sendAsyncThriftUri(fullUri, event);
+            String fullUri = DataStorageAuditUtils.QUEUE_JMS_PREFIX + uri;
+            messageProducer.sendAsyncUri(fullUri, 
+                    SerializationUtil.transformToThriftAndGzip(event));
         }
     }
 }
