@@ -60,7 +60,6 @@ import com.raytheon.uf.viz.core.procedures.Bundle;
 import com.raytheon.uf.viz.core.rsc.ResourceProperties;
 import com.raytheon.uf.viz.core.util.EditorConstants;
 import com.raytheon.viz.ui.UiUtil.ContainerPart.Container;
-import com.raytheon.viz.ui.actions.MultiPanes;
 import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.editor.EditorInput;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
@@ -94,6 +93,8 @@ import com.raytheon.viz.ui.statusline.VizActionBarAdvisor;
  * Nov 02, 2022 8958       mapeters    Editor creation updates for Combo editors to prevent missing
  *                                     map backgrounds and to support loading bundles with a number
  *                                     of displays that doesn't match an available pane layout
+ * May 11, 2023 2029803    mapeters    Add getNumRowsColumns/isSquareLayout, remove code for
+ *                                     enforcing valid panel counts
  *
  * </pre>
  *
@@ -624,48 +625,6 @@ public class UiUtil {
             loopProps = new LoopProperties();
         }
 
-        if (EditorConstants.COMBO_EDITOR_ID.equals(editorId)
-                && displays.length > 1) {
-            /*
-             * Ensure the number of displays matches one of the supported
-             * multi-panel layouts. For example, if a 3-display bundle is
-             * loaded, ensure a blank 4th display is added since a 3-panel
-             * layout isn't supported.
-             *
-             * This might work for editors other than Combo editors too, but not
-             * needed for them currently.
-             */
-            for (MultiPanes paneLayout : MultiPanes.values()) {
-                int layoutNumPanes = paneLayout.numPanes();
-                if (displays.length == layoutNumPanes) {
-                    // The number of displays matches a supported layout
-                    break;
-                } else if (displays.length < layoutNumPanes) {
-                    /*
-                     * Layouts are in order of fewest panes to most, so if we
-                     * are between the last layout and the next layout, add
-                     * panes to match the next layout.
-                     */
-                    IRenderableDisplay[] newDisplays = new IRenderableDisplay[layoutNumPanes];
-                    for (int i = 0; i < newDisplays.length; ++i) {
-                        if (i < displays.length) {
-                            newDisplays[i] = displays[i];
-                        } else {
-                            /*
-                             * Seems like we should be able to just do
-                             * createNewDisplay(), but map scales are off then
-                             */
-                            newDisplays[i] = DescriptorMap
-                                    .getPaneCreator(displays[0])
-                                    .getDefaultBackgroundDisplay(displays[0]);
-                        }
-                    }
-                    displays = newDisplays;
-                    break;
-                }
-            }
-        }
-
         EditorInput cont = new EditorInput(loopProps, displays);
         try {
             IWorkbenchPage activePage = windowToLoadTo.getActivePage();
@@ -802,5 +761,52 @@ public class UiUtil {
             }
         }
         return false;
+    }
+
+    /**
+     * Get the number of rows and columns to organize the given number of panes
+     * in for the given orientation.
+     *
+     * @param numPanes
+     *            number of panes to calculate rows/columns for
+     * @param horizontal
+     *            true to make columns >= rows, false to make rows >= columns
+     *
+     * @return int array consisting of { numRows, numColumns }
+     */
+    public static int[] getNumRowsColumns(int numPanes, boolean horizontal) {
+        if (numPanes <= 0) {
+            /*
+             * 0 can be passed in when rotating panels in an editor and we hide
+             * all panels before showing the next panel.
+             */
+            return new int[] { 0, 0 };
+        }
+        int smallDim;
+        for (smallDim = (int) Math.sqrt(numPanes); smallDim >= 1; --smallDim) {
+            if (numPanes % smallDim == 0) {
+                break;
+            }
+        }
+        int bigDim = numPanes / smallDim;
+        if (horizontal) {
+            // Make columns >= rows
+            return new int[] { smallDim, bigDim };
+        }
+        // Make rows >= columns
+        return new int[] { bigDim, smallDim };
+    }
+
+    /**
+     * Determine if the given number of panes produces a square pane layout
+     * (number of rows equals number of columns).
+     *
+     * @param numPanes
+     *            number of panes to check the layout for
+     * @return true if pane layout is square, false otherwise
+     */
+    public static boolean isSquareLayout(int numPanes) {
+        int[] numRowsColumns = getNumRowsColumns(numPanes, false);
+        return numRowsColumns[0] == numRowsColumns[1];
     }
 }
