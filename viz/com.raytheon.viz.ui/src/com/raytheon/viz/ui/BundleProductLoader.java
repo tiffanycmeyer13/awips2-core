@@ -17,25 +17,29 @@ import com.raytheon.uf.viz.core.rsc.AbstractResourceData;
 import com.raytheon.uf.viz.core.rsc.ResourceList;
 import com.raytheon.uf.viz.core.rsc.capabilities.ColorableCapability;
 import com.raytheon.viz.core.ColorUtil;
+import com.raytheon.viz.ui.editor.ComboEditor;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 
 /**
- * 
+ *
  * Loads a bundle as a product to a container. This will add the resources from
  * the bundle displays onto the container instead of replacing
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Jan 8, 2013            mschenke     Initial creation
- * 
+ * Jan 08, 2013            mschenke    Initial creation
+ * Oct 19, 2022 8956       mapeters    Only load to compatible panes
+ * Nov 16, 2022 8956       mapeters    When loading to a Combo editor, update
+ *                                     the display scales to match the editor
+ *                                     scales first
+ *
  * </pre>
- * 
+ *
  * @author mschenke
- * @version 1.0
  */
 public class BundleProductLoader extends BundleLoader {
 
@@ -48,6 +52,15 @@ public class BundleProductLoader extends BundleLoader {
             Bundle bundle) throws VizException {
         IDisplayPane[] containerPanes = container.getDisplayPanes();
         AbstractRenderableDisplay[] bundleDisplays = bundle.getDisplays();
+
+        if (container instanceof ComboEditor) {
+            boolean updatedScales = ((ComboEditor) container)
+                    .conformScales(bundleDisplays);
+            if (updatedScales) {
+                statusHandler.info(
+                        "Updated new display scales to match already loaded displays.");
+            }
+        }
 
         int bundleSize = bundleDisplays.length;
         int editorSize = containerPanes.length;
@@ -67,12 +80,18 @@ public class BundleProductLoader extends BundleLoader {
             loadTo = new IDisplayPane[] { selected };
             loadFrom = new IRenderableDisplay[] { bundleDisplays[0] };
         } else if (bundleSize == 1 && editorSize >= 1) {
-            loadTo = new IDisplayPane[editorSize];
-            loadFrom = new IRenderableDisplay[editorSize];
-            for (int i = 0; i < editorSize; ++i) {
-                loadTo[i] = containerPanes[i];
-                loadFrom[i] = bundleDisplays[0].cloneDisplay();
+            List<IDisplayPane> loadToList = new ArrayList<>();
+            List<IRenderableDisplay> loadFromList = new ArrayList<>();
+            AbstractRenderableDisplay displayToLoadFrom = bundleDisplays[0];
+            IDescriptor descToLoadFrom = displayToLoadFrom.getDescriptor();
+            for (IDisplayPane canvas : container.getMainCanvases()) {
+                if (descToLoadFrom.isCompatible(canvas.getDescriptor())) {
+                    loadToList.add(canvas);
+                    loadFromList.add(displayToLoadFrom.cloneDisplay());
+                }
             }
+            loadTo = loadToList.toArray(IDisplayPane[]::new);
+            loadFrom = loadFromList.toArray(IRenderableDisplay[]::new);
         } else {
             // Load 1-1
             if (editorSize < bundleSize) {
@@ -110,16 +129,16 @@ public class BundleProductLoader extends BundleLoader {
          */
         FramesInfo info = existingDescriptor.getFramesInfo();
         if (info.getFrameCount() == 0) {
-            existingDescriptor.setNumberOfFrames(fromDescriptor
-                    .getNumberOfFrames());
+            existingDescriptor
+                    .setNumberOfFrames(fromDescriptor.getNumberOfFrames());
         }
 
         // Pull out the resources to load
         ResourceList rscs = loadFrom.getDescriptor().getResourceList();
-        List<ResourcePair> resourcesToLoad = new ArrayList<ResourcePair>();
+        List<ResourcePair> resourcesToLoad = new ArrayList<>();
 
         for (ResourcePair rp : rscs) {
-            if (rp.getProperties().isSystemResource() == false) {
+            if (!rp.getProperties().isSystemResource()) {
                 resourcesToLoad.add(rp);
             }
         }
@@ -145,18 +164,15 @@ public class BundleProductLoader extends BundleLoader {
             if (existingDescriptor.getResourceList().contains(rp)) {
                 newRP = false;
             }
-            if (newRP
-                    && (rp.getProperties().isSystemResource() == false && !rp
-                            .getLoadProperties().getCapabilities()
+            if (newRP && (!rp.getProperties().isSystemResource()
+                    && !rp.getLoadProperties().getCapabilities()
                             .hasCapability(ColorableCapability.class))) {
-                rp.getLoadProperties()
-                        .getCapabilities()
+                rp.getLoadProperties().getCapabilities()
                         .getCapability(rp.getResourceData(),
                                 ColorableCapability.class)
-                        .setColor(
-                                ColorUtil.getNewColor(
-                                        container.getDisplayPanes(),
-                                        existingDescriptor, rp));
+                        .setColor(ColorUtil.getNewColor(
+                                container.getDisplayPanes(), existingDescriptor,
+                                rp));
             }
 
             if (newRP) {

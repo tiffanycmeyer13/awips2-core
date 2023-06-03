@@ -27,8 +27,8 @@ import javax.xml.bind.annotation.XmlAttribute;
 
 import si.uom.NonSI;
 import si.uom.SI;
-import tec.uom.se.AbstractUnit;
-import tec.uom.se.unit.MetricPrefix;
+import tech.units.indriya.AbstractUnit;
+import javax.measure.MetricPrefix;
 
 /**
  * Represents a level on the earth for style rule purposes

@@ -32,13 +32,13 @@ import com.raytheon.uf.viz.core.rsc.ResourceList;
 import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 
 /**
- * 
+ *
  * Loads a bundle to a container. Replaces contents of bundle on the container
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Jan 8, 2013             mschenke    Initial creation
@@ -49,9 +49,10 @@ import com.raytheon.viz.ui.editor.IMultiPaneEditor;
  * Oct 12, 2015 4932       njensen     ensureOneToOne() removes all panes when nPanes < nDisplays
  *                                      getLoadItems() attempts to reuse 4-panel maps across all panes
  * Jan 31, 2018 6737       njensen     Move most of loadBundleToContainer() onto the UI thread
- * 
+ * May 11, 2023 2029803    mapeters    Support horizontal panel layouts
+ *
  * </pre>
- * 
+ *
  * @author mschenke
  */
 public class BundleLoader extends Job {
@@ -59,7 +60,7 @@ public class BundleLoader extends Job {
     protected static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(BundleLoader.class);
 
-    public static enum BundleInfoType {
+    public enum BundleInfoType {
         FILE_LOCATION, XML
     }
 
@@ -112,14 +113,9 @@ public class BundleLoader extends Job {
         final String bundleName = bundle.getName();
         if (bundleName != null && !bundleName.isEmpty()
                 && container instanceof IRenameablePart) {
-            VizApp.runAsync(new Runnable() {
-                @Override
-                public void run() {
-                    ((IRenameablePart) BundleLoader.this.container)
-                            .setPartName(bundleName);
-                }
-
-            });
+            VizApp.runAsync(
+                    () -> ((IRenameablePart) BundleLoader.this.container)
+                            .setPartName(bundleName));
         }
     }
 
@@ -149,13 +145,8 @@ public class BundleLoader extends Job {
             }
 
             if (container instanceof IEditorPart) {
-                VizApp.runAsync(new Runnable() {
-                    @Override
-                    public void run() {
-                        VizGlobalsManager.getCurrentInstance()
-                                .updateUI(container);
-                    }
-                });
+                VizApp.runAsync(() -> VizGlobalsManager.getCurrentInstance()
+                        .updateUI(container));
             }
         } catch (VizException e) {
             return new Status(IStatus.ERROR, UiPlugin.PLUGIN_ID,
@@ -168,13 +159,12 @@ public class BundleLoader extends Job {
 
     /**
      * Loads a {@link Bundle} onto an {@link IDisplayPaneContainer}
-     * 
+     *
      * @param container
      * @param bundle
-     * @throws VizException
      */
     private final void loadBundleToContainer(IDisplayPaneContainer container,
-            Bundle bundle) throws VizException {
+            Bundle bundle) {
         /*
          * Most of this code must be on the UI thread to prevent the UI thread
          * from changing things out underneath this. For example, swapping to a
@@ -185,47 +175,52 @@ public class BundleLoader extends Job {
          * interfere with this initialization.
          */
         final List<Thread> threads = new ArrayList<>();
-        VizApp.runSync(new Runnable() {
-            @Override
-            public void run() {
-                LoadItem[] items = null;
-                try {
-                    items = getLoadItems(container, bundle);
-                } catch (VizException e) {
-                    statusHandler.error(e.getLocalizedMessage(), e);
-                    items = new LoadItem[0];
+        VizApp.runSync(() -> {
+            LoadItem[] items = null;
+            try {
+                items = getLoadItems(container, bundle);
+            } catch (VizException e) {
+                statusHandler.error(e.getLocalizedMessage(), e);
+                items = new LoadItem[0];
+            }
+
+            int numItems = items.length;
+            if (numItems > 0) {
+                if (container instanceof IMultiPaneEditor) {
+                    // Square bundles shouldn't change editor orientation
+                    if (!UiUtil.isSquareLayout(bundle.getDisplays().length)) {
+                        ((IMultiPaneEditor) container).setHorizontalLayout(
+                                bundle.isHorizontalLayout());
+                    }
                 }
 
-                int numItems = items.length;
-                if (numItems > 0) {
-                    LoadItem first = items[0];
-                    IRenderableDisplay loadFrom = first.loadFrom;
-                    IDisplayPane loadTo = first.loadTo;
+                LoadItem first = items[0];
+                IRenderableDisplay loadFrom = first.loadFrom;
+                IDisplayPane loadTo = first.loadTo;
 
-                    AbstractTimeMatcher destTimeMatcher = loadTo.getDescriptor()
-                            .getTimeMatcher();
-                    if (destTimeMatcher != null) {
-                        AbstractTimeMatcher srcTimeMatcher = loadFrom
-                                .getDescriptor().getTimeMatcher();
-                        if (srcTimeMatcher != null) {
-                            destTimeMatcher.copyFrom(srcTimeMatcher);
-                        }
-                        /*
-                         * resetMultiload() must come before the
-                         * load(IDisplayPane, IRenderableDisplay) call that is
-                         * currently in the InstantiationTask constructor
-                         */
-                        destTimeMatcher.resetMultiload();
+                AbstractTimeMatcher destTimeMatcher = loadTo.getDescriptor()
+                        .getTimeMatcher();
+                if (destTimeMatcher != null) {
+                    AbstractTimeMatcher srcTimeMatcher = loadFrom
+                            .getDescriptor().getTimeMatcher();
+                    if (srcTimeMatcher != null) {
+                        destTimeMatcher.copyFrom(srcTimeMatcher);
                     }
-                    InstantiationTask task = new InstantiationTask(first);
-                    Thread threadZero = new Thread(task);
-                    threadZero.start();
-                    threads.add(threadZero);
+                    /*
+                     * resetMultiload() must come before the load(IDisplayPane,
+                     * IRenderableDisplay) call that is currently in the
+                     * InstantiationTask constructor
+                     */
+                    destTimeMatcher.resetMultiload();
+                }
+                InstantiationTask task = new InstantiationTask(first);
+                Thread threadZero = new Thread(task);
+                threadZero.start();
+                threads.add(threadZero);
 
-                    for (int i = 1; i < numItems; i++) {
-                        Thread t = new Thread(new InstantiationTask(items[i]));
-                        threads.add(t);
-                    }
+                for (int i = 1; i < numItems; i++) {
+                    Thread t = new Thread(new InstantiationTask(items[i]));
+                    threads.add(t);
                 }
             }
         });
@@ -263,7 +258,7 @@ public class BundleLoader extends Job {
     /**
      * Gets the pairing of display->pane loading that should occur. Each item
      * will have {@link #load(IDisplayPane, IRenderableDisplay)} called on it
-     * 
+     *
      * @param container
      * @param bundle
      * @return
@@ -359,7 +354,7 @@ public class BundleLoader extends Job {
     /**
      * Ensures there is a one to one relationship for number of panes on
      * container to number of displays in bundle
-     * 
+     *
      * @param container
      * @param bundle
      * @return true of mapping is 1-1, false otherwise
@@ -376,27 +371,24 @@ public class BundleLoader extends Job {
             final int numDisplays = bundleDisplays.length;
             final IDisplayPane[] cPanes = containerPanes;
             final AbstractRenderableDisplay[] bDisplays = bundleDisplays;
-            VizApp.runSync(new Runnable() {
-                @Override
-                public void run() {
-                    if (numPanes < numDisplays) {
-                        /*
-                         * fewer panes than displays, remove the panes to ensure
-                         * we don't keep any of their state around
-                         */
-                        for (int i = numPanes - 1; i > -1; i--) {
-                            mpe.removePane(cPanes[i]);
-                        }
+            VizApp.runSync(() -> {
+                if (numPanes < numDisplays) {
+                    /*
+                     * fewer panes than displays, remove the panes to ensure we
+                     * don't keep any of their state around
+                     */
+                    for (int i1 = numPanes - 1; i1 > -1; i1--) {
+                        mpe.removePane(cPanes[i1]);
+                    }
 
-                        // now add in the displays
-                        for (int i = 0; i < numDisplays; ++i) {
-                            mpe.addPane(bDisplays[i]);
-                        }
-                    } else {
-                        // fewer displays than panes
-                        for (int i = numDisplays; i < numPanes; ++i) {
-                            mpe.removePane(cPanes[i]);
-                        }
+                    // now add in the displays
+                    for (int i2 = 0; i2 < numDisplays; ++i2) {
+                        mpe.addPane(bDisplays[i2]);
+                    }
+                } else {
+                    // fewer displays than panes
+                    for (int i3 = numDisplays; i3 < numPanes; ++i3) {
+                        mpe.removePane(cPanes[i3]);
                     }
                 }
             });
@@ -408,7 +400,7 @@ public class BundleLoader extends Job {
     /**
      * Loads the renderable display onto the pane. Must be called on the UI
      * thread.
-     * 
+     *
      * @param loadTo
      * @param loadFrom
      */
@@ -425,7 +417,7 @@ public class BundleLoader extends Job {
     /**
      * Gets a bundle object from bundle text, text type is specified by
      * {@link BundleInfoType} passed in
-     * 
+     *
      * @param bundleText
      * @param variables
      * @param type
@@ -463,7 +455,7 @@ public class BundleLoader extends Job {
     /**
      * Schedules a {@link BundleLoader} to run to load the bundle on the
      * container
-     * 
+     *
      * @param container
      * @param b
      */

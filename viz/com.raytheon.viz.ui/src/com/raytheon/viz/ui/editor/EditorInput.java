@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -25,25 +25,24 @@ import org.eclipse.ui.IPersistableElement;
 
 import com.raytheon.uf.viz.core.datastructure.LoopProperties;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
-import com.raytheon.viz.ui.panes.PaneManager;
+import com.raytheon.viz.ui.panes.AbstractPaneManager;
 
 /**
  * Editor input for Viz editors
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Jan 12, 2011            mschenke     Initial creation
- * 
+ * Jan 12, 2011            mschenke    Initial creation
+ * Apr 01, 2022 8790       mapeters    Handle pane manager refactor
+ *
  * </pre>
- * 
+ *
  * @author mschenke
- * @version 1.0
  */
-
 public class EditorInput implements IEditorInput {
 
     private String name = "Viz Editor";
@@ -56,11 +55,11 @@ public class EditorInput implements IEditorInput {
 
     private LoopProperties loopProperties;
 
-    private PaneManager paneManager;
+    private AbstractPaneManager paneManager;
 
     /**
      * Construct an editor input with a renderable display and loop properties
-     * 
+     *
      * @param renderableDisplay
      */
     public EditorInput(LoopProperties props,
@@ -83,7 +82,7 @@ public class EditorInput implements IEditorInput {
 
     /**
      * Construct an editor input with a renderable display
-     * 
+     *
      * @param renderableDisplay
      */
     public EditorInput(IRenderableDisplay... renderableDisplays) {
@@ -106,29 +105,19 @@ public class EditorInput implements IEditorInput {
         this.loopProperties = loopProperties;
     }
 
-    public PaneManager getPaneManager() {
+    public AbstractPaneManager getPaneManager() {
         return paneManager;
     }
 
-    public void setPaneManager(PaneManager paneManager) {
+    public void setPaneManager(AbstractPaneManager paneManager) {
         this.paneManager = paneManager;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.core.runtime.IAdaptable#getAdapter(java.lang.Class)
-     */
     @Override
-    public Object getAdapter(Class adapter) {
+    public <T> T getAdapter(Class<T> adapter) {
         return null;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.ui.IEditorInput#exists()
-     */
     @Override
     public boolean exists() {
         return true;
@@ -138,46 +127,26 @@ public class EditorInput implements IEditorInput {
         this.imageDescriptor = imageDescriptor;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.ui.IEditorInput#getImageDescriptor()
-     */
     @Override
     public ImageDescriptor getImageDescriptor() {
-        return imageDescriptor != null ? imageDescriptor : ImageDescriptor
-                .getMissingImageDescriptor();
+        return imageDescriptor != null ? imageDescriptor
+                : ImageDescriptor.getMissingImageDescriptor();
     }
 
     public void setName(String name) {
         this.name = name;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.ui.IEditorInput#getName()
-     */
     @Override
     public String getName() {
         return name;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.ui.IEditorInput#getPersistable()
-     */
     @Override
     public IPersistableElement getPersistable() {
         return null;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.eclipse.ui.IEditorInput#getToolTipText()
-     */
     @Override
     public String getToolTipText() {
         return toolTip == null ? getName() : toolTip;

@@ -45,28 +45,23 @@ import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
  *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Oct 25, 2010            mschenke     Initial creation
- * Feb 17, 2020 75012      ksunil       changed name. Not hard-coded to 4 panels anymore
+ * Oct 25, 2010            mschenke    Initial creation
+ * Feb 17, 2020 75012      ksunil      changed name. Not hard-coded to 4 panels anymore
+ * May 31, 2023 2029803    mapeters    Remove unused constructor
  *
  * </pre>
  *
  * @author mschenke
  */
-
 public class MultiPanelEditor extends AbstractHandler {
     private static final transient IUFStatusHandler statusHandler = UFStatus
             .getHandler(MultiPanelEditor.class);
 
-    private int numPanes;
+    private final int numPanes;
 
     public MultiPanelEditor() {
         super();
         this.numPanes = 4;
-    }
-
-    public MultiPanelEditor(MultiPanes numPanes) {
-        super();
-        this.numPanes = numPanes.numPanes();
     }
 
     @Override
@@ -78,14 +73,14 @@ public class MultiPanelEditor extends AbstractHandler {
                 .getCurrentWindow();
         IEditorPart part = VizWorkbenchManager.getInstance()
                 .getActiveEditor(window);
-        if (part == null || part instanceof IMultiPaneEditor == false) {
+        if (!(part instanceof IMultiPaneEditor)) {
             // If no open editor or current editor is not multi pane editor,
             // attempt to open new one
             AbstractVizPerspectiveManager mgr = VizPerspectiveListener
                     .getInstance(window).getActivePerspectiveManager();
             if (mgr != null) {
                 part = mgr.openNewEditor();
-                if (part != null && part instanceof IMultiPaneEditor == false) {
+                if (part != null && !(part instanceof IMultiPaneEditor)) {
                     // if new editor is not multi pane editor,
                     // close the new editor
                     window.getActivePage().closeEditor(part, false);

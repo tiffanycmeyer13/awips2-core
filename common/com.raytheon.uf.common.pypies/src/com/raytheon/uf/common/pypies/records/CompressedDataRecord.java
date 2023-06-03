@@ -60,6 +60,7 @@ import com.raytheon.uf.common.util.PooledByteArrayOutputStream;
  * Mar 29, 2021  8374     randerso  Renamed IDataRecord.get/setProperties to
  *                                  get/setProps
  * Jun 10, 2021  8450     mapeters  Add serialVersionUID
+ * Mar 23, 2023  2031674  mapeters  Support shallow cloning
  *
  * </pre>
  *
@@ -75,12 +76,7 @@ public class CompressedDataRecord extends AbstractStorageRecord {
     private static final int COMPRESSION_RATIO_ASSUMPTION = 4;
 
     public enum Type {
-        BYTE,
-        SHORT,
-        INT,
-        LONG,
-        FLOAT,
-        DOUBLE;
+        BYTE, SHORT, INT, LONG, FLOAT, DOUBLE;
     }
 
     @DynamicSerializeElement
@@ -131,12 +127,16 @@ public class CompressedDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected CompressedDataRecord cloneInternal() {
+    protected CompressedDataRecord cloneInternal(boolean deep) {
         CompressedDataRecord record = new CompressedDataRecord();
         record.type = type;
         if (compressedData != null) {
-            record.compressedData = Arrays.copyOf(compressedData,
-                    compressedData.length);
+            if (deep) {
+                record.compressedData = Arrays.copyOf(compressedData,
+                        compressedData.length);
+            } else {
+                record.compressedData = compressedData;
+            }
         }
         return record;
     }

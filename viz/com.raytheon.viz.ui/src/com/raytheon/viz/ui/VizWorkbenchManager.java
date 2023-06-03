@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -45,9 +45,9 @@ import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
  * Class that manages the current editor/window using listeners. Use this to
  * retrieve current editor/window over PlatformUI as the methods on this class
  * do not require being run on the UI thread.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
@@ -57,9 +57,9 @@ import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
  * Jun 09, 2016  5256      njensen      Don't mess with contexts on part opened
  * Jun 28, 2016  5717      bsteffen     Ensure ui is updated when an editor is activated
  * Jun 12, 2017  6297      bsteffen     Make listeners thread safe.
- * 
+ *
  * </pre>
- * 
+ *
  * @author mschenke
  */
 public class VizWorkbenchManager implements IPartListener, IPartListener2,
@@ -85,7 +85,7 @@ public class VizWorkbenchManager implements IPartListener, IPartListener2,
 
     /**
      * Get the active editor for the active window
-     * 
+     *
      * @return
      */
     public synchronized IEditorPart getActiveEditor() {
@@ -94,7 +94,7 @@ public class VizWorkbenchManager implements IPartListener, IPartListener2,
 
     /**
      * Get the active editor for the window
-     * 
+     *
      * @param window
      * @return
      */
@@ -104,7 +104,7 @@ public class VizWorkbenchManager implements IPartListener, IPartListener2,
 
     /**
      * Is this object a visible editor in the currently active window
-     * 
+     *
      * @param object
      * @return
      */
@@ -114,7 +114,7 @@ public class VizWorkbenchManager implements IPartListener, IPartListener2,
 
     /**
      * Is this object a visible editor in this window
-     * 
+     *
      * @param currentWindow
      * @param object
      * @return
@@ -130,7 +130,7 @@ public class VizWorkbenchManager implements IPartListener, IPartListener2,
 
     /**
      * Get the currently active workbench window
-     * 
+     *
      * @return
      */
     public synchronized IWorkbenchWindow getCurrentWindow() {
@@ -176,7 +176,16 @@ public class VizWorkbenchManager implements IPartListener, IPartListener2,
     public synchronized void partBroughtToTop(IWorkbenchPart part) {
         /*
          * TODO given there is a distinction of methods between brought to top
-         * and activated, we should probably be handling them with more nuance
+         * and activated, we should probably be handling them with more nuance.
+         *
+         * One problem with this: if you have 2 editors open with different
+         * scales, when you close one then the d2d scale menu doesn't update to
+         * display the remaining editor's scale. That's because partBroughtToTop
+         * calls partActivated first, and then partActivated is directly called.
+         * The page.getActiveEditor() != editor check in
+         * VizGlobalsManager.updateUI fails on broughtToTop, and then the
+         * currentEditor != part check in partActivated fails on actual
+         * activation, so the UI never gets updated.
          */
         partActivated(part);
     }
@@ -281,7 +290,8 @@ public class VizWorkbenchManager implements IPartListener, IPartListener2,
         IEditorPart currentEditor = activeEditorMap.get(window);
         VizGlobalsManager.getInstance(window)
                 .updateUI(currentEditor instanceof IDisplayPaneContainer
-                        ? (IDisplayPaneContainer) currentEditor : null);
+                        ? (IDisplayPaneContainer) currentEditor
+                        : null);
     }
 
     @Override

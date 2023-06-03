@@ -75,6 +75,7 @@ import com.raytheon.uf.edex.core.IContextStateProcessor;
  * Jul 28, 2017  5570     rjpeter   Fix dependency generation on shutdown
  * Mar  4, 2021  8326     tgurney   Fixes for Camel 3 API changes
  * Jun 28, 2022  8865     mapeters  Shut down default context after all others
+ * Sep 26, 2022  8920     smoorthy  Add method to register multiple processors at once.
  *
  * </pre>
  *
@@ -372,7 +373,7 @@ public class ContextManager
      *
      * @param context
      * @param processor
-     * @return this ContrextManager
+     * @return this ContextManager
      */
     public ContextManager registerContextStateProcessor(
             final CamelContext context,
@@ -388,6 +389,32 @@ public class ContextManager
 
         processorList.add(processor);
 
+        return this;
+    }
+
+    /**
+    * Register multiple context state processors to be called on start/stop of the
+    * context.
+    *
+    * @param context
+    * @param processors
+    * @return this ContextManager
+    */
+    public ContextManager registerContextStateProcessor(
+            final CamelContext context,
+            final IContextStateProcessor... processors) {
+
+        List<IContextStateProcessor> processorList = contextProcessors
+                .get(context);
+
+        if (processorList == null) {
+            processorList = new LinkedList<>();
+            contextProcessors.put(context, processorList);
+        }
+
+        for (IContextStateProcessor processor: processors) {
+            processorList.add(processor);
+        }
         return this;
     }
 

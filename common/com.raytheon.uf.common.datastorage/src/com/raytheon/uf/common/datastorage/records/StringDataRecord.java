@@ -22,6 +22,7 @@ package com.raytheon.uf.common.datastorage.records;
 
 import java.util.Arrays;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -39,6 +40,8 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Mar 29, 2021  8374     randerso  Removed toString() in favor of method in
  *                                  AbstractStoreageRecord. Code cleanup.
  * Jun 10, 2021  8450     mapeters  Add serialVersionUID
+ * Nov 03, 2022  8931     smoorthy  Add group name normalization
+ * Mar 23, 2023  2031674  mapeters  Support shallow cloning
  *
  * </pre>
  *
@@ -72,7 +75,8 @@ public class StringDataRecord extends AbstractStorageRecord {
      */
     public StringDataRecord(String name, String group, String[] stringData,
             int dimension, long[] sizes) {
-        super(name, group, dimension, sizes);
+        super(name, DataStoreFactory.normalizeAttributeName(group), dimension,
+                sizes);
         this.stringData = stringData;
     }
 
@@ -194,10 +198,15 @@ public class StringDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected AbstractStorageRecord cloneInternal() {
+    protected AbstractStorageRecord cloneInternal(boolean deep) {
         StringDataRecord record = new StringDataRecord();
         if (stringData != null) {
-            record.stringData = Arrays.copyOf(stringData, stringData.length);
+            if (deep) {
+                record.stringData = Arrays.copyOf(stringData,
+                        stringData.length);
+            } else {
+                record.stringData = stringData;
+            }
         }
         record.maxLength = maxLength;
         return record;

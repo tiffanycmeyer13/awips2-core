@@ -19,7 +19,7 @@
             <bean class="com.raytheon.uf.common.units.UnitConverter" />
         </constructor-arg>
         <constructor-arg>
-            <value>tec.uom.se.AbstractUnit</value>
+            <value>tech.units.indriya.AbstractUnit</value>
         </constructor-arg>
     </bean>
 
@@ -34,11 +34,16 @@
         class="com.raytheon.uf.common.serialization.DynamicSerializationManager"
         factory-method="registerAdapter">
         <constructor-arg>
-            <value>tec.uom.se.AbstractUnit</value>
+            <value>tech.units.indriya.AbstractUnit</value>
         </constructor-arg>
         <constructor-arg>
             <bean
                 class="com.raytheon.uf.common.serialization.adapters.JavaSerializableAdapter" />
         </constructor-arg>
+    </bean>
+
+    <bean
+        class="com.raytheon.uf.common.units.CustomNumberSystem"
+        factory-method="setAsCurrentNumberSystem">
     </bean>
 </beans>

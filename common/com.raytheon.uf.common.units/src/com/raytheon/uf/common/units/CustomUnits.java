@@ -4,10 +4,10 @@ import javax.measure.Unit;
 import javax.measure.quantity.Dimensionless;
 
 import systems.uom.quantity.Information;
-import tec.uom.se.AbstractUnit;
-import tec.uom.se.function.LogConverter;
-import tec.uom.se.function.RationalConverter;
-import tec.uom.se.unit.AlternateUnit;
+import tech.units.indriya.AbstractUnit;
+import tech.units.indriya.function.LogConverter;
+import tech.units.indriya.function.MultiplyConverter;
+import tech.units.indriya.unit.AlternateUnit;
 
 /**
  *
@@ -25,6 +25,8 @@ import tec.uom.se.unit.AlternateUnit;
  * ------------- -------- --------- --------------------------
  * May 13, 2019  7596     lsingh    Initial creation
  * Jun 24, 2021  8570     randerso  Added BIT unit definition
+ * Aug 05, 2022  8905     lsingh    Changed RationalConverter to MultiplyConverter 
+ *                                  for javax.measure 2.0.2 
  *
  *      </pre>
  *
@@ -38,7 +40,7 @@ public class CustomUnits {
      */
     public static final Unit<Dimensionless> DECIBEL = AbstractUnit.ONE
             .transform(new LogConverter(10).inverse()
-                    .concatenate(new RationalConverter(1, 10)));
+                    .concatenate(MultiplyConverter.ofRational(1, 10)));
 
     /**
      * The unit for binary information (standard name <code>bit</code>).

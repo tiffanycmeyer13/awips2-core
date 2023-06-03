@@ -36,7 +36,7 @@ import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.util.mapping.Mapper;
 import com.raytheon.uf.common.util.mapping.MultipleMappingException;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * Provide mapping of master level names. The base set is defined by what is in

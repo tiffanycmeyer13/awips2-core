@@ -36,6 +36,7 @@ import com.raytheon.uf.viz.core.procedures.Bundle;
 import com.raytheon.uf.viz.core.rsc.IResourceGroup;
 import com.raytheon.uf.viz.core.rsc.ResourceList;
 import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
+import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 
 /**
  * Historical list of bundles that have been loaded in the current CAVE session.
@@ -55,6 +56,7 @@ import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
  *                                  to prevent time matching operations.
  * Jun 23, 2021  21282    jrohwein  change setProperties to setPropertiesWithoutSideEffects in disconnectBundle()
  * Apr 19, 2022  8703     mapeters  Prevent concurrent modification of lists
+ * May 11, 2023  2029803  mapeters  Support horizontal panel layouts
  *
  * </pre>
  *
@@ -336,6 +338,10 @@ public class HistoryList {
             }
             b.setDisplays(
                     rds.toArray(new AbstractRenderableDisplay[rds.size()]));
+            if (cont instanceof IMultiPaneEditor) {
+                b.setHorizontalLayout(
+                        ((IMultiPaneEditor) cont).isHorizontalLayout());
+            }
             return b;
         }
         return null;
@@ -391,6 +397,7 @@ public class HistoryList {
         newBundle.setLoopProperties(currentBundle.getLoopProperties());
         newBundle.setName(currentBundle.getName());
         newBundle.setView(currentBundle.getView());
+        newBundle.setHorizontalLayout(currentBundle.isHorizontalLayout());
         return newBundle;
     }
 

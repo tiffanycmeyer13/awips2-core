@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -21,29 +21,30 @@ package com.raytheon.viz.ui.editor;
 
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
+import com.raytheon.viz.ui.panes.AbstractPaneManager;
 import com.raytheon.viz.ui.panes.PaneManager;
 
 /**
  * Editor class that allows multiple panes to be displayed
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Jan 18, 2011            mschenke    Initial creation
  * Mar 02, 2015  4204      njensen     Only add "n Panel" to title if not already there
  * Oct 21, 2015  5023      njensen     Smarter updateTitle() logic
- * 
+ * Apr 01, 2022  8790      mapeters    Handle pane manager refactor
+ * May 11, 2023  2029803   mapeters    Add horizontal layout methods
+ *
  * </pre>
- * 
+ *
  * @author mschenke
- * @version 1.0
  */
-
-public class VizMultiPaneEditor extends AbstractEditor implements
-        IMultiPaneEditor {
+public class VizMultiPaneEditor extends AbstractEditor
+        implements IMultiPaneEditor {
 
     /**
      * Set the title of the tab
@@ -146,8 +147,17 @@ public class VizMultiPaneEditor extends AbstractEditor implements
     }
 
     @Override
-    protected PaneManager getNewPaneManager() {
+    protected AbstractPaneManager getNewPaneManager() {
         return new PaneManager();
     }
 
+    @Override
+    public boolean isHorizontalLayout() {
+        return editorInput.getPaneManager().isHorizontalLayout();
+    }
+
+    @Override
+    public void setHorizontalLayout(boolean horizontalLayout) {
+        editorInput.getPaneManager().setHorizontalLayout(horizontalLayout);
+    }
 }

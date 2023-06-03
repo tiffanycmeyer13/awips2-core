@@ -1,23 +1,25 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
 package com.raytheon.uf.viz.core.rsc.capabilities;
+
+import java.util.Objects;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -27,19 +29,20 @@ import com.raytheon.uf.viz.core.VizConstants;
 import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
 
 /**
- * TODO Add Description
- * 
+ * Magnification capability for resources.
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
- * Apr 26, 2010            bsteffen     Initial creation
- * 
+ * Apr 26, 2010            bsteffen    Initial creation
+ * Oct 13, 2022 8946       mapeters    Handle VizGlobalsManager.getProperty()
+ *                                     method rename
+ *
  * </pre>
- * 
+ *
  * @author bsteffen
- * @version 1.0
  */
 @XmlAccessorType(XmlAccessType.NONE)
 public class MagnificationCapability extends AbstractCapability {
@@ -54,7 +57,7 @@ public class MagnificationCapability extends AbstractCapability {
 
     public MagnificationCapability() {
         this.magnification = (Double) VizGlobalsManager.getCurrentInstance()
-                .getPropery(VizConstants.MAGNIFICATION_ID);
+                .getProperty(VizConstants.MAGNIFICATION_ID);
         magnificationValues = DEFAULT_MAGNIFICATION_VALUES;
     }
 
@@ -90,7 +93,7 @@ public class MagnificationCapability extends AbstractCapability {
      *            the magnification to set
      */
     public void setMagnification(Double magnification) {
-        if (magnification != this.magnification) {
+        if (!Objects.equals(magnification, this.magnification)) {
             this.magnification = magnification;
             capabilityChanged();
         }
@@ -111,11 +114,6 @@ public class MagnificationCapability extends AbstractCapability {
         this.magnificationValues = magnificationValues;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.raytheon.uf.viz.core.rsc.capabilities.AbstractCapability#clone()
-     */
     @Override
     public MagnificationCapability clone() {
         return new MagnificationCapability(this);

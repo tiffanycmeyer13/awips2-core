@@ -13,11 +13,10 @@ Require-Bundle: org.springframework,
  com.raytheon.uf.common.convert,
  org.apache.commons.lang3,
  org.hibernate,
- javax.xml.bind
-Import-Package: javax.measure.quantity,
- javax.persistence,
- org.apache.commons.beanutils,
- tec.uom.se.format
+ javax.xml.bind,
+ javax.measure,
+ javax.persistence
+Import-Package: org.apache.commons.beanutils
 Export-Package: com.raytheon.uf.common.time,
  com.raytheon.uf.common.time.adapter,
  com.raytheon.uf.common.time.domain,

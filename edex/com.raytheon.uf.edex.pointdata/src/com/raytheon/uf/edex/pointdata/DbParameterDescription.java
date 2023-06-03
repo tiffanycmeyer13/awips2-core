@@ -25,7 +25,7 @@ import javax.measure.IncommensurableException;
 import javax.measure.UnconvertibleException;
 import javax.measure.Unit;
 import javax.measure.UnitConverter;
-import javax.measure.format.ParserException;
+import javax.measure.format.MeasurementParseException;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
@@ -33,8 +33,8 @@ import javax.xml.bind.annotation.XmlAttribute;
 import com.raytheon.uf.common.pointdata.PointDataDescription.Type;
 import com.raytheon.uf.common.serialization.ISerializableObject;
 
-import tec.uom.se.AbstractConverter;
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.function.AbstractConverter;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * 
@@ -184,7 +184,7 @@ public class DbParameterDescription implements ISerializableObject {
                     Unit<?> unit = SimpleUnitFormat.getInstance(SimpleUnitFormat.Flavor.ASCII)
                             .parseProductUnit(this.unit, new ParsePosition(0));
                     fromDbConverter = dbunit.getConverterToAny(unit);
-                } catch (ParserException | IncommensurableException
+                } catch (MeasurementParseException | IncommensurableException
                         | UnconvertibleException e) {
                     fromDbConverter = AbstractConverter.IDENTITY;
                 }

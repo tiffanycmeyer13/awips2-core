@@ -94,6 +94,7 @@ import com.raytheon.uf.viz.datacube.DataCubeContainer;
  *                                  parseAlertMessage().
  * Nov 04, 2015  5090     bsteffen  Make the time cache private and allow
  *                                  override of the time query that is cached.
+ * Dec 14, 2022  23218 mgamazaychikov Make defaultParser protected
  * 
  * </pre>
  * 
@@ -150,7 +151,7 @@ public abstract class AbstractRequestableResourceData extends
         }
     }
 
-    private static AlertMessageToPDOParser defaultParser = new AlertMessageToPDOParser();
+    protected final static AlertMessageToPDOParser defaultParser = new AlertMessageToPDOParser();
 
     /** the metadata criteria to retrieve the resource */
     @XmlJavaTypeAdapter(value = RequestableMetadataMarshaller.class)

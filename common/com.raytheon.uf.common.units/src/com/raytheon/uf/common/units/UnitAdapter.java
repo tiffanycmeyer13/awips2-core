@@ -22,11 +22,11 @@ package com.raytheon.uf.common.units;
 import java.rmi.UnmarshalException;
 
 import javax.measure.Unit;
-import javax.measure.format.ParserException;
+import javax.measure.format.MeasurementParseException;
 import javax.xml.bind.annotation.adapters.XmlAdapter;
 
-import tec.uom.se.AbstractUnit;
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.AbstractUnit;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * Serialization adapter for Unit
@@ -68,7 +68,7 @@ public class UnitAdapter extends XmlAdapter<String, Unit<?>> {
                     retVal = (Unit<?>) SimpleUnitFormat
                             .getInstance(SimpleUnitFormat.Flavor.ASCII)
                             .parse(unit);
-                } catch (ParserException e) {
+                } catch (MeasurementParseException e) {
                     throw new UnmarshalException(
                             "Error parsing unit from string " + unit, e);
                 }

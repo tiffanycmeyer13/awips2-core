@@ -141,7 +141,7 @@ import com.raytheon.viz.core.interval.XFormFunctions;
  * Jun 09, 2020  79241    pbutler       Removed unnecessary loop to speed up
  *                                      contour processing/loading
  * Oct 19, 2020  83998    tjensen       Fix rendering of negative contours
- * Jul 01, 2021  93757    tjensen      Add check for null values list
+ * Jul 01, 2021  93757    tjensen       Add check for null values list
  * Dec 06, 2021  8341     randerso      Added use of getResourceId for contour
  *                                      logging
  *

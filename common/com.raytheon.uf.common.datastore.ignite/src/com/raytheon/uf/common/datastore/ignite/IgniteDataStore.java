@@ -28,7 +28,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -41,6 +40,8 @@ import java.util.stream.Collectors;
 
 import javax.cache.processor.EntryProcessorException;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.query.QueryCursor;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
@@ -99,6 +100,11 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Feb 17, 2022  8608     mapeters  Update FastReplaceCallable to be used for all
  *                                  fast stores, extract to FastStoreCallable file
  * Jun 21, 2022  8879     mapeters  Don't retry failed retrievals
+ * Aug 24, 2022  8920     mapeters  Optimizations; Swap key/values for traceId/status mapping.
+ * Sep 27, 2022  8930     mapeters  Update retrieveDatasets to return records in
+ *                                  the same order as the requested datasets
+ * Oct 11, 2022  8929     mapeters  Handle FastStoreCallable constructor update
+ * Nov 04, 2022  8931     smoorthy  Normalize path name.
  *
  * </pre>
  *
@@ -131,7 +137,7 @@ public class IgniteDataStore implements IDataStore {
     public IgniteDataStore(File file, IgniteClientManager igniteClientManager,
             IgniteCacheAccessor<DataStoreKey, DataStoreValue> igniteCacheAccessor,
             IDataStore throughDataStore) {
-        path = file.getPath();
+        path = DataStoreFactory.normalizeAttributeName(file.getPath());
         this.igniteClientManager = igniteClientManager;
         this.igniteCacheAccessor = igniteCacheAccessor;
         this.throughDataStore = throughDataStore;
@@ -205,8 +211,8 @@ public class IgniteDataStore implements IDataStore {
                     MetadataAndDataId metaAndDataId = traceIdToDataInfo
                             .computeIfAbsent(metaId.getTraceId(),
                                     traceId -> new MetadataAndDataId(metaId,
-                                            new Hdf5DataIdentifier(traceId,
-                                                    path, group)));
+                                            new Hdf5DataIdentifier(path,
+                                                    group)));
                     ((Hdf5DataIdentifier) metaAndDataId.getDataId())
                             .addDataset(record.getName());
                 }
@@ -379,17 +385,17 @@ public class IgniteDataStore implements IDataStore {
             for (Entry<String, List<RecordAndMetadata>> entry : recordsByGroup
                     .entrySet()) {
                 String group = entry.getKey();
+                List<RecordAndMetadata> recordsAndMetadata = entry.getValue();
                 Map<String, Object> corrObjs = unsetCorrelationObjects2(
-                        entry.getValue());
+                        recordsAndMetadata);
                 DataStoreKey key = new DataStoreKey(path, group);
-                DataStoreValue value = new DataStoreValue(entry.getValue());
                 try {
                     String cacheName = igniteCacheAccessor.getCacheName();
                     StorageStatus status = igniteClientManager.doIgniteOp(
-                            ignite -> ignite.compute()
-                                    .affinityCall(cacheName, key,
-                                            new FastStoreCallable(cacheName,
-                                                    key, value, storeOp)),
+                            ignite -> ignite.compute().affinityCall(cacheName,
+                                    key,
+                                    new FastStoreCallable(cacheName, key,
+                                            recordsAndMetadata, storeOp)),
                             true);
                     if (status.hasExceptions()) {
                         for (StorageException e : status.getExceptions()) {
@@ -422,7 +428,8 @@ public class IgniteDataStore implements IDataStore {
 
     private void auditDataStatuses(Set<String> successfulGroups,
             Set<String> duplicateGroups) {
-        Map<String, DataStatus> traceIdsToStatus = new HashMap<>();
+        List<String> failureTraceIds = new ArrayList<>();
+        List<String> duplicateTraceIds = new ArrayList<>();
         for (Entry<String, List<RecordAndMetadata>> groupRecordsEntry : recordsByGroup
                 .entrySet()) {
             String group = groupRecordsEntry.getKey();
@@ -430,14 +437,24 @@ public class IgniteDataStore implements IDataStore {
                 continue;
             }
 
-            DataStatus status = duplicateGroups.contains(group)
-                    ? DataStatus.DUPLICATE_SYNC
-                    : DataStatus.FAILURE_SYNC;
+            List<String> traceIdsList = duplicateGroups.contains(group)
+                    ? duplicateTraceIds
+                    : failureTraceIds;
             for (RecordAndMetadata rm : groupRecordsEntry.getValue()) {
                 for (IMetadataIdentifier metaId : rm.getMetadata()) {
-                    traceIdsToStatus.put(metaId.getTraceId(), status);
+                    traceIdsList.add(metaId.getTraceId());
                 }
             }
+        }
+
+        Map<DataStatus, String[]> traceIdsToStatus = new HashMap<>();
+        if (!failureTraceIds.isEmpty()) {
+            traceIdsToStatus.put(DataStatus.FAILURE_SYNC,
+                    failureTraceIds.toArray(String[]::new));
+        }
+        if (!duplicateTraceIds.isEmpty()) {
+            traceIdsToStatus.put(DataStatus.DUPLICATE_SYNC,
+                    duplicateTraceIds.toArray(String[]::new));
         }
         DataStorageAuditerContainer.getInstance().getAuditer()
                 .processDataStatuses(traceIdsToStatus);
@@ -565,7 +582,8 @@ public class IgniteDataStore implements IDataStore {
         IPerformanceTimer timer = TimeUtil.getPerformanceTimer();
         timer.start();
 
-        Map<String, Set<String>> dataSetsByGroup = new LinkedHashMap<>();
+        List<Pair<String, List<String>>> groupAndDatasetsList = new ArrayList<>();
+        Pair<String, List<String>> currGroupAndDatasets = null;
         for (String path : datasetGroupPath) {
             String group = "";
             String dataset = path;
@@ -574,17 +592,18 @@ public class IgniteDataStore implements IDataStore {
                 group = path.substring(0, index);
                 dataset = path.substring(index + 1);
             }
-            Set<String> dataSets = dataSetsByGroup.get(group);
-            if (dataSets == null) {
-                dataSets = new HashSet<>();
-                dataSetsByGroup.put(group, dataSets);
+
+            if (currGroupAndDatasets == null
+                    || !group.equals(currGroupAndDatasets.getKey())) {
+                currGroupAndDatasets = new ImmutablePair<>(group,
+                        new ArrayList<>());
+                groupAndDatasetsList.add(currGroupAndDatasets);
             }
-            dataSets.add(dataset);
+            currGroupAndDatasets.getValue().add(dataset);
         }
         List<IDataRecord> records = new ArrayList<>();
         try {
-            for (Entry<String, Set<String>> entry : dataSetsByGroup
-                    .entrySet()) {
+            for (Pair<String, List<String>> entry : groupAndDatasetsList) {
                 DataStoreKey key = new DataStoreKey(this.path, entry.getKey());
                 RetrieveProcessor processor = new RetrieveProcessor(
                         entry.getValue(), request);
@@ -806,4 +825,5 @@ public class IgniteDataStore implements IDataStore {
         timer.stop();
         perfLog.logDuration(msg, timer.getElapsedTime());
     }
+
 }

@@ -86,6 +86,7 @@ import com.raytheon.uf.common.colormap.prefs.ColorMapParameters;
  * Jul 16, 2021  8591     randerso    Increased width of color bar for easier
  *                                    color selection. Changed bottom slider
  *                                    text to match the color of the arrow.
+ * Oct 24, 2022  8905     lsingh      Check for NaN before converting units.
  *
  * </pre>
  *
@@ -1167,8 +1168,17 @@ public class ColorBar extends Composite
         }
 
         if (unitConv != null) {
-            value = unitConv.convert(value);
-            lastVal = unitConv.convert(lastVal);
+            try {
+                value = unitConv.convert(value);
+            } catch(NumberFormatException e) {
+                value = Double.NaN;
+            }
+
+            try {
+                lastVal = unitConv.convert(lastVal);
+            } catch(NumberFormatException e) {
+                lastVal = Double.NaN;
+            }
 
             /* Check if the last value is non a number. */
             if (Double.isNaN(value)) {
