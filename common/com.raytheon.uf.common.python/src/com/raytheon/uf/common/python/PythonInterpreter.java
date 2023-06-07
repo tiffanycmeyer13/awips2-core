@@ -26,6 +26,7 @@ import jep.Jep;
 import jep.JepConfig;
 import jep.JepException;
 import jep.NamingConventionClassEnquirer;
+import jep.SubInterpreter;
 
 /**
  * Interfaces to a native Python interpreter with Jep.
@@ -47,6 +48,7 @@ import jep.NamingConventionClassEnquirer;
  * Sep 25, 2017   6457     randerso    Add scipy.constants as shared module
  * Dec 19, 2017   7149     njensen     Get shared modules from config file
  * Jun 03, 2019   7852     dgilling    Update code for jep 3.8.
+ * Jun 07, 2023  2034261   tgurney     Fixes for Jep 4 upgrade
  *
  * </pre>
  *
@@ -119,7 +121,7 @@ public abstract class PythonInterpreter implements AutoCloseable {
     public PythonInterpreter(JepConfig config, String filePath,
             List<String> preEvals) throws JepException {
         config.setClassEnquirer(new NamingConventionClassEnquirer())
-                .setRedirectOutputStreams(true);
+                .redirectStdout(System.out).redirectStdErr(System.err);
 
         /*
          * require numpy and _strptime to prevent issues and memory leaks when
@@ -131,7 +133,7 @@ public abstract class PythonInterpreter implements AutoCloseable {
             config.addSharedModules(module);
         }
 
-        jep = new Jep(config);
+        jep = new SubInterpreter(config);
         initializeJep(filePath, preEvals);
     }
 
