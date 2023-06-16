@@ -60,6 +60,7 @@ import tech.units.indriya.function.AbstractConverter;
  * May 07, 2018 7176       bsteffen    Improve handling of edge cases using '>'
  * Apr 15, 2019 7596       lsingh      Updated units framework to JSR-363.
  * Nov 30, 2022 8905       lsingh      Check for NaN when converting units.
+ * Jun 16, 2023 2034284    lsingh      Additional checks for NaN when converting units.
  * 
  * </pre>
  * 
@@ -420,16 +421,26 @@ public class ColorMapSliderComp extends Composite {
                     .getLabelValueForDataValue(colorMapValue);
         }
         if (text == null || text.trim().isEmpty()) {
-            float displayValue = (float) colorMapToDisplay
-                    .convert(colorMapValue);
+            float displayValue;
+            try {
+                displayValue = (float) colorMapToDisplay.convert(colorMapValue);
+            } catch (Exception e) {
+                displayValue = Float.NaN;
+            }
+
             if (!Float.isNaN(displayValue)) {
                 text = format.format(displayValue);
             } else {
                 text = NaN_STRING;
                 int selection = colorMapValueToSelection(colorMapValue);
                 for (int i = selection; i >= SLIDER_MIN; i -= SLIDER_INC) {
-                    displayValue = (float) colorMapToDisplay
-                            .convert(selectionToColorMapValue(i));
+                    try {
+                        displayValue = (float) colorMapToDisplay
+                                .convert(selectionToColorMapValue(i));
+                    } catch (Exception e) {
+                        displayValue = Float.NaN;
+                    }
+
                     if (!Float.isNaN(displayValue)) {
                         text = "> " + format.format(displayValue);
                         break;
@@ -474,7 +485,13 @@ public class ColorMapSliderComp extends Composite {
         if (!cmap.isLogarithmic()) {
             for (int i = SLIDER_MIN; i < SLIDER_MAX; ++i) {
                 double cmapValue = selectionToColorMapValue(i);
-                double displayValue = colorMapToDisplay.convert(cmapValue);
+                double displayValue;
+                try {
+                    displayValue = colorMapToDisplay.convert(cmapValue);
+                } catch (Exception e) {
+                    continue;
+                }
+
                 if (Double.isNaN(displayValue)) {
                     continue;
                 }
