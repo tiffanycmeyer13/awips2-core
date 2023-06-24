@@ -38,7 +38,6 @@ import com.raytheon.uf.viz.core.drawables.IScalableRenderableDisplay.ScaleType;
 import com.raytheon.viz.ui.EditorUtil;
 import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.VizWorkbenchManager;
-import com.raytheon.viz.ui.actions.MultiPanes;
 import com.raytheon.viz.ui.panes.ComboPaneManager;
 
 /**
@@ -73,6 +72,7 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  *                                     makeCompatible() to BundleProductLoader
  * Dec 01, 2022 8984       mapeters    Make graph panes still load with the correct
  *                                     pan/zoom state when we conform their height scale
+ * May 31, 2023 2029803    mapeters    Remove code for enforcing valid panel counts
  *
  * </pre>
  *
@@ -324,30 +324,6 @@ public class ComboEditor extends VizMultiPaneEditor
                             .isCompatible(newDisplay.getDescriptor())) {
                         replacePane(currentCanvas, newDisplay);
                     }
-                }
-            }
-
-            /*
-             * Ensure we are a valid layout. For example, if a 3-display bundle
-             * is loaded, ensure a blank 4th panel is added since a 3-panel
-             * layout isn't supported.
-             */
-            int numPanes = getNumberofPanes();
-            for (MultiPanes supportedLayout : MultiPanes.values()) {
-                if (numPanes == supportedLayout.numPanes()) {
-                    // The number of displays matches a supported layout
-                    break;
-                } else if (numPanes < supportedLayout.numPanes()) {
-                    /*
-                     * Layouts are in order of fewest panes to most, so if we
-                     * are between the last layout and the next layout, add
-                     * panes to match the next layout.
-                     */
-                    for (int i = numPanes; i < supportedLayout
-                            .numPanes(); ++i) {
-                        addPane(newDisplays[0].createNewDisplay());
-                    }
-                    break;
                 }
             }
         }

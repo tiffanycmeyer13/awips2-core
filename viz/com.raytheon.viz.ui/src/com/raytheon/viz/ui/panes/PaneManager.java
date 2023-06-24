@@ -86,6 +86,7 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  * Mar 06, 2023  9073     njensen   Undo previous change (one line of code from
  *                                  8453) due to user complaints when displaying
  *                                  with 6, 8, 10, etc panes
+ * May 11, 2023 2029803   mapeters  adjustPaneLayout is now an override
  *
  * </pre>
  *
@@ -210,6 +211,7 @@ public class PaneManager extends AbstractPaneManager {
         refresh();
     }
 
+    @Override
     protected void adjustPaneLayout() {
         if (composite == null || composite.isDisposed()) {
             return;

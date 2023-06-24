@@ -232,11 +232,16 @@
        <property name="sessionCacheSize" value="50"/>
     </bean>
 
-    <bean id="dataStorageAuditerContainer" class="com.raytheon.uf.common.datastorage.audit.DataStorageAuditerContainer" factory-method="getInstance">
-        <property name="auditer">
-            <bean class="com.raytheon.uf.ignite.core.IgniteDataStorageAuditerProxy">
-                <constructor-arg ref="jmsConnectionFactory"/>
-            </bean>
-        </property>
+    <bean id="igniteAuditerProxy" class="com.raytheon.uf.ignite.core.IgniteDataStorageAuditerProxy">
+         <constructor-arg ref="jmsConnectionFactory"/>
     </bean>
+
+    <bean id="dataStorageAuditerContainer" class="com.raytheon.uf.common.datastorage.audit.DataStorageAuditerContainer" factory-method="getInstance">
+       <property name="auditer" ref="igniteAuditerProxy"/>
+    </bean>
+
+    <bean id="batchSender" class="com.raytheon.uf.common.datastorage.audit.AuditorBatchSender">
+       <constructor-arg ref="igniteAuditerProxy"/>
+    </bean>
+
 </beans>

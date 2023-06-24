@@ -97,6 +97,7 @@ import com.raytheon.viz.ui.editor.ISelectedPanesChangedListener;
  *                                     applies to them when rotating panels
  * Nov 17, 2022 8978       mapeters    Only share background resources among
  *                                     main canvases
+ * May 11, 2023 2029803    mapeters    adjustPaneLayout is now an override
  *
  * </pre>
  *
@@ -522,7 +523,8 @@ public class ComboPaneManager extends AbstractPaneManager
         return getCanvases(CanvasType.INSET);
     }
 
-    private void adjustPaneLayout() {
+    @Override
+    protected void adjustPaneLayout() {
         if (composite == null || composite.isDisposed()) {
             return;
         }

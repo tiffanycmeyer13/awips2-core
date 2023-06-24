@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -42,20 +42,21 @@ import com.raytheon.uf.viz.core.exception.VizException;
 
 /**
  * Bundle
- * 
+ *
  * <pre>
- * 
+ *
  *    SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer  Description
  * ------------- -------- --------- --------------------------------------------
  * Aug 30, 2007           chammack  Initial Creation.
  * Oct 22, 2013  2491     bsteffen  Switch serialization to ProcedureXmlManager
  * Nov 08, 2016  5976     bsteffen  Use VariableSubstitutor directly
  * Dec 16, 2016  5976     bsteffen  Support for streams.
- * 
+ * May 11, 2023  2029803  mapeters  Add horizontalLayout
+ *
  * </pre>
- * 
+ *
  * @author chammack
  */
 @XmlRootElement
@@ -84,6 +85,16 @@ public class Bundle {
 
     @XmlElement
     protected LoopProperties loopProperties = null;
+
+    /**
+     * Optional: True to set the editor to a horizontal pane layout when loading
+     * this bundle to it, false to set it to vertical. This only applies to
+     * bundles that contain a non-square number of displays. For example, 6
+     * displays can be loaded horizontally (3 columns by 2 rows) or vertically
+     * (2 columns by 3 rows).
+     */
+    @XmlAttribute
+    protected boolean horizontalLayout;
 
     /**
      * Default constructor
@@ -117,7 +128,7 @@ public class Bundle {
 
     /**
      * used only for saving procedures
-     * 
+     *
      * @return
      */
     public LoopProperties getLoopProperties() {
@@ -126,7 +137,7 @@ public class Bundle {
 
     /**
      * used only for saving procedures
-     * 
+     *
      * @param props
      */
     public void setLoopProperties(LoopProperties props) {
@@ -173,14 +184,14 @@ public class Bundle {
 
     /**
      * Unmarshal a bundle
-     * 
+     *
      * @param fileName
      *            the bundle to load
-     * 
+     *
      * @param descriptor
      *            Optional: A descriptor that should be used for time matching
      * @return bundle loaded
-     * 
+     *
      * @throws VizException
      */
     public static Bundle unmarshalBundle(File fileName) throws VizException {
@@ -203,20 +214,40 @@ public class Bundle {
     }
 
     /**
+     * @return true if this bundle should be loaded with a horizontal panel
+     *         layout, false to load vertically
+     */
+    public boolean isHorizontalLayout() {
+        return horizontalLayout;
+    }
+
+    /**
+     * Update whether this bundle should be loaded with a horizontal or vertical
+     * panel layout.
+     *
+     * @param horizontalLayout
+     *            true if this bundle should be loaded with a horizontal panel
+     *            layout, false to load vertically
+     */
+    public void setHorizontalLayout(boolean horizontalLayout) {
+        this.horizontalLayout = horizontalLayout;
+    }
+
+    /**
      * Unmarshal a bundle
-     * 
+     *
      * @param fileName
      *            the bundle to load
-     * 
+     *
      * @param descriptor
      *            Optional: A descriptor that should be used for time matching
-     * 
+     *
      * @param variables
      *            Optional: A map containing key value pairs to be used to
      *            perform variable substitution.
-     * 
+     *
      * @return bundle loaded
-     * 
+     *
      * @throws VizException
      */
     public static Bundle unmarshalBundle(File fileName,
@@ -268,15 +299,15 @@ public class Bundle {
 
     /**
      * Unmarshal a bundle
-     * 
+     *
      * @param bundle
      *            the bundle to load as a string
-     * 
+     *
      * @param descriptor
      *            Optional: A descriptor that should be used for time matching
-     * 
+     *
      * @return bundle loaded
-     * 
+     *
      * @throws VizException
      */
     public static Bundle unmarshalBundle(String bundleStr) throws VizException {
@@ -285,19 +316,19 @@ public class Bundle {
 
     /**
      * Unmarshal a bundle
-     * 
+     *
      * @param bundle
      *            the bundle to load as a string
-     * 
+     *
      * @param descriptor
      *            Optional: A descriptor that should be used for time matching
-     * 
+     *
      * @param variables
      *            Optional: A map containing key value pairs to be used to
      *            perform variable substitution.
-     * 
+     *
      * @return bundle loaded
-     * 
+     *
      * @throws VizException
      */
     public static Bundle unmarshalBundle(String bundleStr,

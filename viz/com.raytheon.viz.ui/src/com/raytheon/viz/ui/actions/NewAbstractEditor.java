@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -30,33 +30,33 @@ import org.eclipse.ui.handlers.HandlerUtil;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
-import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.viz.core.IDisplayPane;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
 import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.editor.AbstractEditor;
+import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 import com.raytheon.viz.ui.perspectives.AbstractVizPerspectiveManager;
 import com.raytheon.viz.ui.perspectives.VizPerspectiveListener;
 
 /**
  * Creates a new editor using serialization
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer  Description
  * ------------- -------- --------- --------------------------------------------
  * Oct 25, 2010           mschenke  Initial creation
  * Mar 19, 2013  1808     njensen   Perspective specific behavior takes priority
  * Sep 18, 2018  7443     bsteffen  Revert previous change.
- * 
+ * May 11, 2023  2029803  mapeters  Support horizontal panel layouts
+ *
  * </pre>
- * 
+ *
  * @author mschenke
  */
-
 public class NewAbstractEditor extends AbstractHandler {
     private static final transient IUFStatusHandler statusHandler = UFStatus
             .getHandler(NewAbstractEditor.class);
@@ -85,20 +85,28 @@ public class NewAbstractEditor extends AbstractHandler {
                     pane.getRenderableDisplay()
                             .scaleToClientArea(pane.getBounds());
                 }
+
+                if (editor instanceof IMultiPaneEditor
+                        && ae instanceof IMultiPaneEditor) {
+                    // Preserve vertical/horizontal orientation
+                    ((IMultiPaneEditor) ae).setHorizontalLayout(
+                            ((IMultiPaneEditor) editor).isHorizontalLayout());
+                }
             }
             return ae;
         } else {
             AbstractVizPerspectiveManager mgr = VizPerspectiveListener
                     .getCurrentPerspectiveManager();
-            String msg = "Opening new empty editor not supported by perspective";
+            StringBuilder msg = new StringBuilder(
+                    "Opening new empty editor not supported by perspective");
             if (mgr != null) {
                 AbstractEditor ae = mgr.openNewEditor();
                 if (ae != null) {
                     return ae;
                 }
-                msg += ": " + mgr.getPerspectiveId();
+                msg.append(": ").append(mgr.getPerspectiveId());
             }
-            statusHandler.handle(Priority.PROBLEM, msg,
+            statusHandler.warn(msg.toString(),
                     new VizException("Operation not supported"));
         }
         return null;

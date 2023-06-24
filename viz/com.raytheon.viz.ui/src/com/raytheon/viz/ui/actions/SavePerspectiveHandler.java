@@ -48,6 +48,7 @@ import org.eclipse.ui.services.IServiceLocator;
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
+import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.drawables.AbstractRenderableDisplay;
 import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
@@ -58,8 +59,8 @@ import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.UiUtil.ContainerPart;
 import com.raytheon.viz.ui.UiUtil.ContainerPart.Container;
 import com.raytheon.viz.ui.actions.PerspectiveFileListDlg.FILE_SOURCE;
-import com.raytheon.viz.ui.dialogs.ICloseCallback;
 import com.raytheon.viz.ui.dialogs.localization.VizLocalizationFileListDlg;
+import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 
 /**
  * SavePerspectiveHandler
@@ -70,7 +71,7 @@ import com.raytheon.viz.ui.dialogs.localization.VizLocalizationFileListDlg;
  * <pre>
  *
  *    SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer  Description
  * ------------- -------- --------- --------------------------------------------
  * Sep 11, 2007           chammack  Initial Creation.
@@ -83,7 +84,8 @@ import com.raytheon.viz.ui.dialogs.localization.VizLocalizationFileListDlg;
  * Dec 21, 2015  5191     bsteffen  Updated layout handling for Eclipse 4.
  * Jun 22, 2017  4818     mapeters  Changed setCloseCallback to addCloseCallback
  * Oct 12, 2020  8241     randerso  Removed obsolete tag
- * 
+ * May 11, 2023  2029803  mapeters  Support horizontal panel layouts
+ *
  * </pre>
  *
  * @author chammack
@@ -106,21 +108,17 @@ public class SavePerspectiveHandler
             saveAsDlg = new PerspectiveFileListDlg(
                     "Save Perspective Display As...", shell,
                     VizLocalizationFileListDlg.Mode.SAVE, PERSPECTIVES_DIR);
-            saveAsDlg.addCloseCallback(new ICloseCallback() {
+            saveAsDlg.addCloseCallback(returnValue -> {
+                String fn = saveAsDlg.getSelectedFileName();
+                if (fn == null) {
+                    return;
+                }
 
-                @Override
-                public void dialogClosed(Object returnValue) {
-                    String fn = saveAsDlg.getSelectedFileName();
-                    if (fn == null) {
-                        return;
-                    }
-
-                    if (saveAsDlg.getFileSource() == FILE_SOURCE.LOCALIZATION) {
-                        savePerspectiveLocalization(fn, event);
-                    } else if (saveAsDlg
-                            .getFileSource() == FILE_SOURCE.FILESYSTEM) {
-                        saveProcedureFileSystem(fn);
-                    }
+                if (saveAsDlg.getFileSource() == FILE_SOURCE.LOCALIZATION) {
+                    savePerspectiveLocalization(fn, event);
+                } else if (saveAsDlg
+                        .getFileSource() == FILE_SOURCE.FILESYSTEM) {
+                    saveProcedureFileSystem(fn);
                 }
             });
             saveAsDlg.open();
@@ -197,13 +195,18 @@ public class SavePerspectiveHandler
                 IRenderableDisplay[] displayArr = c.displays;
                 Bundle b = new Bundle();
                 if (displayArr.length > 0) {
-                    b.setLoopProperties(
-                            displayArr[0].getContainer().getLoopProperties());
+                    IDisplayPaneContainer paneContainer = displayArr[0]
+                            .getContainer();
+                    b.setLoopProperties(paneContainer.getLoopProperties());
 
-                    if (displayArr[0]
-                            .getContainer() instanceof IRenameablePart) {
-                        String partName = ((IRenameablePart) displayArr[0]
-                                .getContainer()).getPartName();
+                    if (paneContainer instanceof IMultiPaneEditor) {
+                        b.setHorizontalLayout(((IMultiPaneEditor) paneContainer)
+                                .isHorizontalLayout());
+                    }
+
+                    if (paneContainer instanceof IRenameablePart) {
+                        String partName = ((IRenameablePart) paneContainer)
+                                .getPartName();
                         if (partName != null) {
                             b.setName(partName);
                         }
