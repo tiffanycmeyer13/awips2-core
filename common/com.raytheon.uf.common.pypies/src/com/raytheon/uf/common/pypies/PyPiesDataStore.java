@@ -111,6 +111,8 @@ import com.raytheon.uf.common.util.format.BytesFormat;
  * Mar 24, 2021  8374     srahimi      Added  Method for Logging
  * Sep 23, 2021  8608     mapeters     Add metadata identifier handling, retry
  *                                     stores on disk space or permissions errors
+ * May 09, 2023  2034031  njensen      Log less information when PyPiesRequestLogger
+ *                                     has level set to INFO
  *
  * </pre>
  *
@@ -379,8 +381,18 @@ public class PyPiesDataStore implements IDataStore {
         while (ret == null) {
 
             try {
-                requestLogger.info("Sending request to URL {} id[{}] {}",
-                        address, seqNum, obj.toString());
+                StringBuilder sb = new StringBuilder("Sending request to URL ")
+                        .append(address).append(" id[").append(seqNum)
+                        .append("] ");
+                if (requestLogger.isDebugEnabled()) {
+                    sb.append(obj.toString());
+                    requestLogger.debug(sb.toString());
+                } else {
+                    sb.append("filename[").append(obj.getFilename())
+                            .append("]");
+                    requestLogger.info(sb.toString());
+                }
+
                 ret = doSendRequest(obj, huge);
                 if (obj.getType() == RequestType.STORE
                         && ret instanceof ErrorResponse) {
