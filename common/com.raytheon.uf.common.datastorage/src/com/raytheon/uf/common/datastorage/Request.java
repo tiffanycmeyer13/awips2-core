@@ -21,6 +21,7 @@ package com.raytheon.uf.common.datastorage;
 
 import java.awt.Point;
 import java.util.Arrays;
+import java.util.Objects;
 
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
@@ -45,6 +46,9 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *                                  Additional code cleanup.
  * Jan 14, 2021  8741     njensen   Fixed toString() slab case and generated new
  *                                  implementations of hashCode() and equals()
+ * Jul 11, 2023  2035883  mapeters  Update hashCode/equals to only check relevant
+ *                                  fields for each type, update getPoints to not
+ *                                  modify points value
  *
  * </pre>
  *
@@ -70,11 +74,7 @@ public class Request {
     private Type type;
 
     public enum Type {
-        POINT,
-        XLINE,
-        YLINE,
-        SLAB,
-        ALL
+        POINT, XLINE, YLINE, SLAB, ALL
     }
 
     /**
@@ -101,7 +101,7 @@ public class Request {
      */
     public static Request buildPointRequest(Point... points) {
         Request request = new Request(Type.POINT);
-        request.points = points;
+        request.points = points == null ? new Point[0] : points;
 
         return request;
     }
@@ -175,10 +175,6 @@ public class Request {
      * @return the points
      */
     public Point[] getPoints() {
-        if (points == null) {
-            points = new Point[0];
-        }
-
         return points;
     }
 
@@ -276,14 +272,19 @@ public class Request {
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + Arrays.hashCode(indices);
-        result = prime * result + Arrays.hashCode(maxIndexForSlab);
-        result = prime * result + Arrays.hashCode(minIndexForSlab);
-        result = prime * result + Arrays.hashCode(points);
-        result = prime * result + ((type == null) ? 0 : type.hashCode());
-        return result;
+        switch (type) {
+        case POINT:
+            return Objects.hash(type, Arrays.hashCode(points));
+        case SLAB:
+            return Objects.hash(type, Arrays.hashCode(minIndexForSlab),
+                    Arrays.hashCode(maxIndexForSlab));
+        case XLINE:
+        case YLINE:
+            return Objects.hash(type, Arrays.hashCode(indices));
+        case ALL:
+        default:
+            return Objects.hash(type);
+        }
     }
 
     @Override
@@ -298,22 +299,22 @@ public class Request {
             return false;
         }
         Request other = (Request) obj;
-        if (!Arrays.equals(indices, other.indices)) {
-            return false;
-        }
-        if (!Arrays.equals(maxIndexForSlab, other.maxIndexForSlab)) {
-            return false;
-        }
-        if (!Arrays.equals(minIndexForSlab, other.minIndexForSlab)) {
-            return false;
-        }
-        if (!Arrays.equals(points, other.points)) {
-            return false;
-        }
         if (type != other.type) {
             return false;
         }
-        return true;
+        switch (type) {
+        case POINT:
+            return Arrays.equals(points, other.points);
+        case SLAB:
+            return Arrays.equals(minIndexForSlab, other.minIndexForSlab)
+                    && Arrays.equals(maxIndexForSlab, other.maxIndexForSlab);
+        case XLINE:
+        case YLINE:
+            return Arrays.equals(indices, other.indices);
+        case ALL:
+        default:
+            return true;
+        }
     }
 
 }
