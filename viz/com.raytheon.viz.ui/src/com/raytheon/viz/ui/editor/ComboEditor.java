@@ -73,6 +73,8 @@ import com.raytheon.viz.ui.panes.ComboPaneManager;
  * Dec 01, 2022 8984       mapeters    Make graph panes still load with the correct
  *                                     pan/zoom state when we conform their height scale
  * May 31, 2023 2029803    mapeters    Remove code for enforcing valid panel counts
+ * Jul 24, 2023 2035942    mapeters    Prevent blank displays when replacing multiple cross
+ *                                     section panels with a plan view display
  *
  * </pre>
  *
@@ -280,8 +282,14 @@ public class ComboEditor extends VizMultiPaneEditor
                     }
 
                     for (IDisplayPane currentCanvas : currentCanvases) {
-                        replacePane(currentCanvas,
-                                newDisplay.createNewDisplay());
+                        /*
+                         * createNewDisplay can mess up some values like
+                         * extent/mapCenter/zoomLevel, so getBackgroundDisplay
+                         * is used to ensure we get back to a valid display.
+                         */
+                        IRenderableDisplay display = getBackgroundDisplay(
+                                newDisplay.createNewDisplay(), loadToExisting);
+                        replacePane(currentCanvas, display);
                     }
                 }
             }
