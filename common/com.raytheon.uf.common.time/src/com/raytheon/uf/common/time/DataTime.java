@@ -77,6 +77,9 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Jul 28, 2021  8611     randerso   Code cleanup. Created NO_LEVEL constant
  *                                   more in line with what is used in
  *                                   Level.INVALID_VALUE.
+ * Jul 13, 2023  2035884  mapeters   Undo inclusion of level value in
+ *                                   getDisplayString() to fix things that use
+ *                                   it for DB queries
  *
  * </pre>
  *
@@ -715,6 +718,10 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
      * @return
      */
     public String getDisplayString() {
+        /*
+         * This method is used for DB query constraints in various places (via
+         * toString()), so be careful updating it.
+         */
         StringBuilder builder = new StringBuilder();
 
         String refTimeStr = getReftimeString();
@@ -730,10 +737,6 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
         String validPeriodString = getValidPeriodString();
         if (validPeriodString != null) {
             builder.append(validPeriodString.replaceAll("_", " "));
-        }
-
-        if (isSpatial()) {
-            builder.append(" ").append(levelValue);
         }
 
         return builder.toString();
