@@ -79,6 +79,9 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  *                                   Level.INVALID_VALUE.
  * Oct 28, 2022  8959     mapeters   Added levelType
  * Feb 10, 2023  9010     mapeters   Added hasFcst()
+ * Jul 13, 2023  2035884  mapeters   Undo inclusion of level value in
+ *                                   getDisplayString() to fix things that use
+ *                                   it for DB queries
  *
  * </pre>
  *
@@ -781,6 +784,10 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
      * @return
      */
     public String getDisplayString() {
+        /*
+         * This method is used for DB query constraints in various places (via
+         * toString()), so be careful updating it.
+         */
         StringBuilder builder = new StringBuilder();
 
         String refTimeStr = getReftimeString();
@@ -796,10 +803,6 @@ public class DataTime implements Comparable<DataTime>, Serializable, Cloneable {
         String validPeriodString = getValidPeriodString();
         if (validPeriodString != null) {
             builder.append(validPeriodString.replaceAll("_", " "));
-        }
-
-        if (isSpatial()) {
-            builder.append(" ").append(levelValue);
         }
 
         return builder.toString();

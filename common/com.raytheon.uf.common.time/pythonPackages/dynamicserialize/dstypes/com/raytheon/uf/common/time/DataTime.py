@@ -40,6 +40,7 @@
 #    09/13/19         7888         tgurney        Python 3 division fixes
 #    11/18/19         7881         tgurney        Fix __hash__
 #    10/28/22         8959         mapeters       Add levelType
+#    07/28/23         2035971      mapeters       Remove incorrect levelType comparison in __lt__
 
 
 import calendar
@@ -273,9 +274,6 @@ class DataTime(object):
                 return True
             elif other.levelType is not None and self.levelType < other.levelType:
                 return True
-
-        if self.levelType < other.levelType:
-            return True
 
         if self.levelValue < other.levelValue:
             return True
