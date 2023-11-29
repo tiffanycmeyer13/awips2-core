@@ -33,9 +33,11 @@ from com.raytheon.uf.common.python import PyJavaUtil
 #
 #     SOFTWARE HISTORY
 #
-#    Date            Ticket#       Engineer       Description
-#    ------------    ----------    -----------    --------------------------
-#    10/14/13         2250         mnash          Initial creation of JUtil handler
+#    Date           Ticket#     Engineer    Description
+#    ------------  ----------  -----------  --------------------------
+#    10/14/13       2250        mnash       Initial creation of JUtil handler
+#    May 22, 2023   2034224     tgurney     Fix for shapely upgrade, replaced
+#                                           Geometry.to_wkt() with Geometry.wkt
 #
 #
 
@@ -43,7 +45,7 @@ def shapelyToJTS(val):
     valtype = type(val)
     if issubclass(valtype, BaseGeometry):
        reader = WKTReader()
-       retObj = reader.read(val.to_wkt())
+       retObj = reader.read(val.wkt)
        return True, retObj
     return False, val
        
