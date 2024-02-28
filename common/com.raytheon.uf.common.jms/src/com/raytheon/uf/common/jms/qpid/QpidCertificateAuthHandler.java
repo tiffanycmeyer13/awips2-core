@@ -19,9 +19,7 @@
  **/
 package com.raytheon.uf.common.jms.qpid;
 
-import java.io.IOException;
 import java.net.URI;
-import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 
 import com.raytheon.uf.common.comm.HttpAuthHandler;
@@ -42,6 +40,7 @@ import com.raytheon.uf.common.jms.JmsSslConfiguration;
  * Feb 02, 2017  6085     bsteffen    Extract certificate lookup to JmsSslConfiguration
  * Jul 17, 2019  7724     mrichardson Upgrade Qpid to Qpid Proton.
  * Oct 29, 2021  8667     mapeters    Updated exception handling
+ * Apr 12, 2022  8677     tgurney     Minor changes to SSL configuration API
  *
  * </pre>
  *
@@ -60,13 +59,10 @@ public class QpidCertificateAuthHandler implements HttpAuthHandler {
         try {
             keyStore = sslConfig.loadKeyStore();
             trustStore = sslConfig.loadTrustStore();
-            password = sslConfig.getPassword().toCharArray();
-        } catch (GeneralSecurityException | IOException e) {
-            throw new JMSConfigurationException(
-                    "Failed to load ssl certificates.", e);
+            password = sslConfig.getStorePassword().toCharArray();
         } catch (Exception e) {
             throw new JMSConfigurationException(
-                    "Failed to decrypt JMS key store password.", e);
+                    "Failed to load SSL configuration", e);
         }
     }
 

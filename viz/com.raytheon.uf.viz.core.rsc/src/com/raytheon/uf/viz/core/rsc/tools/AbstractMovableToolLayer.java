@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -27,6 +27,7 @@ import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
+import org.locationtech.jts.geom.Coordinate;
 
 import com.raytheon.uf.viz.core.IDisplayPaneContainer;
 import com.raytheon.uf.viz.core.IGraphicsTarget;
@@ -39,8 +40,8 @@ import com.raytheon.uf.viz.core.rsc.IInputHandler;
 import com.raytheon.uf.viz.core.rsc.IResourceDataChanged;
 import com.raytheon.uf.viz.core.rsc.LoadProperties;
 import com.raytheon.uf.viz.core.rsc.capabilities.EditableCapability;
+import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.input.EditableManager;
-import org.locationtech.jts.geom.Coordinate;
 
 /**
  * Used to render a tool which allows the user to click on and move things on a
@@ -51,20 +52,20 @@ import org.locationtech.jts.geom.Coordinate;
  * have one of 3 statuses Normal means to just Draw it on the map, Selected
  * means it is the object the user last clicked on, live is a copy of selected
  * which follows the mouse.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * 10-21-09     #1711      bsteffen    Initial Creation
  * 05-27-10     #5362      bkowal      Modified 'handleMouseDown' Function
- *                                     So That It Would Be Capable Of 
+ *                                     So That It Would Be Capable Of
  *                                     Potentially Moving An Object To The
  *                                     Location Of The Mouse Cursor When The
  *                                     Right-Button Is Clicked - Determined
  *                                     By The New 'rightClickMovesToCoord'
- *                                     Indicator. 
+ *                                     Indicator.
  * 06-08-2010   #5620      bkowal      Added methods that would be capable of
  *                                     changing the mouse cursor whenever
  *                                     the user positioned their mouse over
@@ -82,11 +83,13 @@ import org.locationtech.jts.geom.Coordinate;
  * Sep 18, 2013 #2360      njensen     Ignore mouse actions if layer is invisible
  * Dec 13, 2018 #7675      reblum      Allow subclasses to specify timeAgnostic via
  *                                     new constructor.
- * 
+ * Jan 06, 2021 #8704      pvemuri     UELE 'bound must be positive' After Issuing River Flood Warning
+ * Sep 13, 2022 8792       mapeters    Only handle input events in the pane this
+ *                                     layer is in
+ *
  * </pre>
- * 
+ *
  * @author bsteffen
- * @version 1.0
  * @param <T>
  */
 public abstract class AbstractMovableToolLayer<T>
@@ -95,7 +98,7 @@ public abstract class AbstractMovableToolLayer<T>
 
     protected enum SelectionStatus {
         NORMAL, SELECTED, LIVE
-    };
+    }
 
     // Not really magic, just called magic because I made them up and they have
     // no real meaning, really I am the magic one because I picked such good
@@ -155,7 +158,7 @@ public abstract class AbstractMovableToolLayer<T>
 
     /**
      * Set the objects which this resource is displaying
-     * 
+     *
      * @param objects
      *            of type T
      */
@@ -183,7 +186,7 @@ public abstract class AbstractMovableToolLayer<T>
 
     /**
      * Replace one object with another
-     * 
+     *
      * @param oldObject
      * @param newObject
      */
@@ -239,7 +242,7 @@ public abstract class AbstractMovableToolLayer<T>
 
     /**
      * Paint an object given its status
-     * 
+     *
      * @param target
      * @param paintProps
      * @param object
@@ -255,7 +258,7 @@ public abstract class AbstractMovableToolLayer<T>
      * location, to compare to world coordinates use mapEditor.translateClick or
      * mapEditor.translateInverseClick, I recommand the inverse one for more
      * accuracy
-     * 
+     *
      * @param mapEditor
      * @param mouseLoc
      * @param object
@@ -266,7 +269,7 @@ public abstract class AbstractMovableToolLayer<T>
 
     /**
      * Copy an object, the newly created object will become the "live object"
-     * 
+     *
      * @param object
      * @return
      */
@@ -274,7 +277,7 @@ public abstract class AbstractMovableToolLayer<T>
 
     /**
      * Move an object, both the lastMouseLoc and curMouseLoc are in Lat/Lon
-     * 
+     *
      * @param lastMouseLoc
      *            Where the mouse started in Lat/Lon
      * @param mouseLoc
@@ -289,23 +292,37 @@ public abstract class AbstractMovableToolLayer<T>
     /**
      * Get the default name, editable will be added if this resource is
      * currently editable
-     * 
+     *
      * @return
      */
     protected abstract String getDefaultName();
 
     /**
-     * Called when user clicks "Button 2" on label.
-     * 
+     * Get whether or not this layer is currently interactive, that is, whether
+     * or not current mouse/key inputs should interact with it.
+     *
+     * @return true if interactive, false otherwise
+     * @see #isEditable()
      */
-    public boolean isEditable() {
+    protected boolean isInteractive() {
+        // Editable, visible, and in the active canvas
+        return isEditable() && getProperties().isVisible() && UiUtil
+                .isDescriptorActive(descriptor, getResourceContainer());
+    }
+
+    /**
+     * Get whether this layer's editable capability is toggled on or off.
+     *
+     * @return true if editable, false otherwise
+     * @see #isInteractive()
+     */
+    protected boolean isEditable() {
         return getCapability(EditableCapability.class).isEditable();
     }
 
     @Override
     public boolean handleMouseDown(int x, int y, int mouseButton) {
-        if ((liveObject == null) && isEditable()
-                && getProperties().isVisible()) {
+        if ((liveObject == null) && isInteractive()) {
             IDisplayPaneContainer container = getResourceContainer();
             lastMouseLoc = container.translateClick(x, y);
 
@@ -326,7 +343,7 @@ public abstract class AbstractMovableToolLayer<T>
     }
 
     /**
-     * 
+     *
      * @return true if the selected object was made live
      */
     public boolean selectObjectAtMouse(int x, int y, int mouseButton) {
@@ -366,32 +383,10 @@ public abstract class AbstractMovableToolLayer<T>
                 issueRefresh();
             }
             return true;
-        } else if ((liveObject == null) && isEditable()
-                && getProperties().isVisible()) {
+        } else if (isInteractive()) {
             if (objects == null) {
                 return false;
             }
-
-            // if (liveObject != null) {
-            // if (isClicked(container, new Coordinate(x, y), liveObject)) {
-            // if (!this.endpointClicked) {
-            // this.changeCursorCross();
-            // } else {
-            // this.changeCursorHand();
-            // }
-            // return true;
-            // }
-            // }
-            // if (selectedObject != null) {
-            // if (isClicked(container, new Coordinate(x, y), selectedObject)) {
-            // if (!this.endpointClicked) {
-            // this.changeCursorCross();
-            // } else {
-            // this.changeCursorHand();
-            // }
-            // return true;
-            // }
-            // }
 
             for (T object : objects) {
                 if (isClicked(container, new Coordinate(x, y), object)) {
@@ -411,11 +406,14 @@ public abstract class AbstractMovableToolLayer<T>
     @Override
     @SuppressWarnings("unchecked")
     public boolean handleMouseUp(int x, int y, int mouseButton) {
-        if (!isEditable() || !getProperties().isVisible()) {
+        if (!isInteractive()) {
             return false;
         }
 
         if (this.rightClickMovesToCoord && (mouseButton == 3)) {
+            if ((objects == null) || (objects.isEmpty())) {
+                return false;
+            }
             Object[] selectionArray = objects.toArray();
             selectedObject = (T) selectionArray[getRandomIndex(
                     selectionArray.length)];
@@ -436,7 +434,7 @@ public abstract class AbstractMovableToolLayer<T>
     }
 
     protected void save(T oldObject, T newObject) {
-        ;
+        // Implementations can override this to save state as necessary
     }
 
     @Override

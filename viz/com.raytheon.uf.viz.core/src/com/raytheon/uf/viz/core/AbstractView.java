@@ -33,6 +33,8 @@ import org.eclipse.swt.graphics.Rectangle;
  * ------------- -------- --------- -------------------------
  * Jun 25, 2012           bsteffen  Initial creation
  * Nov 03, 2016  5976     bsteffen  Remove unused 3D support
+ * Aug 04, 2020  81478    smanoj    Fixed UELE triggered by swapping panes back
+ *                                  and forth in NCTEXT and clicking on map.
  * 
  * </pre>
  * 
@@ -41,6 +43,10 @@ import org.eclipse.swt.graphics.Rectangle;
 public abstract class AbstractView implements IView {
 
     protected IExtent extent;
+
+    private double canvasWidth;
+
+    private double canvasHeight;
 
     public AbstractView(IExtent pe) {
         this.extent = pe;
@@ -138,9 +144,20 @@ public abstract class AbstractView implements IView {
     @Override
     public double[] screenToGrid(double x, double y, double depth,
             IGraphicsTarget target) {
-        double correctedX = (x * (extent.getMaxX() - extent.getMinX()) / getCanvasBounds(target).width)
+
+        // Some instance of a mouse click trigger a UELE.
+        // canvasHeight and canvasWidth are set when the mouse is moved
+        // over the map and those values only change when map is resized.
+        // Mouse-over action happens before a mouse click, therefore
+        // canvasHeight and canvasWidth have their values before a mouse click.
+        if (getCanvasBounds(target) != null) {
+            canvasWidth = getCanvasBounds(target).width;
+            canvasHeight = getCanvasBounds(target).height;
+        }
+
+        double correctedX = (x * (extent.getMaxX() - extent.getMinX()) / canvasWidth)
                 + extent.getMinX();
-        double correctedY = (y * (extent.getMaxY() - extent.getMinY()) / getCanvasBounds(target).height)
+        double correctedY = (y * (extent.getMaxY() - extent.getMinY()) / canvasHeight)
                 + extent.getMinY();
         // z bounds are 0 to 1
         double correctedZ = (depth * 2) - 1;

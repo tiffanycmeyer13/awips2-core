@@ -28,25 +28,29 @@ import java.util.List;
 import org.hibernate.Criteria;
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.SessionFactory;
 import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.jdbc.Work;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import com.raytheon.uf.common.dataplugin.persist.IPersistableDataObject;
-import com.raytheon.uf.common.status.IUFStatusHandler;
-import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.edex.database.DataAccessLayerException;
 
 /**
- * A CoreDao mimic that is session managed. A Dao will never open its own
- * transaction, nor will it commit/rollback transactions. Any number of Daos
- * should be utilizable in the same transaction from a service that demarcates
- * the transaction boundaries.
+ * A CoreDao mimic that is session managed.
+ *
+ * In theory, this DAO should never open its own transaction or commit/rollback
+ * transactions. Any number of DAOs should be utilizable in the same transaction
+ * from a service that demarcates the transaction boundaries. This is supported
+ * by the constructor indicating to use a MANDATORY propagation behavior by
+ * default.
+ *
+ * In reality, various methods override the default propagation behavior and can
+ * open/commit/rollback their own transactions.
  *
  * <pre>
  *
@@ -71,122 +75,122 @@ import com.raytheon.uf.edex.database.DataAccessLayerException;
  * Oct 16, 2014  3454     bphillip  Upgrading to Hibernate 4
  * Sep 01, 2016  5846     rjpeter   Support IN style hql queries
  * Sep 09, 2019  6140     randerso  Fix queries with maxResults.
+ * Apr 14, 2021  7849     mapeters  Refactor to use TransactionTemplate.execute
+ *                                  instead of Transactional annotations (for
+ *                                  easier creation of admin/non-admin versions)
  *
  * </pre>
  *
  * @author djohnson
  */
 @Repository
-@Transactional(propagation = Propagation.MANDATORY)
 public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY extends IPersistableDataObject<IDENTIFIER>>
-        implements ISessionManagedDao<IDENTIFIER, ENTITY> {
+        extends AbstractDao implements ISessionManagedDao<IDENTIFIER, ENTITY> {
 
     /** The region in the cache which stores the queries */
     private static final String QUERY_CACHE_REGION = "Queries";
 
-    protected static final IUFStatusHandler statusHandler = UFStatus
-            .getHandler(SessionManagedDao.class);
+    protected final TransactionDefinition requiredTransactionDef = getTransactionDef(
+            Propagation.REQUIRED);
 
-    protected SessionFactory sessionFactory;
+    protected final TransactionDefinition requiredReadOnlyTransactionDef = getTransactionDef(
+            Propagation.REQUIRED, true);
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setSessionFactory(SessionFactory sessionFactory) {
-        this.sessionFactory = sessionFactory;
+    public SessionManagedDao(IDaoConfigFactory daoConfigFactory,
+            boolean admin) {
+        super(daoConfigFactory.forDatabase(DaoConfig.DEFAULT_DB_NAME, admin),
+                new DefaultTransactionDefinition(
+                        TransactionDefinition.PROPAGATION_MANDATORY));
+        // Set DAO class to entity class instead of using value from DaoConfig
+        setDaoClass(getEntityClass());
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    public SessionManagedDao(IDaoConfigFactory daoConfigFactory) {
+        this(daoConfigFactory, false);
+    }
+
     @Override
     public void create(final ENTITY obj) {
-        getCurrentSession().save(obj);
+        runInTransaction(() -> {
+            getCurrentSession().save(obj);
+        });
+
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void update(final ENTITY obj) {
-        getCurrentSession().update(obj);
+        runInTransaction(() -> {
+            getCurrentSession().update(obj);
+        });
+
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void createOrUpdate(final ENTITY obj) {
-        getCurrentSession().saveOrUpdate(obj);
+        runInTransaction(() -> {
+            getCurrentSession().saveOrUpdate(obj);
+        });
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void persistAll(final Collection<ENTITY> objs) {
-        Session session = getCurrentSession();
-        for (ENTITY obj : objs) {
-            session.saveOrUpdate(obj);
-        }
+        runInTransaction(() -> {
+            Session session = getCurrentSession();
+            for (ENTITY obj : objs) {
+                session.saveOrUpdate(obj);
+            }
+        });
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void delete(final ENTITY obj) {
-        if (obj != null) {
-            Object toDelete = getCurrentSession().merge(obj);
-            getCurrentSession().delete(toDelete);
-        }
+        runInTransaction(() -> {
+            if (obj != null) {
+                Object toDelete = getCurrentSession().merge(obj);
+                getCurrentSession().delete(toDelete);
+            }
+        });
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void deleteAll(final Collection<ENTITY> objs) {
-        for (ENTITY obj : objs) {
-            delete(obj);
-        }
+        runInTransaction(() -> {
+            for (ENTITY obj : objs) {
+                delete(obj);
+            }
+        });
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public ENTITY getById(IDENTIFIER id) {
-        final Class<ENTITY> entityClass = getEntityClass();
-        return entityClass.cast(getCurrentSession().get(entityClass, id));
+        return supplyInTransaction(requiredReadOnlyTransactionDef, () -> {
+            Class<ENTITY> entityClass = getEntityClass();
+            return entityClass.cast(getCurrentSession().get(entityClass, id));
+        });
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public ENTITY loadById(IDENTIFIER id) {
-        final Class<ENTITY> entityClass = getEntityClass();
-        return entityClass.cast(getCurrentSession().load(entityClass, id));
+        return supplyInTransaction(requiredReadOnlyTransactionDef, () -> {
+            final Class<ENTITY> entityClass = getEntityClass();
+            return entityClass.cast(getCurrentSession().load(entityClass, id));
+        });
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<ENTITY> getAll() {
         return query("from " + getEntityClass().getSimpleName());
     }
 
     @SuppressWarnings("unchecked")
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<ENTITY> loadAll() {
-        return getCurrentSession()
-                .createQuery("FROM " + getEntityClass().getName()).list();
+        return supplyInTransaction(requiredReadOnlyTransactionDef, () -> {
+            return getCurrentSession()
+                    .createQuery("FROM " + getEntityClass().getName()).list();
+        });
+
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public ENTITY uniqueResult(String queryString) {
         return uniqueResult(queryString, new Object[0]);
     }
@@ -198,19 +202,17 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      * @param params
      * @return
      */
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     protected ENTITY uniqueResult(String queryString, Object... params) {
         final List<ENTITY> results = executeHQLQuery(queryString, params);
         if (results.isEmpty()) {
             return null;
         } else if (results.size() > 1) {
-            statusHandler.warn("More than one result returned for query ["
+            logger.warn("More than one result returned for query ["
                     + queryString + "], only returning the first!");
         }
         return results.get(0);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<ENTITY> query(String queryString) {
         return executeHQLQuery(queryString);
     }
@@ -222,16 +224,13 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      * @param params
      * @return
      */
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<ENTITY> query(String queryString, Object... params) {
         return executeHQLQuery(queryString, 0, params);
     }
 
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<ENTITY> query(String queryString, Integer maxResults,
             Object... params) {
         return executeHQLQuery(queryString, maxResults, params);
-
     }
 
     /**
@@ -245,7 +244,6 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      * @throws DataAccessLayerException
      *             If errors are encountered during the HQL query
      */
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public <T extends Object> List<T> executeHQLQuery(String queryString) {
         return executeHQLQuery(queryString, 0);
     }
@@ -267,7 +265,6 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      * @throws DataAccessLayerException
      *             If Hibernate errors occur during the execution of the query
      */
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public <T extends Object> List<T> executeHQLQuery(String queryString,
             Object... params) {
         return executeHQLQuery(queryString, 0, params);
@@ -295,26 +292,27 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      * @return The results of the query
      */
     @SuppressWarnings("unchecked")
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public <T extends Object> List<T> executeHQLQuery(final String queryString,
             Integer maxResults, Object... params) {
         if (params.length % 2 != 0) {
             throw new IllegalArgumentException(
                     "Wrong number of arguments submitted to executeHQLQuery.");
         }
-        Query query = getCurrentSession().createQuery(queryString);
-        if (maxResults != null && maxResults > 0) {
-            query.setMaxResults(maxResults);
-        }
-        for (int i = 0; i < params.length; i += 2) {
-            if (params[i + 1] instanceof Collection<?>) {
-                query.setParameterList((String) params[i],
-                        (Collection<?>) params[i + 1]);
-            } else {
-                query.setParameter((String) params[i], params[i + 1]);
+        return supplyInTransaction(requiredReadOnlyTransactionDef, () -> {
+            Query query = getCurrentSession().createQuery(queryString);
+            if (maxResults != null && maxResults > 0) {
+                query.setMaxResults(maxResults);
             }
-        }
-        return query.list();
+            for (int i = 0; i < params.length; i += 2) {
+                if (params[i + 1] instanceof Collection<?>) {
+                    query.setParameterList((String) params[i],
+                            (Collection<?>) params[i + 1]);
+                } else {
+                    query.setParameter((String) params[i], params[i + 1]);
+                }
+            }
+            return query.list();
+        });
     }
 
     /**
@@ -371,21 +369,23 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
                     "Wrong number of arguments submitted to executeHQLStatement.");
         }
         try {
-            Query query = getSessionFactory().getCurrentSession()
-                    .createQuery(statement).setCacheable(true)
-                    .setCacheRegion(QUERY_CACHE_REGION);
-            for (int i = 0; i < params.length; i += 2) {
-                if (params[i + 1] instanceof Collection<?>) {
-                    query.setParameterList((String) params[i],
-                            (Collection<?>) params[i + 1]);
-                } else {
-                    query.setParameter((String) params[i], params[i + 1]);
+            return supplyInTransaction(() -> {
+                Query query = getSessionFactory().getCurrentSession()
+                        .createQuery(statement).setCacheable(true)
+                        .setCacheRegion(QUERY_CACHE_REGION);
+                for (int i = 0; i < params.length; i += 2) {
+                    if (params[i + 1] instanceof Collection<?>) {
+                        query.setParameterList((String) params[i],
+                                (Collection<?>) params[i + 1]);
+                    } else {
+                        query.setParameter((String) params[i], params[i + 1]);
+                    }
                 }
-            }
-            return query.executeUpdate();
-        } catch (Throwable e) {
+                return query.executeUpdate();
+            });
+        } catch (Throwable t) {
             throw new DataAccessLayerException(
-                    "Error executing HQL Statement [" + statement + "]", e);
+                    "Error executing HQL Statement [" + statement + "]", t);
         }
     }
 
@@ -402,22 +402,26 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      *             If errors occur in Hibernate while executing the query
      */
     @SuppressWarnings("unchecked")
-    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public <T extends Object> List<T> executeCriteriaQuery(
             final DetachedCriteria criteria) {
         if (criteria == null) {
             return Collections.emptyList();
         }
-        return criteria.getExecutableCriteria(getCurrentSession()).list();
+        return supplyInTransaction(requiredReadOnlyTransactionDef, () -> {
+            return criteria.getExecutableCriteria(getCurrentSession()).list();
+        });
     }
 
     public void evict(ENTITY entity) {
-        this.getSessionFactory().getCurrentSession().evict(entity);
+        runInTransaction(() -> {
+            getCurrentSession().evict(entity);
+        });
     }
 
-    @SuppressWarnings("unchecked")
     public ENTITY load(Serializable id) {
-        return getCurrentSession().load(getEntityClass(), id);
+        return supplyInTransaction(() -> {
+            return getCurrentSession().load(getEntityClass(), id);
+        });
 
     }
 
@@ -428,7 +432,9 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      *            the work
      */
     public void executeWork(Work work) {
-        this.getSessionFactory().getCurrentSession().doWork(work);
+        runInTransaction(() -> {
+            getCurrentSession().doWork(work);
+        });
     }
 
     /**
@@ -437,7 +443,9 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      * @return The criteria instance
      */
     protected Criteria createCriteria() {
-        return getCurrentSession().createCriteria(getEntityClass());
+        return supplyInTransaction(() -> {
+            return getCurrentSession().createCriteria(getEntityClass());
+        });
     }
 
     /**
@@ -446,23 +454,27 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      * @return the dialect.
      */
     public Dialect getDialect() {
-        return ((SessionFactoryImplementor) sessionFactory).getDialect();
+        return supplyInTransaction(() -> {
+            return ((SessionFactoryImplementor) getSessionFactory())
+                    .getJdbcServices().getDialect();
+        });
     }
 
     /**
      * Flushes and clears the current Hibernate Session
      */
     public void flushAndClearSession() {
-        this.getSessionFactory().getCurrentSession().flush();
-        this.getSessionFactory().getCurrentSession().clear();
+        runInTransaction(() -> {
+            getCurrentSession().flush();
+            getCurrentSession().clear();
+        });
     }
 
-    protected SessionFactory getSessionFactory() {
-        return sessionFactory;
-    }
-
-    protected Session getCurrentSession() {
-        return sessionFactory.getCurrentSession();
+    @Override
+    public Session getCurrentSession() {
+        return supplyInTransaction(() -> {
+            return super.getCurrentSession();
+        });
     }
 
     /**
@@ -471,5 +483,4 @@ public abstract class SessionManagedDao<IDENTIFIER extends Serializable, ENTITY 
      * @return the entity class type
      */
     protected abstract Class<ENTITY> getEntityClass();
-
 }

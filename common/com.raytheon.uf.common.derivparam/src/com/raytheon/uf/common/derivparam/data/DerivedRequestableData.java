@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -21,28 +21,31 @@ package com.raytheon.uf.common.derivparam.data;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import com.raytheon.uf.common.inventory.data.AbstractRequestableData;
-import com.raytheon.uf.common.inventory.data.AggregateRequestableData;
-import com.raytheon.uf.common.inventory.data.CubeRequestableData;
-import com.raytheon.uf.common.inventory.exception.DataCubeException;
-import com.raytheon.uf.common.inventory.tree.CubeLevel;
 import com.raytheon.uf.common.dataplugin.level.Level;
 import com.raytheon.uf.common.datastorage.records.FloatDataRecord;
 import com.raytheon.uf.common.datastorage.records.IDataRecord;
 import com.raytheon.uf.common.derivparam.library.DerivedParameterGenerator;
 import com.raytheon.uf.common.derivparam.library.DerivedParameterRequest;
+import com.raytheon.uf.common.inventory.data.AbstractRequestableData;
+import com.raytheon.uf.common.inventory.data.AggregateRequestableData;
+import com.raytheon.uf.common.inventory.data.CubeRequestableData;
+import com.raytheon.uf.common.inventory.exception.DataCubeException;
+import com.raytheon.uf.common.inventory.tree.CubeLevel;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 
 /**
- * TODO Add Description
- * 
+ * Requestable data for derived data
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
@@ -50,17 +53,21 @@ import com.raytheon.uf.common.derivparam.library.DerivedParameterRequest;
  * Jun 04, 2013  2041     bsteffen    Switch derived parameters to use
  *                                    concurrent python for threading.
  * Jan 14, 2014  2661     bsteffen    Make vectors u,v only
- * 
- * 
+ * Jan 26, 2022  8741     njensen     Added performance logging
+ *
+ *
  * </pre>
- * 
+ *
  * @author bsteffen
- * @version 1.0
  */
 public class DerivedRequestableData extends AbstractRequestableData {
 
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("DerivedRequestableData");
+
     private Map<Object, WeakReference<DerivedParameterRequest>> cache = Collections
-            .synchronizedMap(new HashMap<Object, WeakReference<DerivedParameterRequest>>());
+            .synchronizedMap(
+                    new HashMap<Object, WeakReference<DerivedParameterRequest>>());
 
     private DerivedParameterRequest request;
 
@@ -91,13 +98,14 @@ public class DerivedRequestableData extends AbstractRequestableData {
                 return finalResult.toArray(new IDataRecord[0]);
             }
         } catch (ExecutionException e) {
-            throw new DataCubeException("Error executing Derived Parameter.", e);
+            throw new DataCubeException("Error executing Derived Parameter.",
+                    e);
         }
         return null;
     }
 
     /**
-     * 
+     *
      * @param obj
      *            the pdo which needs to be derived
      * @param cache
@@ -117,12 +125,12 @@ public class DerivedRequestableData extends AbstractRequestableData {
         DerivedParameterRequest request = new DerivedParameterRequest(
                 this.request);
         List<Object> baseParams = request.getBaseParams();
-        ArrayList<Object> arguments = new ArrayList<Object>(baseParams.size());
+        List<Object> arguments = new ArrayList<>(baseParams.size());
         for (Object param : baseParams) {
             arguments.add(getArgument(param, arg));
         }
         request.setArgumentRecords(arguments.toArray(new Object[] {}));
-        cache.put(arg, new WeakReference<DerivedParameterRequest>(request));
+        cache.put(arg, new WeakReference<>(request));
         return request;
     }
 
@@ -134,46 +142,61 @@ public class DerivedRequestableData extends AbstractRequestableData {
         } else if (param instanceof AggregateRequestableData) {
             List<AbstractRequestableData> recs = ((AggregateRequestableData) param)
                     .getSourceRecords();
-            List<Object> arg = new ArrayList<Object>(recs.size());
+            List<Object> arg = new ArrayList<>(recs.size());
             for (AbstractRequestableData rec : recs) {
                 arg.add(getArgument(rec, frameworkArg));
             }
             return arg;
         } else if (param instanceof CubeRequestableData) {
+            long cubeStart = System.currentTimeMillis();
             Map<Level, CubeLevel<AbstractRequestableData, AbstractRequestableData>> dataMap = ((CubeRequestableData) param)
                     .getDataMap();
-            List<CubeLevel<Object, Object>> arg = new ArrayList<CubeLevel<Object, Object>>(
+            List<CubeLevel<Object, Object>> arg = new ArrayList<>(
                     dataMap.size());
-            for (CubeLevel<AbstractRequestableData, AbstractRequestableData> cubeLevel : dataMap
-                    .values()) {
+            long totalPressureTime = 0;
+            long totalParameterTime = 0;
+            Collection<CubeLevel<AbstractRequestableData, AbstractRequestableData>> cubeLevels = dataMap
+                    .values();
+            int cubeLevelCount = cubeLevels.size();
+            for (CubeLevel<AbstractRequestableData, AbstractRequestableData> cubeLevel : cubeLevels) {
                 if (cubeLevel.getParam() != null
                         && cubeLevel.getPressure() != null) {
-                    arg.add(new CubeLevel<Object, Object>(getArgument(
-                            cubeLevel.getPressure(), frameworkArg),
-                            getArgument(cubeLevel.getParam(), frameworkArg)));
+                    long t0 = System.currentTimeMillis();
+                    Object argPressure = getArgument(cubeLevel.getPressure(),
+                            frameworkArg);
+                    long t1 = System.currentTimeMillis();
+                    Object argParam = getArgument(cubeLevel.getParam(),
+                            frameworkArg);
+                    long t2 = System.currentTimeMillis();
+                    arg.add(new CubeLevel<>(argPressure, argParam));
+                    totalPressureTime += t1 - t0;
+                    totalParameterTime += t2 - t1;
                 }
             }
+            long cubeEnd = System.currentTimeMillis();
+            StringBuilder sb = new StringBuilder();
+            sb.append("Building cube of ").append(cubeLevelCount)
+                    .append(" levels took ").append(cubeEnd - cubeStart)
+                    .append(" ms with pressure taking ")
+                    .append(totalPressureTime)
+                    .append(" ms and parameter taking ")
+                    .append(totalParameterTime).append(" ms");
+            perfLog.log(sb.toString());
             return arg;
         } else if (param instanceof AbstractRequestableData) {
             return ((AbstractRequestableData) param).getDataValue(frameworkArg);
-        } else if (param instanceof float[] || param instanceof FloatDataRecord) {
+        } else if (param instanceof float[]
+                || param instanceof FloatDataRecord) {
             return param;
         }
         throw new DataCubeException(
                 "Unknown BaseParam for DerivedParam of type: "
-                + param.getClass().getSimpleName());
+                        + param.getClass().getSimpleName());
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * com.raytheon.uf.viz.derivparam.data.AbstractRequestableData#getDependencies
-     * ()
-     */
     @Override
     public List<AbstractRequestableData> getDependencies() {
-        List<AbstractRequestableData> results = new ArrayList<AbstractRequestableData>();
+        List<AbstractRequestableData> results = new ArrayList<>();
         for (Object param : request.getBaseParams()) {
             if (param instanceof AbstractRequestableData) {
                 results.add((AbstractRequestableData) param);

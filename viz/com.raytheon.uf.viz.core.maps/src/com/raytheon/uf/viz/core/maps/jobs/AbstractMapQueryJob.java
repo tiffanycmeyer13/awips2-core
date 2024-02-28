@@ -47,7 +47,7 @@ import com.raytheon.uf.common.status.PerformanceStatus;
 public abstract class AbstractMapQueryJob<REQUEST extends AbstractMapRequest<?>, RESULT extends AbstractMapResult>
         extends Job {
     private static final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("MapQueryJob:");
+            .getHandler("MapQueryJob");
 
     private IProgressMonitor monitor;
 

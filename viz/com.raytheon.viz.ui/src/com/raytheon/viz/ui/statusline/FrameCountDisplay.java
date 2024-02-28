@@ -44,6 +44,9 @@ import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
  * Dec 23, 2010            mschenke    Initial creation
  * Mar 24, 2016  5232      njensen     Fix label coloring for test mode
  * Oct 02, 2019  69438     ksunil      work to add current frame number in the label
+ * Oct 13, 2022 8946       mapeters    Handle VizGlobalsManager.getProperty()
+ *                                     method rename
+ *
  * </pre>
  *
  * @author mschenke
@@ -52,8 +55,6 @@ import com.raytheon.uf.viz.core.globals.VizGlobalsManager;
 public class FrameCountDisplay extends ContributionItem {
 
     private Label frameCountLabel;
-
-    private Composite layout;
 
     private Number frameCount;
 
@@ -68,7 +69,7 @@ public class FrameCountDisplay extends ContributionItem {
     public FrameCountDisplay(IWorkbenchWindow window) {
         this.window = window;
         frameCount = (Number) VizGlobalsManager.getInstance(window)
-                .getPropery(VizConstants.FRAME_COUNT_ID);
+                .getProperty(VizConstants.FRAME_COUNT_ID);
         VizGlobalsManager.addListener(VizConstants.FRAME_COUNT_ID,
                 frameCountListener);
         VizGlobalsManager.addListener(VizConstants.FRAME_NUM_IN_LOOP,
@@ -77,7 +78,7 @@ public class FrameCountDisplay extends ContributionItem {
 
     @Override
     public void fill(Composite parent) {
-        layout = new Composite(parent, SWT.NONE);
+        Composite layout = new Composite(parent, SWT.NONE);
 
         layout.setLayout(new GridLayout(2, false));
 
@@ -95,12 +96,7 @@ public class FrameCountDisplay extends ContributionItem {
 
     @Override
     public void update() {
-        Display.getDefault().syncExec(new Runnable() {
-            @Override
-            public void run() {
-                updateFrameText();
-            }
-        });
+        Display.getDefault().syncExec(() -> updateFrameText());
     }
 
     private void updateFrameText() {
@@ -127,6 +123,7 @@ public class FrameCountDisplay extends ContributionItem {
     }
 
     private class FrameNumberListener implements IGlobalChangedListener {
+        @Override
         public void updateValue(IWorkbenchWindow changedWindow, Object value) {
             currentFrameNum = (Number) value;
             update();
@@ -134,6 +131,7 @@ public class FrameCountDisplay extends ContributionItem {
     }
 
     private class FrameCountListener implements IGlobalChangedListener {
+        @Override
         public void updateValue(IWorkbenchWindow changedWindow, Object value) {
             if (changedWindow == window) {
                 frameCount = (Number) value;

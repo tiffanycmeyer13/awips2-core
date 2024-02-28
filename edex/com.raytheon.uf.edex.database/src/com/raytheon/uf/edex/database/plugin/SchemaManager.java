@@ -36,6 +36,9 @@ import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.service.ServiceRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
 import com.raytheon.uf.common.dataplugin.PluginException;
 import com.raytheon.uf.common.time.util.TimeUtil;
@@ -50,7 +53,8 @@ import com.raytheon.uf.edex.database.cluster.ClusterLockUtils.LockState;
 import com.raytheon.uf.edex.database.cluster.ClusterLocker;
 import com.raytheon.uf.edex.database.cluster.ClusterTask;
 import com.raytheon.uf.edex.database.dao.CoreDao;
-import com.raytheon.uf.edex.database.dao.DaoConfig;
+import com.raytheon.uf.edex.database.dao.DaoConfigFactory;
+import com.raytheon.uf.edex.database.dao.IDaoConfigFactory;
 
 /**
  * Manages the ddl statements used to generate the database tables
@@ -81,12 +85,15 @@ import com.raytheon.uf.edex.database.dao.DaoConfig;
  * Dec 08, 2016  3440     njensen      Cleanup error message
  * Dec 15, 2017           mjames       Less logging (re-implemented 3/15/23)
  * Feb 26, 2019  6140     tgurney      Hibernate 5 upgrade
+ * Aug 20, 2020  82093    dfriedman    Support alternate schema names
+ * Apr 21, 2021  7849     mapeters     Inject/use Spring app context
  *
  * </pre>
  *
  * @author bphillip
  */
-public class SchemaManager implements IDatabasePluginRegistryChanged {
+public class SchemaManager
+        implements IDatabasePluginRegistryChanged, ApplicationContextAware {
 
     /** The logger */
     private static final Logger logger = LoggerFactory
@@ -116,7 +123,11 @@ public class SchemaManager implements IDatabasePluginRegistryChanged {
             "^create (?:table |index |sequence )(?:[A-Za-z_0-9]*\\.)?(.+?)(?: .*)?$");
 
     private final Pattern createIndexTableNamePattern = Pattern
-            .compile("^create index %table%.+? on (.+?) .*$");
+            .compile("^create index %table%.+? on (?:[^ ]*\\.)?([^\\.]+?) .*$");
+
+    private ApplicationContext applicationContext;
+
+    private IDaoConfigFactory daoConfigFactory;
 
     private volatile ServiceRegistry schemaGenServiceRegistry = null;
 
@@ -170,9 +181,9 @@ public class SchemaManager implements IDatabasePluginRegistryChanged {
             String sessFactoryName = "&admin_" + props.getDatabase()
                     + "SessionFactory";
             DatabaseSessionFactoryBean sessFactory = (DatabaseSessionFactoryBean) EDEXUtil
-                    .getESBComponent(sessFactoryName);
-            PluginVersionDao pvd = new PluginVersionDao(props.getDatabase(),
-                    true);
+                    .getESBComponent(applicationContext, sessFactoryName);
+            PluginVersionDao pvd = new PluginVersionDao(daoConfigFactory,
+                    props.getDatabase(), true);
 
             // handle plugin versioning
             if (props.isForceCheck()) {
@@ -399,7 +410,7 @@ public class SchemaManager implements IDatabasePluginRegistryChanged {
             throws PluginException {
         List<String> ddls = getRawCreateSql(props, sessFactory);
         CoreDao dao = new CoreDao(
-                DaoConfig.forDatabase(props.getDatabase(), true));
+                daoConfigFactory.forDatabase(props.getDatabase(), true));
         int rows = 0;
 
         for (String sql : ddls) {
@@ -447,7 +458,7 @@ public class SchemaManager implements IDatabasePluginRegistryChanged {
             DatabaseSessionFactoryBean sessFactory) throws PluginException {
         List<String> ddls = getRawDropSql(props, sessFactory);
         CoreDao dao = new CoreDao(
-                DaoConfig.forDatabase(props.getDatabase(), true));
+                daoConfigFactory.forDatabase(props.getDatabase(), true));
 
         for (String sql : ddls) {
             boolean valid = true;
@@ -476,4 +487,10 @@ public class SchemaManager implements IDatabasePluginRegistryChanged {
         }
     }
 
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext)
+            throws BeansException {
+        this.applicationContext = applicationContext;
+        this.daoConfigFactory = new DaoConfigFactory(applicationContext);
+    }
 }

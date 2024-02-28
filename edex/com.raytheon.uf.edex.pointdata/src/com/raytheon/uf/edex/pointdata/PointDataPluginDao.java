@@ -25,7 +25,6 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -40,7 +39,6 @@ import com.raytheon.uf.common.dataplugin.PluginDataObject;
 import com.raytheon.uf.common.dataplugin.PluginException;
 import com.raytheon.uf.common.dataplugin.persist.DefaultPathProvider;
 import com.raytheon.uf.common.dataplugin.persist.IPersistable;
-import com.raytheon.uf.common.dataplugin.persist.PersistableDataObject;
 import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.datastorage.IDataStore;
 import com.raytheon.uf.common.datastorage.IDataStore.StoreOp;
@@ -59,7 +57,7 @@ import com.raytheon.uf.common.time.DataTime;
 import com.raytheon.uf.edex.core.dataplugin.PluginRegistry;
 import com.raytheon.uf.edex.database.plugin.PluginDao;
 
-import net.sf.cglib.beans.BeanMap;
+import org.springframework.cglib.beans.BeanMap;
 
 /**
  * Provides an extension to PluginDao that provides access for PointData data
@@ -90,8 +88,10 @@ import net.sf.cglib.beans.BeanMap;
  * Nov 20, 2014  3853     njensen     Improved javadoc of getPointDataDescription()
  * Nov 16, 2017  6367     tgurney     Send timing information to log file
  * Sep 23, 2021  8608     mapeters    Add metadata id handling
+ * Apr 21, 2022  8709     tjensen     Remove net.sf.cglib
  * Feb 17, 2022  8608     mapeters    Disable broken data storage auditing
  * Jun 22, 2022  8865     mapeters    Update populateDataStore to return boolean
+ * Aug 24, 2022  8920     mapeters    Add "enabled" check.
  *
  * </pre>
  *
@@ -243,18 +243,9 @@ public abstract class PointDataPluginDao<T extends PluginDataObject>
     }
 
     @Override
-    @SuppressWarnings("rawtypes")
-    protected void auditMetadataStorageStatus(
-            Collection<? extends PersistableDataObject> persisted,
-            Collection<? extends PersistableDataObject> duplicates,
-            Collection<? extends PersistableDataObject> all) {
+    public boolean isAuditEnabled() {
         // Auditing is disabled for point data currently. See class javadoc.
-    }
-
-    @Override
-    public void auditMissingPiecesForDatabaseOnlyPdos(
-            PluginDataObject... pdos) {
-        // Auditing is disabled for point data currently. See class javadoc.
+        return false;
     }
 
     public PointDataDbDescription getPointDataDbDescription() {

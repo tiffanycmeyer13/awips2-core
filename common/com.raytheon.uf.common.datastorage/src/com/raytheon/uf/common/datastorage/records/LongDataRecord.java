@@ -21,11 +21,12 @@ package com.raytheon.uf.common.datastorage.records;
 
 import java.util.Arrays;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * Provides an interface to datasets of type long [] (signed 64 bit).
+ * IDataRecord implementation for 64-bit signed integer data
  *
  * <pre>
  *
@@ -36,7 +37,11 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Sep 13, 2007  379      jkorman      Initial Creation.
  * Nov 24, 2007  555      garmendariz  Added method to check dataset dimensions
  *                                     and override toString
+ * Mar 29, 2021  8374     randerso     Removed toString() in favor of method in
+ *                                     AbstractStoreageRecord. Code cleanup.
  * Jun 10, 2021  8450     mapeters     Add serialVersionUID
+ * Nov 03, 2022  8931     smoorthy     Add group name normalization
+ * Mar 23, 2023  2031674  mapeters     Support shallow cloning
  *
  * </pre>
  *
@@ -50,8 +55,11 @@ public class LongDataRecord extends AbstractStorageRecord {
     @DynamicSerializeElement
     protected long[] longData;
 
+    /**
+     * Nullary constructor for Dynamic Serialization
+     */
     public LongDataRecord() {
-
+        super();
     }
 
     /**
@@ -64,11 +72,9 @@ public class LongDataRecord extends AbstractStorageRecord {
      */
     public LongDataRecord(String name, String group, long[] longData,
             int dimension, long[] sizes) {
+        super(name, DataStoreFactory.normalizeAttributeName(group), dimension,
+                sizes);
         this.longData = longData;
-        this.group = group;
-        this.dimension = dimension;
-        this.sizes = sizes;
-        this.name = name;
     }
 
     /**
@@ -129,15 +135,6 @@ public class LongDataRecord extends AbstractStorageRecord {
 
     }
 
-    /**
-     * Override toString method to print dimensions
-     */
-    @Override
-    public String toString() {
-        return "[dims,data size]=[" + Arrays.toString(sizes) + ","
-                + this.longData.length + "]";
-    }
-
     @Override
     public void reduce(int[] indices) {
         long[] reducedData = new long[indices.length];
@@ -154,10 +151,14 @@ public class LongDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected AbstractStorageRecord cloneInternal() {
+    protected AbstractStorageRecord cloneInternal(boolean deep) {
         LongDataRecord record = new LongDataRecord();
         if (longData != null) {
-            record.longData = Arrays.copyOf(longData, longData.length);
+            if (deep) {
+                record.longData = Arrays.copyOf(longData, longData.length);
+            } else {
+                record.longData = longData;
+            }
         }
         return record;
     }

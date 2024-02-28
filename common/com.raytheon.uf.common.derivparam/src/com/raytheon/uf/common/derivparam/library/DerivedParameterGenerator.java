@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -33,7 +33,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import javax.measure.Unit;
 import javax.xml.bind.JAXBException;
 
 import com.raytheon.uf.common.datastorage.records.IDataRecord;
@@ -47,21 +46,22 @@ import com.raytheon.uf.common.localization.LocalizationContext;
 import com.raytheon.uf.common.localization.LocalizationContext.LocalizationType;
 import com.raytheon.uf.common.localization.PathManagerFactory;
 import com.raytheon.uf.common.serialization.SingleTypeJAXBManager;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
 import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
-import com.raytheon.uf.common.status.UFStatus.Priority;
 
-import tec.uom.se.AbstractUnit;
+import tech.units.indriya.AbstractUnit;
 
 /**
  * Primary public interface for derived parameters. Introspection on the derived
  * parameters available can be done using {@link #getDerParLibrary()}. For
  * actually performing derived parameters calculations the
  * {@link #calculate(DerivedParameterRequest)} method can be used.
- * 
+ *
  * <pre>
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- ------------------------------------------
  * Jul 03, 2008  1076     brockwoo    Initial creation
@@ -86,14 +86,18 @@ import tec.uom.se.AbstractUnit;
  *                                    error that adapter is not registered
  * Oct 05, 2016  5891     bsteffen    Allow functions in subdirectories
  * Apr 15, 2019  7596     lsingh      Updated units framework to JSR-363.
- * 
+ * Dec 16, 2021  8341     randerso    Changed to use performance logging
+ *
  * </pre>
- * 
+ *
  * @author brockwoo
  */
 public class DerivedParameterGenerator implements ILocalizationPathObserver {
-    private static final transient IUFStatusHandler statusHandler = UFStatus
+    private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(DerivedParameterGenerator.class);
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("DerivedParameterGenerator");
 
     public static final String FUNCTIONS = "functions";
 
@@ -107,9 +111,8 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
     public static final String XML_DIR = DERIV_PARAM_DIR + File.separator
             + DEFINITIONS;
 
-    public static interface DerivParamUpdateListener {
-        public void updateDerParLibrary(
-                Map<String, DerivParamDesc> derParLibrary);
+    public interface DerivParamUpdateListener {
+        void updateDerParLibrary(Map<String, DerivParamDesc> derParLibrary);
     }
 
     private static DerivedParameterGenerator instance;
@@ -141,7 +144,7 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
     /**
      * Create a function type from the adapter and add it to the function type
      * list
-     * 
+     *
      * @param adapter
      * @return the adapter
      */
@@ -163,7 +166,8 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
         return getInstance().getLibrary();
     }
 
-    public static void registerUpdateListener(DerivParamUpdateListener listener) {
+    public static void registerUpdateListener(
+            DerivParamUpdateListener listener) {
         DerivedParameterGenerator instance = getInstance();
         synchronized (instance.listeners) {
             instance.listeners.add(listener);
@@ -180,9 +184,8 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
         DerivParamFunctionType[] functionTypes = getFunctionTypes();
 
         if (functionTypes == null || functionTypes.length == 0) {
-            statusHandler.handle(Priority.PROBLEM,
-                    "Error creating derived parameter function type,"
-                            + " derived paramters will not be available");
+            statusHandler.warn("Error creating derived parameter function type,"
+                    + " derived parameters will not be available");
             this.derParLibrary = new HashMap<>();
             this.needsLibInit = false;
             return;
@@ -190,15 +193,15 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
 
         this.adapter = functionTypes[0].getAdapter();
         this.extension = functionTypes[0].getExtension();
-        PathManagerFactory.getPathManager().addLocalizationPathObserver(
-                DERIV_PARAM_DIR, this);
+        PathManagerFactory.getPathManager()
+                .addLocalizationPathObserver(DERIV_PARAM_DIR, this);
 
         initLibrary();
     }
 
     /**
      * Adds a task to the list of derived parameter requests.
-     * 
+     *
      * @param task
      *            A derived parameter request
      * @return boolean indicating if the request was put into queue
@@ -226,10 +229,9 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
                 jaxbMan = new SingleTypeJAXBManager<>(true,
                         DerivParamDesc.class);
             } catch (JAXBException e1) {
-                statusHandler
-                        .handle(Priority.CRITICAL,
-                                "DerivedParameters failed to load, no derived parameters will be available",
-                                e1);
+                statusHandler.fatal(
+                        "DerivedParameters failed to load, no derived parameters will be available",
+                        e1);
                 return;
             }
 
@@ -237,16 +239,17 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
                 try (InputStream is = file.openInputStream()) {
                     DerivParamDesc desc = jaxbMan.unmarshalFromInputStream(is);
                     if (derParLibrary.containsKey(desc.getAbbreviation())) {
-                        DerivParamDesc oldDesc = derParLibrary.get(desc
-                                .getAbbreviation());
+                        DerivParamDesc oldDesc = derParLibrary
+                                .get(desc.getAbbreviation());
                         oldDesc.merge(desc);
                     } else {
                         derParLibrary.put(desc.getAbbreviation(), desc);
                     }
                 } catch (Exception e) {
-                    statusHandler.handle(Priority.PROBLEM,
+                    statusHandler.warn(
                             "An error was encountered while creating the DerivedParameter from "
-                                    + file.toString(), e);
+                                    + file.toString(),
+                            e);
                     continue;
                 }
             }
@@ -268,17 +271,18 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
                     for (IDerivParamField ifield : method.getFields()) {
                         if (ifield instanceof DerivParamField) {
                             DerivParamField field = (DerivParamField) ifield;
-                            DerivParamDesc fDesc = derParLibrary.get(field
-                                    .getParam());
-                            if (fDesc != null && field.getUnit() == AbstractUnit.ONE) {
+                            DerivParamDesc fDesc = derParLibrary
+                                    .get(field.getParam());
+                            if (fDesc != null
+                                    && field.getUnit() == AbstractUnit.ONE) {
                                 field.setUnit(fDesc.getUnit());
                             }
                         }
                     }
                     if (method.getFrameworkMethod() == null) {
-                        if (derivParamFiles.contains("func:"
-                                + method.getName().split("[.]")[0] + "."
-                                + extension)) {
+                        if (derivParamFiles.contains(
+                                "func:" + method.getName().split("[.]")[0] + "."
+                                        + extension)) {
                             method.setMethodType(MethodType.PYTHON);
                         } else {
                             method.setMethodType(MethodType.OTHER);
@@ -288,7 +292,7 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
             }
             this.derParLibrary = derParLibrary;
             adapter.init();
-            
+
             Runnable notifyTask;
             synchronized (listeners) {
                 notifyTask = new NotifyTask(new ArrayList<>(listeners),
@@ -296,8 +300,8 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
             }
             execService.execute(notifyTask);
 
-            System.out.println("Time to init derived parameters: "
-                    + (System.currentTimeMillis() - start) + "ms");
+            perfLog.logDuration("Derived parameters initialization",
+                    (System.currentTimeMillis() - start));
             needsLibInit = false;
         }
     }
@@ -322,9 +326,9 @@ public class DerivedParameterGenerator implements ILocalizationPathObserver {
 
     private static class NotifyTask implements Runnable {
 
-        final Collection<DerivParamUpdateListener> listeners;
+        private final Collection<DerivParamUpdateListener> listeners;
 
-        final Map<String, DerivParamDesc> derParLibrary;
+        private final Map<String, DerivParamDesc> derParLibrary;
 
         public NotifyTask(Collection<DerivParamUpdateListener> listeners,
                 Map<String, DerivParamDesc> derParLibrary) {

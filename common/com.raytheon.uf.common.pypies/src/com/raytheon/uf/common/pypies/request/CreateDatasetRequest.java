@@ -24,7 +24,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * PyPies create dataset request
  *
  * <pre>
  *
@@ -33,6 +33,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Oct 28, 2010            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString to standardize log message
  * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
@@ -51,6 +52,16 @@ public class CreateDatasetRequest extends AbstractRequest {
 
     public void setRecord(IDataRecord record) {
         this.record = record;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", record[");
+        rval.append(record);
+        rval.append("]");
+        return rval.toString();
+
     }
 
     @Override

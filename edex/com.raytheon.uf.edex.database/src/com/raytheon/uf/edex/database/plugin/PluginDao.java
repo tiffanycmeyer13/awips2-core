@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.persistence.PersistenceException;
 
@@ -79,7 +80,6 @@ import com.raytheon.uf.common.datastorage.records.IMetadataIdentifier.MetadataSp
 import com.raytheon.uf.common.localization.ILocalizationFile;
 import com.raytheon.uf.common.localization.IPathManager;
 import com.raytheon.uf.common.localization.PathManagerFactory;
-import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.common.time.util.TimeUtil;
 import com.raytheon.uf.edex.core.EdexException;
 import com.raytheon.uf.edex.database.DataAccessLayerException;
@@ -143,12 +143,14 @@ import com.raytheon.uf.edex.database.query.DatabaseQuery;
  * Mar 08, 2018  6961     tgurney     Update purge versionsToKeep handling,
  *                                    treat 0 as "keep no data"
  * Mar 25, 2020  8103     randerso    Fixed ContraintViolationException handling
+ * May 03, 2021  7849     mapeters    Switch from UFStatus to slf4j logging
  * Sep 23, 2021  8608     mapeters    Add auditing and {@link #getPlugin()}, re-write
  *                                    {@link #getMetadata(String)} to work with data objects
  *                                    that don't have a dataURI table column
  * Feb 17, 2022  8608     mapeters    Add auditMissingPiecesForDatabaseOnlyPdos()
  * Jun 22, 2022  8865     mapeters    Updates to hdf5 storage methods to audit missing pieces
  *                                    for PDOs that are filtered out
+ * Aug 24, 2022  8920     mapeters    Optimizations; Swap key/values for statuses. Add "enabled" check.
  *
  * </pre>
  *
@@ -208,6 +210,10 @@ public abstract class PluginDao extends CoreDao {
         this.pluginName = pluginName;
         PLUGIN_HDF5_DIR = pluginName + File.separator;
         pathProvider = PluginFactory.getInstance().getPathProvider(pluginName);
+    }
+
+    public boolean isAuditEnabled() {
+        return true;
     }
 
     /**
@@ -326,7 +332,7 @@ public abstract class PluginDao extends CoreDao {
                                     subPersisted.add(object);
                                 }
                             } catch (PluginException e) {
-                                logger.handle(Priority.PROBLEM,
+                                logger.warn(
                                         "Query failed: Unable to insert or update "
                                                 + object.getIdentifier(),
                                         e);
@@ -394,7 +400,7 @@ public abstract class PluginDao extends CoreDao {
                                 if (errorMessage.contains(" unique ")) {
                                     subDuplicates.add(object);
                                 } else {
-                                    logger.handle(Priority.PROBLEM,
+                                    logger.warn(
                                             "Query failed: Unable to insert or update "
                                                     + object.getIdentifier(),
                                             e);
@@ -404,7 +410,7 @@ public abstract class PluginDao extends CoreDao {
                             }
                         } catch (PluginException e) {
                             tx.rollback();
-                            logger.handle(Priority.PROBLEM,
+                            logger.warn(
                                     "Query failed: Unable to insert or update "
                                             + object.getIdentifier(),
                                     e);
@@ -426,7 +432,7 @@ public abstract class PluginDao extends CoreDao {
 
         if (!duplicates.isEmpty()) {
             logger.info("Discarded : " + duplicates.size() + " duplicates!");
-            if (logger.isPriorityEnabled(Priority.DEBUG)) {
+            if (logger.isDebugEnabled()) {
                 for (PluginDataObject pdo : duplicates) {
                     logger.debug("Discarding duplicate: " + pdo.getDataURI());
                 }
@@ -451,15 +457,30 @@ public abstract class PluginDao extends CoreDao {
             Collection<? extends PersistableDataObject> persisted,
             Collection<? extends PersistableDataObject> duplicates,
             Collection<? extends PersistableDataObject> all) {
-        Map<String, MetadataStatus> traceIdToStatuses = new HashMap<>();
-        persisted.forEach(pdo -> traceIdToStatuses.put(pdo.getTraceId(),
-                MetadataStatus.SUCCESS));
-        duplicates.forEach(pdo -> traceIdToStatuses.put(pdo.getTraceId(),
-                MetadataStatus.DUPLICATE));
-        for (PersistableDataObject<?> pdo : all) {
-            String traceId = pdo.getTraceId();
-            traceIdToStatuses.putIfAbsent(traceId, MetadataStatus.FAILURE);
+        if (!isAuditEnabled()) {
+            return;
         }
+        Map<MetadataStatus, String[]> traceIdToStatuses = new HashMap<>();
+        Set<String> persistedTraceIds = persisted.stream()
+                .map(PersistableDataObject::getTraceId)
+                .collect(Collectors.toSet());
+        traceIdToStatuses.put(MetadataStatus.SUCCESS,
+                persistedTraceIds.toArray(String[]::new));
+        Set<String> duplicateTraceIds = duplicates.stream()
+                .map(PersistableDataObject::getTraceId)
+                .collect(Collectors.toSet());
+        traceIdToStatuses.put(MetadataStatus.DUPLICATE,
+                duplicateTraceIds.toArray(String[]::new));
+
+        if (all.size() > persisted.size() + duplicates.size()) {
+            String[] failureTraceIds = all.stream()
+                    .map(PersistableDataObject::getTraceId)
+                    .filter(id -> !persistedTraceIds.contains(id)
+                            && !duplicateTraceIds.contains(id))
+                    .toArray(String[]::new);
+            traceIdToStatuses.put(MetadataStatus.FAILURE, failureTraceIds);
+        }
+
         DataStorageAuditerContainer.getInstance().getAuditer()
                 .processMetadataStatuses(traceIdToStatuses);
     }
@@ -476,19 +497,23 @@ public abstract class PluginDao extends CoreDao {
      */
     public void auditMissingPiecesForDatabaseOnlyPdos(
             PluginDataObject... pdos) {
-        if (pdos.length == 0) {
+        if (pdos.length == 0 || !isAuditEnabled()) {
             return;
         }
 
         List<MetadataAndDataId> dataIds = new ArrayList<>(pdos.length);
         for (PluginDataObject pdo : pdos) {
-
-            String traceId = pdo.getTraceId();
             DataUriMetadataIdentifier metaId = new DataUriMetadataIdentifier(
                     pdo, MetadataSpecificity.NO_DATA);
-            IDataIdentifier dataId = new NoDataIdentifier(traceId);
+            IDataIdentifier dataId = new NoDataIdentifier();
             dataIds.add(new MetadataAndDataId(metaId, dataId));
         }
+
+        /*
+         * TODO Maybe some dbOnlyTraceIds field in DataStorageAuditEvent so we
+         * can just send trace IDs to save space - auditer can determine all
+         * fields from that
+         */
         DataStorageAuditEvent databaseOnlyAuditEvent = new DataStorageAuditEvent();
         databaseOnlyAuditEvent
                 .setDataIds(dataIds.toArray(new MetadataAndDataId[0]));

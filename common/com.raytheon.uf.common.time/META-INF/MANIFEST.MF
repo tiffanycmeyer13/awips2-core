@@ -5,7 +5,7 @@ Bundle-SymbolicName: com.raytheon.uf.common.time
 Bundle-Version: 1.19.0.qualifier
 Bundle-Vendor: RAYTHEON
 Bundle-RequiredExecutionEnvironment: JavaSE-11
-Require-Bundle: net.sf.cglib,
+Require-Bundle: org.springframework,
  com.raytheon.uf.common.status,
  com.raytheon.uf.common.serialization,
  com.raytheon.uf.common.serialization.comm,
@@ -13,11 +13,10 @@ Require-Bundle: net.sf.cglib,
  com.raytheon.uf.common.convert,
  org.apache.commons.lang3,
  org.hibernate,
- javax.xml.bind
-Import-Package: javax.measure.quantity,
- javax.persistence,
- org.apache.commons.beanutils,
- tec.uom.se.format
+ javax.xml.bind,
+ javax.measure,
+ javax.persistence
+Import-Package: org.apache.commons.beanutils
 Export-Package: com.raytheon.uf.common.time,
  com.raytheon.uf.common.time.adapter,
  com.raytheon.uf.common.time.domain,

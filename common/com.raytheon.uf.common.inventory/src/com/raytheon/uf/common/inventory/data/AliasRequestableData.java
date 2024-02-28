@@ -24,7 +24,7 @@ import java.util.List;
 
 import javax.measure.Unit;
 import javax.measure.UnitConverter;
-
+import org.apache.commons.lang3.ArrayUtils;
 import com.raytheon.uf.common.datastorage.records.ByteDataRecord;
 import com.raytheon.uf.common.datastorage.records.DoubleDataRecord;
 import com.raytheon.uf.common.datastorage.records.FloatDataRecord;
@@ -40,9 +40,9 @@ import si.uom.NonSI;
  * Represents a simple alias, where a parameter represents the same data as
  * another parameter. This does automatic unit conversion if the source data is
  * in a different unit than this object.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
@@ -51,13 +51,13 @@ import si.uom.NonSI;
  * Apr 11, 2014  2947     bsteffen    Perform unit conversion on more types of
  *                                    records.
  * Apr 27, 2015  4425     nabowle     Add DoubleDataRecord conversion.
- * 
+ * Nov 21, 2022  8905     lsingh      Check for NaN when converting units.
+ * Mar 23, 2023  2031674  mapeters    Update to no longer deep clone by default
+ *
  * </pre>
- * 
+ *
  * @author rjpeter
- * @version 1.0
  */
-
 public class AliasRequestableData extends AbstractRequestableData {
 
     protected AbstractRequestableData sourceRecord;
@@ -70,15 +70,28 @@ public class AliasRequestableData extends AbstractRequestableData {
 
     @Override
     public Object getDataValue(Object arg) throws DataCubeException {
-        return getDataAndConvert(sourceRecord, arg);
+        return getDataAndConvert(sourceRecord, arg, false);
     }
 
+    /**
+     * Get the aliased version of the data, converted to the desired units.
+     *
+     * @param record
+     *            the data being aliased
+     * @param arg
+     *            plugin-specific argument for the data request
+     * @param deepClone
+     *            true to deep clone the aliased record, false to shallow clone
+     *            (this parameter is irrelevant if unit conversion is performed)
+     * @return the aliased data
+     * @throws DataCubeException
+     */
     protected Object getDataAndConvert(AbstractRequestableData record,
-            Object arg) throws DataCubeException {
+            Object arg, boolean deepClone) throws DataCubeException {
         Object rval = record.getDataValue(arg);
-        // Clone and rename records.
+        // Clone and rename records
         if (rval instanceof IDataRecord) {
-            rval = ((IDataRecord) rval).clone();
+            rval = ((IDataRecord) rval).clone(deepClone);
             if (this.parameter != null) {
                 ((IDataRecord) rval).setName(this.parameter);
             }
@@ -87,7 +100,7 @@ public class AliasRequestableData extends AbstractRequestableData {
             IDataRecord[] newRecs = new FloatDataRecord[recs.length];
             rval = newRecs;
             for (int i = 0; i < recs.length; i++) {
-                newRecs[i] = recs[i].clone();
+                newRecs[i] = recs[i].clone(deepClone);
                 if (this.parameter != null) {
                     newRecs[i].setName(this.parameter);
                 }
@@ -97,7 +110,7 @@ public class AliasRequestableData extends AbstractRequestableData {
             IDataRecord[] newRecs = new IDataRecord[recs.length];
             rval = newRecs;
             for (int i = 0; i < recs.length; i++) {
-                newRecs[i] = recs[i].clone();
+                newRecs[i] = recs[i].clone(deepClone);
                 if (this.parameter != null) {
                     newRecs[i].setName(this.parameter);
                 }
@@ -143,7 +156,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     newData[c] = Float.NaN;
                 } else {
-                    newData[c] = (float) converter.convert(data[c]);
+                    try {
+                        newData[c] = (float) converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        newData[c] = Float.NaN;
+                    }
                 }
             }
         } else if (record instanceof ByteDataRecord) {
@@ -153,7 +170,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     newData[c] = Float.NaN;
                 } else {
-                    newData[c] = (float) converter.convert(data[c]);
+                    try {
+                        newData[c] = (float) converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        newData[c] = Float.NaN;
+                    }
                 }
             }
         } else if (record instanceof ShortDataRecord) {
@@ -163,7 +184,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     newData[c] = Float.NaN;
                 } else {
-                    newData[c] = (float) converter.convert(data[c]);
+                    try {
+                        newData[c] = (float) converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        newData[c] = Float.NaN;
+                    }
                 }
             }
         } else if (record instanceof IntegerDataRecord) {
@@ -173,7 +198,11 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     newData[c] = Float.NaN;
                 } else {
-                    newData[c] = (float) converter.convert(data[c]);
+                    try {
+                        newData[c] = (float) converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        newData[c] = Float.NaN;
+                    }
                 }
             }
         } else if (record instanceof DoubleDataRecord) {
@@ -183,25 +212,25 @@ public class AliasRequestableData extends AbstractRequestableData {
                 if (data[c] == fillValue) {
                     doubleData[c] = Double.NaN;
                 } else {
-                    doubleData[c] = converter.convert(data[c]);
+                    try {
+                        doubleData[c] = converter.convert(data[c]);
+                    } catch (NumberFormatException e) {
+                        doubleData[c] = Double.NaN;
+                    }
                 }
             }
+
             return new DoubleDataRecord(record.getName(), record.getGroup(),
-                    doubleData, record.getDimension(), record.getSizes());
+                    doubleData, record.getDimension(),
+                    ArrayUtils.clone(record.getSizes()));
         } else {
             return record;
         }
-        return new FloatDataRecord(record.getName(), record.getGroup(),
-                newData, record.getDimension(), record.getSizes());
+
+        return new FloatDataRecord(record.getName(), record.getGroup(), newData,
+                record.getDimension(), ArrayUtils.clone(record.getSizes()));
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * com.raytheon.uf.viz.derivparam.data.AbstractRequestableData#getDependencies
-     * ()
-     */
     @Override
     public List<AbstractRequestableData> getDependencies() {
         return Arrays.asList(sourceRecord);

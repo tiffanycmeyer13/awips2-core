@@ -24,7 +24,6 @@ import java.io.Serializable;
 import java.util.Map;
 
 import com.raytheon.uf.common.datastorage.StorageProperties;
-import com.raytheon.uf.common.serialization.ISerializableObject;
 
 /**
  * Data Record Interface
@@ -37,24 +36,30 @@ import com.raytheon.uf.common.serialization.ISerializableObject;
  * ------------- -------- ------------ -----------------------------------------
  * Feb 08, 2007           chammack     Initial Check-in
  * Nov 24, 2007  555      garmendariz  Added method to check dataset dimensions
+ * Mar 29, 2021  8374     randerso     Renamed get/setProperties to get/setProps
+ *                                     to match the underlying field name in
+ *                                     AbstractStorageRecord and all the Python
+ *                                     record classes.
  * Jun 10, 2021  8450     mapeters     Implement {@link Serializable}
+ * Mar 23, 2023  2031674  mapeters     Add clone(boolean)
+ *
  *
  * </pre>
  *
  * @author bphillip
  */
-public interface IDataRecord extends ISerializableObject, Serializable {
+public interface IDataRecord extends Serializable {
 
     /**
      * @return the storage properties
      */
-    StorageProperties getProperties();
+    StorageProperties getProps();
 
     /**
      * @param props
      *            the properties to set
      */
-    void setProperties(StorageProperties props);
+    void setProps(StorageProperties props);
 
     /**
      * @return the dimension
@@ -65,16 +70,16 @@ public interface IDataRecord extends ISerializableObject, Serializable {
      * @param dimension
      *            the dimension to set
      */
-    void setDimension(int dimensions);
+    void setDimension(int dimension);
 
     /**
-     * @return the minIndexes
+     * @return the starting indices of sub area
      */
     long[] getMinIndex();
 
     /**
-     * @param dims
-     *            start Indexes of sub area
+     * @param minIndex
+     *            starting indices of sub area
      */
     void setMinIndex(long[] minIndex);
 
@@ -96,7 +101,7 @@ public interface IDataRecord extends ISerializableObject, Serializable {
 
     /**
      * @param sizes
-     *            the sizes to set
+     *            the sizes as 64-bit integers
      */
     void setSizes(long[] sizes);
 
@@ -114,14 +119,14 @@ public interface IDataRecord extends ISerializableObject, Serializable {
      * Data type specific check to verify that dimensions are appropriate for
      * data object content.
      *
-     * @return
+     * @return true if dimensions are valid
      */
     boolean validateDataSet();
 
     /**
      * Get the group
      *
-     * @return
+     * @return the group
      */
     String getGroup();
 
@@ -178,6 +183,10 @@ public interface IDataRecord extends ISerializableObject, Serializable {
      */
     void setFillValue(Number fillValue);
 
+    /**
+     * @param sizes
+     *            as 32-bit integers
+     */
     void setIntSizes(int[] size);
 
     /**
@@ -220,7 +229,16 @@ public interface IDataRecord extends ISerializableObject, Serializable {
     /**
      * Clone the record
      *
-     * @return
+     * @return a deep copy of this record
      */
     IDataRecord clone();
+
+    /**
+     * Clone the record
+     *
+     * @param deep
+     *            true to do a deep clone, false to do a shallow clone
+     * @return a copy of this record
+     */
+    IDataRecord clone(boolean deep);
 }

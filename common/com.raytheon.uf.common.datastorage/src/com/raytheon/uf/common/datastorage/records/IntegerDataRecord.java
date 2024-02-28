@@ -22,11 +22,12 @@ package com.raytheon.uf.common.datastorage.records;
 
 import java.util.Arrays;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * Provides an interface to datasets of type integer
+ * IDataRecord implementation for 32-bit signed integer data
  *
  * <pre>
  *
@@ -37,7 +38,11 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Feb 08, 2007           chammack     Initial Creation.
  * Nov 24, 2007  555      garmendariz  Added method to check dataset dimensions
  *                                     and override toString
+ * Mar 29, 2021  8374     randerso     Removed toString() in favor of method in
+ *                                     AbstractStoreageRecord. Code cleanup.
  * Jun 10, 2021  8450     mapeters     Add serialVersionUID
+ * Nov 03, 2022  8931     smoorthy     Add group name normalization
+ * Mar 23, 2023  2031674  mapeters     Support shallow cloning
  *
  * </pre>
  *
@@ -51,8 +56,11 @@ public class IntegerDataRecord extends AbstractStorageRecord {
     @DynamicSerializeElement
     protected int[] intData;
 
+    /**
+     * Nullary constructor for Dynamic Serialization
+     */
     public IntegerDataRecord() {
-
+        super();
     }
 
     /**
@@ -65,11 +73,9 @@ public class IntegerDataRecord extends AbstractStorageRecord {
      */
     public IntegerDataRecord(String name, String group, int[] intData,
             int dimension, long[] sizes) {
+        super(name, DataStoreFactory.normalizeAttributeName(group), dimension,
+                sizes);
         this.intData = intData;
-        this.group = group;
-        this.dimension = dimension;
-        this.sizes = sizes;
-        this.name = name;
     }
 
     /**
@@ -120,15 +126,6 @@ public class IntegerDataRecord extends AbstractStorageRecord {
 
     }
 
-    /**
-     * Override toString method to print dimensions
-     */
-    @Override
-    public String toString() {
-        return "[dims,data size]=[" + Arrays.toString(sizes) + ","
-                + this.intData.length + "]";
-    }
-
     @Override
     public void reduce(int[] indices) {
         int[] reducedData = new int[indices.length];
@@ -145,10 +142,14 @@ public class IntegerDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected AbstractStorageRecord cloneInternal() {
+    protected AbstractStorageRecord cloneInternal(boolean deep) {
         IntegerDataRecord record = new IntegerDataRecord();
         if (intData != null) {
-            record.intData = Arrays.copyOf(intData, intData.length);
+            if (deep) {
+                record.intData = Arrays.copyOf(intData, intData.length);
+            } else {
+                record.intData = intData;
+            }
         }
         return record;
     }

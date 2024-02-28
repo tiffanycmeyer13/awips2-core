@@ -35,6 +35,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -121,6 +122,8 @@ import com.raytheon.uf.viz.core.requests.ThriftClient;
  *                                     {@link JMSConnectionInfo} object
  * Oct 24, 2022          srcarter@ucar Delete REGION and WORKSTATION levels
  * Apr 11, 2023          tiffanym@ucar Change how to retrieve hostname, fix for IPv6 
+ * Aug 06, 2021 22528      smoorthy    Added functionality to pass an optional proxy address
+ *                                     to the {@link JMSConnectionInfo} object
  *
  * </pre>
  *
@@ -291,7 +294,7 @@ public class LocalizationManager implements IPropertyChangeListener {
      *            the localization URI
      */
     public void setCurrentServer(String currentServer) {
-        setCurrentServer(currentServer, true);
+        setCurrentServer(currentServer, true, Optional.empty());
     }
 
     /**
@@ -301,8 +304,10 @@ public class LocalizationManager implements IPropertyChangeListener {
      *            the localization URI
      * @param save
      *            whether or not to save the setting
+     * @param proxyAddress
+     *            Proxy server address if we're using a proxy
      */
-    public void setCurrentServer(String currentServer, boolean save) {
+    public void setCurrentServer(String currentServer, boolean save, Optional<String> proxyAddress) {
         if (!this.currentServer.equals(currentServer)) {
             this.currentServer = currentServer;
             if (!overrideServer) {
@@ -318,6 +323,9 @@ public class LocalizationManager implements IPropertyChangeListener {
                 GetServersResponse resp = ConnectivityManager
                         .checkLocalizationServer(currentServer, false);
                 VizApp.setHttpServer(resp.getHttpServer());
+                if (proxyAddress.isPresent()) {
+                    resp.getJmsConnectionInfo().setProxyAddress(proxyAddress.get());
+                }
                 VizApp.setJmsConnectionInfo(resp.getJmsConnectionInfo());
                 VizApp.setPypiesServer(resp.getPypiesServer());
                 VizServers.getInstance()

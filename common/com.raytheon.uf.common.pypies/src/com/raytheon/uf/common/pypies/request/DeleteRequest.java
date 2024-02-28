@@ -19,11 +19,13 @@
  **/
 package com.raytheon.uf.common.pypies.request;
 
+import java.util.Arrays;
+
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * PyPies request to delete groups/datasets
  *
  * <pre>
  *
@@ -32,6 +34,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * ------------ ---------- ----------- --------------------------
  * Aug 10, 2010            njensen     Initial creation
  * Feb 12, 2013 1608       randerso    Added support for explicitly deleting grous and datasets
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
  * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
@@ -61,6 +64,17 @@ public class DeleteRequest extends AbstractRequest {
 
     public void setGroups(String[] groups) {
         this.groups = groups;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", datasets");
+        rval.append(Arrays.toString(datasets));
+        rval.append("");
+        rval.append(", groups");
+        rval.append(Arrays.toString(groups));
+        return rval.toString();
     }
 
     @Override

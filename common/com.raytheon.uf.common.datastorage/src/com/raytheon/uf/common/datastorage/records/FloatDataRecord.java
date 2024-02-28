@@ -22,11 +22,12 @@ package com.raytheon.uf.common.datastorage.records;
 
 import java.util.Arrays;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * Provides an interface to datasets of type float
+ * IDataRecord implementation for 32-bit floating point data
  *
  * <pre>
  *
@@ -37,7 +38,11 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Feb 08, 2007           chammack     Initial Creation.
  * Nov 24, 2007  555      garmendariz  Added method to check dataset dimensions
  *                                     and override toString
+ * Mar 29, 2021  8374     randerso     Removed toString() in favor of method in
+ *                                     AbstractStoreageRecord. Code cleanup.
  * Jun 10, 2021  8450     mapeters     Add serialVersionUID
+ * Nov 03, 2022  8931     smoorthy     Add group name normalization
+ * Mar 23, 2023  2031674  mapeters     Support shallow cloning
  *
  * </pre>
  *
@@ -51,8 +56,11 @@ public class FloatDataRecord extends AbstractStorageRecord {
     @DynamicSerializeElement
     protected float[] floatData;
 
+    /**
+     * Nullary constructor for Dynamic Serialization
+     */
     public FloatDataRecord() {
-
+        super();
     }
 
     /**
@@ -71,11 +79,9 @@ public class FloatDataRecord extends AbstractStorageRecord {
      */
     public FloatDataRecord(String name, String group, float[] floatData,
             int dimension, long[] sizes) {
+        super(name, DataStoreFactory.normalizeAttributeName(group), dimension,
+                sizes);
         this.floatData = floatData;
-        this.group = group;
-        this.dimension = dimension;
-        this.sizes = sizes;
-        this.name = name;
     }
 
     /**
@@ -129,15 +135,6 @@ public class FloatDataRecord extends AbstractStorageRecord {
 
     }
 
-    /**
-     * Override toString method to print dimensions
-     */
-    @Override
-    public String toString() {
-        return "[dims,data size]=[" + Arrays.toString(sizes) + ","
-                + this.floatData.length + "]";
-    }
-
     @Override
     public void reduce(int[] indices) {
         float[] reducedData = new float[indices.length];
@@ -154,10 +151,14 @@ public class FloatDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected AbstractStorageRecord cloneInternal() {
+    protected AbstractStorageRecord cloneInternal(boolean deep) {
         FloatDataRecord record = new FloatDataRecord();
         if (floatData != null) {
-            record.floatData = Arrays.copyOf(floatData, floatData.length);
+            if (deep) {
+                record.floatData = Arrays.copyOf(floatData, floatData.length);
+            } else {
+                record.floatData = floatData;
+            }
         }
         return record;
     }

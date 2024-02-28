@@ -19,6 +19,7 @@
 package com.raytheon.uf.common.datastore.ignite.processor;
 
 import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -28,6 +29,8 @@ import javax.cache.processor.EntryProcessor;
 import javax.cache.processor.EntryProcessorException;
 import javax.cache.processor.MutableEntry;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.ignite.resources.CacheNameResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +69,9 @@ import com.raytheon.uf.common.time.util.TimeUtil;
  * Jun 10, 2021  8450     mapeters  Add logging
  * Sep 23, 2021  8608     mapeters  Add metadata handling
  * Jan 25, 2022  8608     mapeters  Support write-through appends better
- *
+ * Oct 11, 2022  8929     mapeters  Still handle duplicates and partial record
+ *                                  merging when there is no previous value,
+ *                                  store non-duplicates when duplicates occur
  *
  * </pre>
  *
@@ -122,23 +127,25 @@ public class StoreProcessor
         if (op == StoreOp.APPEND) {
             status.setIndexOfAppend(new long[recordsAndMetadata.length]);
         }
-        try {
-            if (entry.exists()) {
-                DataStoreValue newValue = merge(
-                        Arrays.asList(entry.getValue().getRecordsAndMetadata()),
-                        Arrays.asList(recordsAndMetadata), op, status);
-                entry.setValue(newValue);
-            } else {
-                for (RecordAndMetadata rm : recordsAndMetadata) {
-                    IDataRecord record = rm.getRecord();
-                    if (isPartial(record)) {
-                        rm.setRecord(expandPartial(record));
-                    }
-                }
-                entry.setValue(new DataStoreValue(recordsAndMetadata));
-            }
-        } catch (StorageException e) {
-            status.setExceptions(new StorageException[] { e });
+
+        List<RecordAndMetadata> prevRecordsAndMetadata = List.of();
+        if (entry.exists()) {
+            prevRecordsAndMetadata = Arrays
+                    .asList(entry.getValue().getRecordsAndMetadata());
+        }
+        /*
+         * Call merge even if there is no previous data, since it can still do
+         * merging among just the new values (e.g. handling duplicates or
+         * combining partial records)
+         */
+        Pair<DataStoreValue, List<StorageException>> mergeResult = merge(
+                prevRecordsAndMetadata, Arrays.asList(recordsAndMetadata), op,
+                status);
+        entry.setValue(mergeResult.getLeft());
+
+        List<StorageException> exceptions = mergeResult.getRight();
+        if (!exceptions.isEmpty()) {
+            status.setExceptions(exceptions.toArray(StorageException[]::new));
         }
 
         if (op == StoreOp.APPEND) {
@@ -151,15 +158,17 @@ public class StoreProcessor
         return status;
     }
 
-    public static DataStoreValue merge(List<RecordAndMetadata> oldValues,
-            List<RecordAndMetadata> newValues, StoreOp op, StorageStatus status)
-            throws StorageException {
+    public static Pair<DataStoreValue, List<StorageException>> merge(
+            List<RecordAndMetadata> oldValues,
+            List<RecordAndMetadata> newValues, StoreOp op,
+            StorageStatus status) {
         Map<String, IDataRecord> byName = new HashMap<>();
         for (RecordAndMetadata rm : oldValues) {
             IDataRecord record = rm.getRecord();
             byName.put(record.getName(), record);
         }
 
+        List<StorageException> exceptions = new ArrayList<>();
         for (int i = 0; i < newValues.size(); i++) {
             IDataRecord record = newValues.get(i).getRecord();
             String name = record.getName();
@@ -172,8 +181,10 @@ public class StoreProcessor
             }
             if (previous != null) {
                 if (op == StoreOp.STORE_ONLY) {
-                    throw new DuplicateRecordStorageException(
-                            "Duplicate record: " + name, record);
+                    // Restore original value
+                    byName.put(name, previous);
+                    exceptions.add(new DuplicateRecordStorageException(
+                            "Duplicate record: " + name, record));
                 } else if (op == StoreOp.APPEND) {
                     IDataRecord merged = append(status, i, previous, record);
                     byName.put(name, merged);
@@ -189,7 +200,7 @@ public class StoreProcessor
                 .createWithoutMetadata(byName.values());
         IgniteUtils.updateMetadata(value, oldValues);
         IgniteUtils.updateMetadata(value, newValues);
-        return value;
+        return new ImmutablePair<>(value, exceptions);
     }
 
     protected static IDataRecord append(StorageStatus status, int recordIndex,

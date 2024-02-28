@@ -51,3 +51,4 @@ export IGNITE_CLUSTER_2_DISCO_PORT=47506
 pkill -f sendAT
 pkill -f requestAT
 pkill -f ingestAT
+pkill -f iscMosaic

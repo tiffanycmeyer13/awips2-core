@@ -97,7 +97,7 @@ import com.raytheon.uf.viz.core.rsc.AbstractRequestableResourceData;
 import com.raytheon.uf.viz.core.rsc.AbstractResourceData;
 import com.raytheon.uf.viz.core.rsc.AbstractVizResource;
 import com.raytheon.uf.viz.core.rsc.DisplayType;
-import com.raytheon.uf.viz.core.rsc.IResourceDataChanged;
+import com.raytheon.uf.viz.core.rsc.IResourceDataChanged.ChangeType;
 import com.raytheon.uf.viz.core.rsc.LoadProperties;
 import com.raytheon.uf.viz.core.rsc.RenderingOrderFactory;
 import com.raytheon.uf.viz.core.rsc.RenderingOrderFactory.ResourceOrder;
@@ -123,9 +123,9 @@ import com.raytheon.viz.core.contours.ContourSupport;
 import com.raytheon.viz.core.contours.rsc.displays.GriddedContourDisplay;
 import com.raytheon.viz.core.contours.rsc.displays.GriddedStreamlineDisplay;
 
-import tec.uom.se.AbstractUnit;
-import tec.uom.se.format.SimpleUnitFormat;
-import tec.uom.se.quantity.Quantities;
+import tech.units.indriya.AbstractUnit;
+import tech.units.indriya.format.SimpleUnitFormat;
+import tech.units.indriya.quantity.Quantities;
 
 /**
  *
@@ -137,41 +137,58 @@ import tec.uom.se.quantity.Quantities;
  *
  * SOFTWARE HISTORY
  *
- * Date          Ticket#  Engineer  Description
- * ------------- -------- --------- --------------------------------------------
- * Mar 09, 2011  7738     bsteffen    Initial creation
- * May 08, 2013  1980     bsteffen    Set paint status in GridResources for KML.
- * Jul 15, 2013  2107     bsteffen    Fix sampling of grid vector arrows.
- * Aug 27, 2013  2287     randerso    Added new parameters required by
- *                                    GriddedVectorDisplay and GriddedIconDisplay
- * Sep 24, 2013  2404     bclement    colormap params now created using match
- *                                    criteria
- * Sep 23, 2013  2363     bsteffen    Add more vector configuration options.
- * Jan 14, 2014  2594     bsteffen    Switch vector mag/dir to use data source
- *                                    instead of raw float data.
- * Feb 28, 2014  2791     bsteffen    Switch all data to use data source.
- * Aug 21, 2014  17313    jgerth      Implements ImageProvider
- * Oct 07, 2014  3668     bclement    Renamed requestJob to requestRunner
- * Dec 09, 2014  5056     jing        Added data access interfaces
- * May 11, 2015  4384     dgilling    Add arrow style preference for minimum
- *                                    magnitude.
- * May 14, 2015  4079     bsteffen    Move to core.grid, add getDisplayUnit
- * Aug 30, 2016  3240     bsteffen    Implement Interrogatable
- * Apr 26, 2017  6247     bsteffen    Provide getter/setter for style preferences.
- * Nov 28, 2017  5863     bsteffen    Change dataTimes to a NavigableSet
- * Feb 15, 2018  6902     njensen     Added interrogate support for Direction To
- * Mar 21, 2018  7157     njensen     Improved if statement in createColorMapParameters()
- * Apr 04, 2018  6889     njensen     Use brightness from ImagePreferences if
- *                                    present but missing in ImagingCapability
- * Nov 15, 2018  57905    edebebe     Enabled configurable 'Wind Barb' properties
- * Feb 28, 2019  7713     tjensen     Fix wind barb config
- * Apr 15, 2019  7596     lsingh      Updated units framework to JSR-363
- * Jun 27, 2019  65510    ksunil      Support color fill through XML entries, support smoothData
- * Jul 30, 2019  66477    mapeters    Don't set minimumMagnitude based off arrowHeadSizeRatio
- * Aug 29, 2019  67949    tjensen     Refactor to support additional GFE products
- * Nov 11, 2019  7596     mrichardson Fix unit conversion for sampling
- * Dec 02, 2019  71870    tjensen     Make disposeRenderable visible to be overridden
- * Apr 16, 2020  8145     randerso    Updated to allow new sample formatting
+ * Date          Ticket#  Engineer     Description
+ * ------------- -------- ------------ -----------------------------------------
+ * Mar 09, 2011  7738     bsteffen     Initial creation
+ * May 08, 2013  1980     bsteffen     Set paint status in GridResources for
+ *                                     KML.
+ * Jul 15, 2013  2107     bsteffen     Fix sampling of grid vector arrows.
+ * Aug 27, 2013  2287     randerso     Added new parameters required by
+ *                                     GriddedVectorDisplay and
+ *                                     GriddedIconDisplay
+ * Sep 24, 2013  2404     bclement     colormap params now created using match
+ *                                     criteria
+ * Sep 23, 2013  2363     bsteffen     Add more vector configuration options.
+ * Jan 14, 2014  2594     bsteffen     Switch vector mag/dir to use data source
+ *                                     instead of raw float data.
+ * Feb 28, 2014  2791     bsteffen     Switch all data to use data source.
+ * Aug 21, 2014  17313    jgerth       Implements ImageProvider
+ * Oct 07, 2014  3668     bclement     Renamed requestJob to requestRunner
+ * Dec 09, 2014  5056     jing         Added data access interfaces
+ * May 11, 2015  4384     dgilling     Add arrow style preference for minimum
+ *                                     magnitude.
+ * May 14, 2015  4079     bsteffen     Move to core.grid, add getDisplayUnit
+ * Aug 30, 2016  3240     bsteffen     Implement Interrogatable
+ * Apr 26, 2017  6247     bsteffen     Provide getter/setter for style
+ *                                     preferences.
+ * Nov 28, 2017  5863     bsteffen     Change dataTimes to a NavigableSet
+ * Feb 15, 2018  6902     njensen      Added interrogate support for Direction
+ *                                     To
+ * Mar 21, 2018  7157     njensen      Improved if statement in
+ *                                     createColorMapParameters()
+ * Apr 04, 2018  6889     njensen      Use brightness from ImagePreferences if
+ *                                     present but missing in ImagingCapability
+ * Nov 15, 2018  57905    edebebe      Enabled configurable 'Wind Barb'
+ *                                     properties
+ * Feb 28, 2019  7713     tjensen      Fix wind barb config
+ * Apr 15, 2019  7596     lsingh       Updated units framework to JSR-363
+ * Jun 27, 2019  65510    ksunil       Support color fill through XML entries,
+ *                                     support smoothData
+ * Jul 30, 2019  66477    mapeters     Don't set minimumMagnitude based off
+ *                                     arrowHeadSizeRatio
+ * Aug 29, 2019  67949    tjensen      Refactor to support additional GFE
+ *                                     products
+ * Nov 11, 2019  7596     mrichardson  Fix unit conversion for sampling
+ * Dec 02, 2019  71870    tjensen      Make disposeRenderable visible to be
+ *                                     overridden
+ * Apr 16, 2020  8145     randerso     Updated to allow new sample formatting
+ * Jul 19, 2021  8462     randerso     Updated to use DataMappingPreferences
+ *                                     sample value if defined.
+ * Aug 31, 2021  8651     njensen      Changed ConcurrentHashMaps' visibilities
+ *                                     from private to protected
+ * Dec 06, 2021  8341     randerso     Added use of getResourceId for contour
+ *                                     logging
+ * Dec 20, 2023  2036519  mapeters     Prevent keeping unnecessary data in memory
  *
  * </pre>
  *
@@ -230,16 +247,16 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
     @Deprecated
     protected static final String INTERROGATE_DIRECTION = "direction";
 
-    private final GridDataRequestRunner requestRunner;
+    protected final GridDataRequestRunner requestRunner;
 
-    private final Map<DataTime, List<PluginDataObject>> pdoMap = new ConcurrentHashMap<>();
+    protected final Map<DataTime, List<PluginDataObject>> pdoMap = new ConcurrentHashMap<>();
 
-    private final Map<DataTime, List<IRenderable>> renderableMap = new ConcurrentHashMap<>();
+    protected final Map<DataTime, List<IRenderable>> renderableMap = new ConcurrentHashMap<>();
 
     /**
      * This is a local cache of data that is used when sampling or reprojected.
      */
-    private final Map<DataTime, List<GeneralGridData>> dataMap = new ConcurrentHashMap<>();
+    protected final Map<DataTime, List<GeneralGridData>> dataMap = new ConcurrentHashMap<>();
 
     /**
      * StylePreferences from the styleManager appropriate for the display type
@@ -255,33 +272,30 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
     protected AbstractGridResource(T resourceData,
             LoadProperties loadProperties) {
         super(resourceData, loadProperties, false);
-        resourceData.addChangeListener(new IResourceDataChanged() {
-            @Override
-            public void resourceChanged(ChangeType type, Object object) {
-                if (type == ChangeType.DATA_UPDATE) {
-                    if (object instanceof PluginDataObject) {
-                        addDataObject((PluginDataObject) object);
-                    } else if (object instanceof PluginDataObject[]) {
-                        for (PluginDataObject pdo : (PluginDataObject[]) object) {
-                            addDataObject(pdo);
-                        }
-                    } else if (object instanceof Object[]) {
-                        for (Object obj : (Object[]) object) {
-                            if (obj instanceof PluginDataObject) {
-                                addDataObject((PluginDataObject) obj);
-                            }
+        resourceData.addChangeListener((type, object) -> {
+            if (type == ChangeType.DATA_UPDATE) {
+                if (object instanceof PluginDataObject) {
+                    addDataObject((PluginDataObject) object);
+                } else if (object instanceof PluginDataObject[]) {
+                    for (PluginDataObject pdo : (PluginDataObject[]) object) {
+                        addDataObject(pdo);
+                    }
+                } else if (object instanceof Object[]) {
+                    for (Object obj : (Object[]) object) {
+                        if (obj instanceof PluginDataObject) {
+                            addDataObject((PluginDataObject) obj);
                         }
                     }
-                } else if (type == ChangeType.CAPABILITY) {
-                    if (object instanceof AbstractCapability) {
-                        AbstractCapability capability = (AbstractCapability) object;
-                        synchronized (renderableMap) {
-                            for (List<IRenderable> renderableList : renderableMap
-                                    .values()) {
-                                for (IRenderable renderable : renderableList) {
-                                    updataRenderableCapabilities(renderable,
-                                            capability);
-                                }
+                }
+            } else if (type == ChangeType.CAPABILITY) {
+                if (object instanceof AbstractCapability) {
+                    AbstractCapability capability = (AbstractCapability) object;
+                    synchronized (renderableMap) {
+                        for (List<IRenderable> renderableList : renderableMap
+                                .values()) {
+                            for (IRenderable renderable : renderableList) {
+                                updataRenderableCapabilities(renderable,
+                                        capability);
                             }
                         }
                     }
@@ -301,6 +315,9 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
      * @param pdo
      */
     protected void addDataObject(PluginDataObject pdo) {
+        if (getStatus() == ResourceStatus.DISPOSED) {
+            return;
+        }
         DataTime time = pdo.getDataTime();
         if (this.resourceData instanceof AbstractRequestableResourceData) {
             AbstractRequestableResourceData resourceData = (AbstractRequestableResourceData) this.resourceData;
@@ -527,8 +544,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
      * Create an interpolation and format to be used when sampling
      */
     protected void initSampling() {
-        if (stylePreferences != null
-                && stylePreferences instanceof ImagePreferences) {
+        if (stylePreferences instanceof ImagePreferences) {
             ImagePreferences prefs = (ImagePreferences) stylePreferences;
             sampleFormat = prefs.getSampleFormat();
         }
@@ -539,12 +555,12 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
      *
      * @param target
      * @param data
+     * @param time
      * @return
      * @throws VizException
      */
     public IRenderable createRenderable(IGraphicsTarget target,
-            GeneralGridData data) throws VizException {
-
+            GeneralGridData data, DataTime time) throws VizException {
         IRenderable renderable = null;
 
         GridGeometry2D gridGeometry = data.getGridGeometry();
@@ -617,8 +633,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
                     CLASS_NAME);
             if (displayType != DisplayType.BARB) {
                 config.disableCalmCircle();
-                if (stylePreferences != null
-                        && stylePreferences instanceof ArrowPreferences) {
+                if (stylePreferences instanceof ArrowPreferences) {
                     double scale = ((ArrowPreferences) stylePreferences)
                             .getScale();
                     if (scale >= 0.0) {
@@ -677,10 +692,11 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
             GriddedContourDisplay contourRenderable = null;
             if (displayType == DisplayType.CONTOUR) {
                 contourRenderable = new GriddedContourDisplay(descriptor,
-                        gridGeometry, data.getData());
+                        getResourceId(time), gridGeometry, data.getData());
             } else if (data instanceof VectorGridData) {
                 contourRenderable = new GriddedStreamlineDisplay(descriptor,
-                        gridGeometry, ((VectorGridData) data).getUComponent(),
+                        getSafeName(), gridGeometry,
+                        ((VectorGridData) data).getUComponent(),
                         ((VectorGridData) data).getVComponent());
             } else {
                 throw new VizException(
@@ -699,8 +715,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
             contourRenderable.setMagnification(
                     getCapability(MagnificationCapability.class)
                             .getMagnification());
-            if (stylePreferences != null
-                    && stylePreferences instanceof ContourPreferences) {
+            if (stylePreferences instanceof ContourPreferences) {
                 contourRenderable
                         .setPreferences((ContourPreferences) stylePreferences);
             }
@@ -785,17 +800,38 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
             List<PluginDataObject> pdos) throws VizException;
 
     public List<GeneralGridData> requestData(DataTime time) {
+        return requestData(time, false);
+    }
+
+    /**
+     * Request data for the given time.
+     *
+     * @param time
+     *            the time to request data for
+     * @param fromCacheOnly
+     *            true to only get the data if it's already cached and to do
+     *            nothing otherwise, false to trigger a request for the data if
+     *            it's not yet cached
+     * @return the data if it's immediately available, otherwise null
+     */
+    protected List<GeneralGridData> requestData(DataTime time,
+            boolean fromCacheOnly) {
         synchronized (requestRunner) {
             List<GeneralGridData> data = this.dataMap.get(time);
             if (data == null) {
-                data = requestRunner.requestData(time, pdoMap.get(time));
+                data = requestRunner.requestData(time, pdoMap.get(time),
+                        fromCacheOnly);
                 if (data != null) {
                     data = mergeData(data);
-                    this.dataMap.put(time, data);
+                    cacheData(time, data);
                 }
             }
             return data;
         }
+    }
+
+    protected void cacheData(DataTime time, List<GeneralGridData> data) {
+        this.dataMap.put(time, data);
     }
 
     /**
@@ -838,22 +874,17 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
      * @param renderable
      */
     protected void disposeRenderable(final IRenderable renderable) {
-        VizApp.runAsync(new Runnable() {
-
-            @Override
-            public void run() {
-                if (renderable instanceof TileSetRenderable) {
-                    ((TileSetRenderable) renderable).dispose();
-                } else if (renderable instanceof AbstractGriddedDisplay<?>) {
-                    ((AbstractGriddedDisplay<?>) renderable).dispose();
-                } else if (renderable instanceof ContourRenderable) {
-                    ((ContourRenderable) renderable).dispose();
-                } else {
-                    statusHandler.warn("Undisposed renderable of type: "
-                            + renderable.getClass().getSimpleName());
-                }
+        VizApp.runAsync(() -> {
+            if (renderable instanceof TileSetRenderable) {
+                ((TileSetRenderable) renderable).dispose();
+            } else if (renderable instanceof AbstractGriddedDisplay<?>) {
+                ((AbstractGriddedDisplay<?>) renderable).dispose();
+            } else if (renderable instanceof ContourRenderable) {
+                ((ContourRenderable) renderable).dispose();
+            } else {
+                statusHandler.warn("Undisposed renderable of type: "
+                        + renderable.getClass().getSimpleName());
             }
-
         });
 
     }
@@ -956,7 +987,7 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
                 double imageVal = cmp.getDisplayToColorMapConverter()
                         .convert(value.getValue().doubleValue());
                 String mapResult = cmp.getDataMapping()
-                        .getLabelValueForDataValue(imageVal);
+                        .getSampleOrLabelValueForDataValue(imageVal);
                 if (mapResult != null && !mapResult.isEmpty()) {
                     return mapResult;
                 }
@@ -1013,13 +1044,17 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
                                 value = (float) unit
                                         .getConverterToAny(styleUnit)
                                         .convert(value);
-                            } catch (UnconvertibleException | IncommensurableException e) {
+                            } catch (UnconvertibleException
+                                    | IncommensurableException e) {
                                 SimpleUnitFormat stringFormat = SimpleUnitFormat
-                                        .getInstance(SimpleUnitFormat.Flavor.ASCII);
+                                        .getInstance(
+                                                SimpleUnitFormat.Flavor.ASCII);
                                 statusHandler.handle(Priority.ERROR,
                                         "Unable to convert data unit "
-                                                + stringFormat.format(unit) + " to style unit "
-                                                + stringFormat.format(styleUnit) +".",
+                                                + stringFormat.format(unit)
+                                                + " to style unit "
+                                                + stringFormat.format(styleUnit)
+                                                + ".",
                                         e);
                             }
                             unit = styleUnit;
@@ -1031,9 +1066,12 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
                     if (keySet.contains(UNIT_STRING_INTERROGATE_KEY)) {
                         if (unitString != null) {
                             result.put(UNIT_STRING_INTERROGATE_KEY, unitString);
-                        } else if (unit != null && !unit.equals(AbstractUnit.ONE)) {
+                        } else if (unit != null
+                                && !unit.equals(AbstractUnit.ONE)) {
                             result.put(UNIT_STRING_INTERROGATE_KEY,
-                                    SimpleUnitFormat.getInstance(SimpleUnitFormat.Flavor.ASCII).format(unit));
+                                    SimpleUnitFormat.getInstance(
+                                            SimpleUnitFormat.Flavor.ASCII)
+                                            .format(unit));
                         } else {
                             result.put(UNIT_STRING_INTERROGATE_KEY, "");
                         }
@@ -1160,12 +1198,11 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
     }
 
     /**
-     * Reset renderables and any other data caches, data will be rerequested
+     * Reset renderables and any other data caches, data will be re-requested
      * next time it is needed.
-     *
      */
     protected void clearRequestedData() {
-        requestRunner.stopAndClear();
+        requestRunner.clearRequests();
         synchronized (renderableMap) {
             for (List<IRenderable> renderableList : renderableMap.values()) {
                 for (IRenderable renderable : renderableList) {
@@ -1175,6 +1212,9 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
             renderableMap.clear();
         }
         dataMap.clear();
+        if (getStatus() == ResourceStatus.DISPOSED) {
+            pdoMap.clear();
+        }
     }
 
     protected List<PluginDataObject> getCurrentPluginDataObjects() {
@@ -1239,7 +1279,8 @@ public abstract class AbstractGridResource<T extends AbstractResourceData>
 
                 renderables = new ArrayList<>(dataList.size());
                 for (GeneralGridData data : dataList) {
-                    IRenderable renderable = createRenderable(target, data);
+                    IRenderable renderable = createRenderable(target, data,
+                            time);
                     if (renderable != null) {
                         renderables.add(renderable);
                     }

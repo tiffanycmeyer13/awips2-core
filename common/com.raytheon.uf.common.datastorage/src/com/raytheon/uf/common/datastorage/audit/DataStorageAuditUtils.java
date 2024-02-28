@@ -21,7 +21,6 @@ package com.raytheon.uf.common.datastorage.audit;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import com.raytheon.uf.common.dataplugin.PluginDataObject;
 
@@ -36,12 +35,21 @@ import com.raytheon.uf.common.dataplugin.PluginDataObject;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Feb 17, 2022 8608       mapeters    Initial creation
+ * Aug 24, 2022 8920       mapeters    Optimizations; Swap key/values for statuses.
+ * Feb 03, 2023 9019       mapeters    Adjust for configurable number of audit threads.
  *
  * </pre>
  *
  * @author mapeters
  */
 public class DataStorageAuditUtils {
+
+    public static final int NUM_QUEUES = Integer
+            .getInteger("data.storage.auditer.num.queues");
+
+    public static final String QUEUE_ROOT_NAME = "data.storage.audit.event";
+
+    public static final String QUEUE_JMS_PREFIX = "jms-durable:queue:";
 
     /**
      * Private constructor to prevent instantiation since everything is static.
@@ -50,33 +58,35 @@ public class DataStorageAuditUtils {
     }
 
     /**
-     * Get a mapping of all the given PDO trace IDs to the given data status.
+     * Get a mapping of the given data status to all the given PDO trace IDs.
      *
      * @param status
      *            the data status to use for all given PDOs
      * @param pdos
      *            the plugin data objects
-     * @return map of PDO trace ID -> status
+     * @return map of status -> all PDO trace IDs per status
      */
-    public static Map<String, DataStatus> getDataStatusMap(DataStatus status,
+    public static Map<DataStatus, String[]> getDataStatusMap(DataStatus status,
             Collection<? extends PluginDataObject> pdos) {
-        return pdos.stream().collect(
-                Collectors.toMap(pdo -> pdo.getTraceId(), pdo -> status));
+        String[] traceIds = pdos.stream().map(PluginDataObject::getTraceId)
+                .toArray(String[]::new);
+        return Map.of(status, traceIds);
     }
 
     /**
-     * Get a mapping of all the given PDO trace IDs to the given data status.
+     * Get a mapping of the given data status to all the given PDO trace IDs.
      *
      * @param status
      *            the data status to use for all given PDOs
      * @param pdos
      *            the plugin data objects
-     * @return map of PDO trace ID -> status
+     * @return map of status -> all PDO trace IDs per status
      */
-    public static Map<String, DataStatus> getDataStatusMap(DataStatus status,
+    public static Map<DataStatus, String[]> getDataStatusMap(DataStatus status,
             PluginDataObject... pdos) {
-        return Arrays.stream(pdos).collect(
-                Collectors.toMap(pdo -> pdo.getTraceId(), pdo -> status));
+        String[] traceIds = Arrays.stream(pdos)
+                .map(PluginDataObject::getTraceId).toArray(String[]::new);
+        return Map.of(status, traceIds);
     }
 
     /**
@@ -91,9 +101,10 @@ public class DataStorageAuditUtils {
     public static void auditMetadataStatuses(MetadataStatus status,
             Collection<? extends PluginDataObject> pdos) {
         if (!pdos.isEmpty()) {
-            Map<String, MetadataStatus> traceIdsToStatus = pdos.stream()
-                    .collect(Collectors.toMap(pdo -> pdo.getTraceId(),
-                            pdo -> status));
+            String[] traceIds = pdos.stream().map(PluginDataObject::getTraceId)
+                    .toArray(String[]::new);
+            Map<MetadataStatus, String[]> traceIdsToStatus = Map.of(status,
+                    traceIds);
             DataStorageAuditerContainer.getInstance().getAuditer()
                     .processMetadataStatuses(traceIdsToStatus);
         }

@@ -22,12 +22,18 @@ package com.raytheon.uf.viz.localization.perspective;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.team.FileModificationValidationContext;
 import org.eclipse.core.resources.team.FileModificationValidator;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Shell;
@@ -37,6 +43,9 @@ import org.eclipse.ui.IEditorReference;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
 
 import com.raytheon.uf.common.localization.Checksum;
 import com.raytheon.uf.common.localization.IPathManager;
@@ -67,6 +76,9 @@ import com.raytheon.viz.ui.dialogs.SWTMessageBox;
  * May 23, 2016  4907     mapeters  Added save validation
  * Jun 08, 2016  4907     mapeters  Handle editors that aren't ITextEditors
  * Jun 22, 2017  4818     mapeters  Changed setCloseCallback to addCloseCallback
+ * Aug 10, 2020  81368    mroos     Added XML well-formed save validation
+ * Nov 03, 2020  84588    tjensen   Added null check on save validation
+ * Mar 27, 2023  2029546  hvandam   Add preference for XML validation on file save
  *
  * </pre>
  *
@@ -149,6 +161,22 @@ public class LocalizationFileModificationValidator
      */
     public static IStatus validateSave(LocalizationEditorInput input,
             IDocument doc) {
+        boolean goodXML = true;
+        if (input.getFile().getFileExtension() != null
+                && input.getFile().getFileExtension().matches("xml")) {
+
+            IPreferenceStore store = Activator.getDefault()
+                    .getPreferenceStore();
+            Boolean validateXML = store
+                    .getBoolean(Activator.P_LOCALIZATION_VALIDATE_XML);
+            if (validateXML) {
+                goodXML = xmlCheck(doc, input);
+            }
+
+        }
+        if (!goodXML) {
+            return Status.CANCEL_STATUS;
+        }
         // Handle an unresolved merge conflict for this file
         LocalizationMergeEditorInput mergeInput = LocalizationEditorUtils
                 .getOpenMergeInputForLocalizationInput(input);
@@ -219,4 +247,72 @@ public class LocalizationFileModificationValidator
 
         messageDialog.open();
     }
+
+    /**
+     * Runs a check on the xml file to be saved to validate if the xml is
+     * well-formed
+     *
+     * @param doc
+     *            - the file to be checked for well-formed-ness
+     * @return whether the xml is well-formed or not
+     * @throws IOException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
+    private static boolean xmlCheck(IDocument doc,
+            LocalizationEditorInput input) {
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        factory.setValidating(false);
+        factory.setNamespaceAware(true);
+        try {
+            SAXParser parser = factory.newSAXParser();
+            XMLReader reader = parser.getXMLReader();
+            reader.parse(new InputSource(new StringReader(doc.get())));
+        } catch (SAXException | ParserConfigurationException | IOException e) {
+            handleXMLParseError(input.getLocalizationFile().getPath(), input,
+                    e.toString());
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Handles message dialogue when the XML attempting to be saved is not
+     * parseable and reactivates editor rather than changing workbench state
+     *
+     * @param fileName
+     *            name of bad XML to display on message
+     * @param input
+     *            editor input to return to when appropriate option is selected
+     *            in dlg
+     */
+    private static void handleXMLParseError(String fileName,
+            LocalizationEditorInput input, String e) {
+        Shell shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow()
+                .getShell();
+        String msg = "An issue ocurred when attempting to parse the file '"
+                + fileName + "'. The XML must be well-formed before it "
+                + "can be saved.\n\n" + "ERROR: " + e + "\n\n"
+                + "Select OK to return to the editor.";
+        SWTMessageBox messageDialog = new SWTMessageBox(shell,
+                "Unresolved XML Parsing Error", msg,
+                SWT.OK | SWT.CANCEL | SWT.ICON_WARNING);
+
+        messageDialog.addCloseCallback(new ICloseCallback() {
+
+            @Override
+            public void dialogClosed(Object returnValue) {
+                if (returnValue instanceof Integer
+                        && ((int) returnValue == SWT.OK)) {
+                    IWorkbenchPage page = PlatformUI.getWorkbench()
+                            .getActiveWorkbenchWindow().getActivePage();
+                    page.activate(page.findEditor(input));
+                }
+            }
+        });
+
+        messageDialog.open();
+    }
+
 }

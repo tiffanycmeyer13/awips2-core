@@ -63,6 +63,7 @@ import com.raytheon.uf.common.units.UnitConv;
  * Feb 07, 2018  6816     randerso  Implemented getLinearValue and
  *                                  getLogFactorValue functions.
  * Apr 17, 2018  6972     bsteffen  Add getLogValue
+ * Nov 03, 2022  8905     lsingh    Check for NaN when converting units.
  *
  * </pre>
  *
@@ -129,7 +130,11 @@ public class Colormapper {
             if ((!Double.isNaN(dataValue)) && (dataValue != noDataValue)) {
                 double cmapValue = dataValue;
                 if (converter != null) {
-                    cmapValue = converter.convert(dataValue);
+                    try {
+                        cmapValue = converter.convert(dataValue);
+                    } catch (NumberFormatException e) {
+                        cmapValue = Double.NaN;
+                    }
                 }
 
                 double index = getColorMappingIndex(cmapValue, parameters);

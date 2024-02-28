@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import javax.xml.bind.JAXBException;
@@ -46,6 +47,7 @@ import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.viz.core.drawables.AbstractRenderableDisplay;
+import com.raytheon.uf.viz.core.drawables.IRenderableDisplay;
 import com.raytheon.uf.viz.core.exception.VizException;
 import com.raytheon.uf.viz.core.maps.display.VizMapEditor;
 import com.raytheon.uf.viz.core.maps.scales.MapScales.MapScale;
@@ -58,11 +60,11 @@ import com.raytheon.viz.ui.actions.LoadPerspectiveHandler;
 /**
  * Manager for {@link MapScales}. May be constructed from any file or the
  * default instance can be used via {@link #getInstance()}
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
  * Oct 08, 2013           mschenke    Initial creation
@@ -76,9 +78,12 @@ import com.raytheon.viz.ui.actions.LoadPerspectiveHandler;
  * Jun 05, 2015 4401      bkowal      Renamed LoadSerializedXml to
  *                                    LoadPerspectiveHandler.
  * Jun 23, 2017 6316      njensen     Improved logging
- * 
+ * Apr 25, 2022 8791      mapeters    Added getLastResortScaleDisplay(), ensure
+ *                                    scale bundle errors are logged
+ * Sep 08, 2022 8792      mapeters    Added getDefaultScaleDisplay()
+ *
  * </pre>
- * 
+ *
  * @author mschenke
  */
 
@@ -86,6 +91,9 @@ public class MapScalesManager {
 
     private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(MapScalesManager.class);
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("MapScalesManager");
 
     private static final String DEFAULT_SCALES_DIR = "bundles"
             + IPathManager.SEPARATOR + "scales";
@@ -103,12 +111,10 @@ public class MapScalesManager {
      */
     public static final class ManagedMapScale {
 
-        private final AutoUpdatingFileChangedListener listener = new AutoUpdatingFileChangedListener() {
-            @Override
-            public void fileChanged(AutoUpdatingLocalizationFile file) {
-                loadBundleXml();
-            }
-        };
+        private static final IUFStatusHandler statusHandler = UFStatus
+                .getHandler(ManagedMapScale.class);
+
+        private final AutoUpdatingFileChangedListener listener = file -> loadBundleXml();
 
         private final String displayName;
         
@@ -130,9 +136,8 @@ public class MapScalesManager {
             this.areaScale = scale.getAreaScale();
             
             LocalizationFile file = PathManagerFactory.getPathManager()
-                    .getStaticLocalizationFile(
-                            baseDir + IPathManager.SEPARATOR
-                                    + scale.getFileName());
+                    .getStaticLocalizationFile(baseDir + IPathManager.SEPARATOR
+                            + scale.getFileName());
             if (file == null || !file.exists()) {
                 throw new IllegalStateException(
                         "scalesInfo.xml references missing file "
@@ -152,7 +157,12 @@ public class MapScalesManager {
 
             // validate the XML is good
             long t0 = System.currentTimeMillis();
-            getScaleBundle();
+            try {
+                getScaleBundle();
+            } finally {
+                perfLog.logDuration("Loading scale " + this.displayName,
+                        (System.currentTimeMillis() - t0));
+            }
         }
 
         private ManagedMapScale(String displayName, Bundle scaleBundle)
@@ -161,9 +171,8 @@ public class MapScalesManager {
             this.displayName = displayName;
             this.partIds = new PartId[0];
             this.scaleFile = null;
-            this.areaScale = null;
-            this.bundleXml = ProcedureXmlManager.getInstance().marshal(
-                    scaleBundle);
+            this.bundleXml = ProcedureXmlManager.getInstance()
+                    .marshal(scaleBundle);
         }
 
         private void loadBundleXml() {
@@ -181,13 +190,21 @@ public class MapScalesManager {
                     }
                 }
             } catch (Exception e) {
-                // Ignore, error will be reported in getScaleBundle
+                /*
+                 * An exception here will typically result in an exception throw
+                 * in getScaleBundle(), but may not if we already loaded a valid
+                 * bundleXml before this since we will continue using it. So log
+                 * this here.
+                 */
+                statusHandler
+                        .error("Scale Bundle XML could not be read from file "
+                                + scaleFile.getFilePath(), e);
             }
         }
 
         /**
          * Unmarshals the scale bundle
-         * 
+         *
          * @return
          * @throws SerializationException
          */
@@ -231,18 +248,14 @@ public class MapScalesManager {
 
     private static MapScalesManager DEFAULT_MANAGER;
 
-    private final AutoUpdatingFileChangedListener listener = new AutoUpdatingFileChangedListener() {
-        @Override
-        public void fileChanged(AutoUpdatingLocalizationFile file) {
-            try {
-                MapScales scales = file.loadObject(getJAXBManager(),
-                        MapScales.class);
-                loadMapScales(scales);
-            } catch (SerializationException e) {
-                statusHandler.handle(Priority.PROBLEM,
-                        "Error updating changed scale " + file.getFilePath(),
-                        e);
-            }
+    private final AutoUpdatingFileChangedListener listener = file -> {
+        try {
+            MapScales scales = file.loadObject(getJAXBManager(),
+                    MapScales.class);
+            loadMapScales(scales);
+        } catch (SerializationException e) {
+            statusHandler.handle(Priority.PROBLEM,
+                    "Error updating changed scale " + file.getFilePath(), e);
         }
     };
 
@@ -261,7 +274,7 @@ public class MapScalesManager {
      * Construct a MapScalesManager for the given scales file. File must be
      * deserializable into a {@link MapScales} object. IPathManager will be used
      * to lookup file
-     * 
+     *
      * @param scalesDir
      *            directory which scalesFile and bundles references in
      *            scalesFile are relative to
@@ -288,10 +301,9 @@ public class MapScalesManager {
             if (!locFile.getContext().getLocalizationLevel()
                     .equals(LocalizationLevel.BASE)) {
                 locFile = PathManagerFactory.getPathManager()
-                        .getLocalizationFile(
-                                new LocalizationContext(
-                                        LocalizationType.CAVE_STATIC,
-                                        LocalizationLevel.BASE), filename);
+                        .getLocalizationFile(new LocalizationContext(
+                                LocalizationType.CAVE_STATIC,
+                                LocalizationLevel.BASE), filename);
                 this.scalesFile = new AutoUpdatingLocalizationFile(locFile);
                 scales = this.scalesFile.loadObject(getJAXBManager(),
                         MapScales.class);
@@ -312,9 +324,10 @@ public class MapScalesManager {
                 storedScales.add(new ManagedMapScale(scaleBundleDir, scale));
             } catch (Exception e) {
                 StringBuilder sb = new StringBuilder();
-                sb.append("Error loading " + scale.getDisplayName()
-                        + " scale. ");
-                if (scale.getPartIds() != null && scale.getPartIds().length > 0) {
+                sb.append(
+                        "Error loading " + scale.getDisplayName() + " scale. ");
+                if (scale.getPartIds() != null
+                        && scale.getPartIds().length > 0) {
                     sb.append(scale.getDisplayName()
                             + " pane will attempt to revert to working scale. ");
                 }
@@ -322,9 +335,7 @@ public class MapScalesManager {
                         + " will not appear in the menu. ");
                 statusHandler.error(sb.toString(), e);
                 if (scale.getPartIds() != null) {
-                    for (PartId p : scale.getPartIds()) {
-                        failedParts.add(p);
-                    }
+                    Collections.addAll(failedParts, scale.getPartIds());
                 }
             }
         }
@@ -338,7 +349,7 @@ public class MapScalesManager {
 
     /**
      * Handles the parts that referenced scales files that couldn't be found.
-     * 
+     *
      * @param missingParts
      *            the parts that were missing
      * @param goodScales
@@ -364,19 +375,15 @@ public class MapScalesManager {
          */
         List<PartId> combinedParts = new ArrayList<>(
                 mainPane.partIds.length + missingParts.size());
-        for (PartId p : mainPane.getPartIds()) {
-            combinedParts.add(p);
-        }
-        for (PartId p : missingParts) {
-            combinedParts.add(p);
-        }
+        Collections.addAll(combinedParts, mainPane.getPartIds());
+        combinedParts.addAll(missingParts);
         mainPane.partIds = combinedParts.toArray(new PartId[0]);
     }
 
     /**
      * Loads the {@link ManagedMapScale}s referenced to an editor part id onto
      * the window
-     * 
+     *
      * @param window
      * @param scales
      * @throws VizException
@@ -413,7 +420,7 @@ public class MapScalesManager {
 
     /**
      * Gets all {@link ManagedMapScale}
-     * 
+     *
      * @return
      */
     public ManagedMapScale[] getScales() {
@@ -435,7 +442,7 @@ public class MapScalesManager {
 
     /**
      * Gets a {@link ManagedMapScale} by scale name
-     * 
+     *
      * @param name
      * @return
      */
@@ -467,7 +474,7 @@ public class MapScalesManager {
 
     /**
      * Gets the Bundle defined for the partId.
-     * 
+     *
      * @param partId
      * @return
      */
@@ -487,8 +494,8 @@ public class MapScalesManager {
             try {
                 b = scale.getScaleBundle();
             } catch (SerializationException e) {
-                statusHandler.error("Error deserializing bundle for scale: "
-                        + scale, e);
+                statusHandler.error(
+                        "Error deserializing bundle for scale: " + scale, e);
             }
 
             if (b != null) {
@@ -506,11 +513,11 @@ public class MapScalesManager {
     /**
      * Adds a custom scale to be managed. Scale is only active while program is
      * running.
-     * 
+     *
      * TODO: Need to figure out where map resources come from for this to work
      * properly... When using CreateProjectionDialog we just have a
      * GeneralGridGeometry
-     * 
+     *
      * @param scaleName
      * @param display
      */
@@ -523,10 +530,8 @@ public class MapScalesManager {
         try {
             customScales.add(new ManagedMapScale(scaleName, bundle));
         } catch (SerializationException e) {
-            statusHandler.handle(
-                    Priority.PROBLEM,
-                    "Error adding custom scale (" + scaleName + "): "
-                            + e.getLocalizedMessage(), e);
+            statusHandler.handle(Priority.PROBLEM, "Error adding custom scale ("
+                    + scaleName + "): " + e.getLocalizedMessage(), e);
         }
     }
 
@@ -549,8 +554,7 @@ public class MapScalesManager {
             throws SerializationException {
         if (jaxbManager == null) {
             try {
-                jaxbManager = new SingleTypeJAXBManager<>(
-                        MapScales.class);
+                jaxbManager = new SingleTypeJAXBManager<>(MapScales.class);
             } catch (JAXBException e) {
                 throw new SerializationException(
                         "Error constructing JAXBManager for MapScales", e);
@@ -562,8 +566,8 @@ public class MapScalesManager {
     /**
      * Gets a base scale that should always be there and should always work.
      * Used to prevent blank panes if scale overrides are misconfigured.
-     * 
-     * @return
+     *
+     * @return the last resort scale
      */
     protected ManagedMapScale getLastResortScale() {
         ManagedMapScale scale = null;
@@ -585,9 +589,26 @@ public class MapScalesManager {
     }
 
     /**
+     * Gets a renderable display for a base scale that should always be there
+     * and should always work. Used to prevent blank panes if scale overrides
+     * are misconfigured.
+     *
+     * @return the last resort scale display
+     */
+    private IRenderableDisplay getLastResortScaleDisplay() {
+        try {
+            return getLastResortScale().getScaleBundle().getDisplays()[0];
+        } catch (Exception e) {
+            statusHandler.fatal("Error loading the last resort scale display: "
+                    + LAST_RESORT_FILENAME, e);
+            return null;
+        }
+    }
+
+    /**
      * Finds the editor pane (ie VizMapEditor.EDITOR_ID) associated with a list
      * of scales
-     * 
+     *
      * @return the first scale tied to a VizMapEditor, or null if none are found
      */
     public ManagedMapScale findEditorScale() {
@@ -607,5 +628,26 @@ public class MapScalesManager {
             }
         }
         return editorScale;
+    }
+
+    /**
+     * Get a default map scale display. This is the first scale tied to a map
+     * editor, or the last resort scale if that fails to load.
+     *
+     * @return the default map scale display
+     */
+    public IRenderableDisplay getDefaultScaleDisplay() {
+        IRenderableDisplay display = null;
+        try {
+            display = findEditorScale().getScaleBundle().getDisplays()[0];
+        } catch (Exception e) {
+            statusHandler.error("Error loading default background map display",
+                    e);
+        }
+
+        if (display == null) {
+            display = getLastResortScaleDisplay();
+        }
+        return display;
     }
 }

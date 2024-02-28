@@ -39,12 +39,12 @@
        <import feature="com.raytheon.uf.edex.foss.org.apache.commons.ssl.feature" version="0.0.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.opensaml.feature" version="0.0.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.joda.time.feature" version="0.0.0"/>
-       <import feature="com.raytheon.uf.edex.foss.org.apache.xalan.feature" version="0.0.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.apache.xml.serializer.feature" version="2.7.1"/>
        <import feature="com.raytheon.uf.edex.foss.org.apache.xml.resolver.feature" version="1.2.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.apache.ws.commons.schema.feature" version="0.0.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.apache.xml.security.feature" version="0.0.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.apache.commons.net.feature" version="0.0.0"/>
+       <import feature="com.raytheon.uf.edex.foss.org.apache.cxf.feature" version="0.0.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.jfreechart.feature" version="0.0.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.jasypt.feature" version="0.0.0"/>
        <import feature="com.raytheon.uf.edex.foss.org.apache.ws.security.feature" version="0.0.0"/>
@@ -64,15 +64,6 @@
         previously in the uf.edex.cots.feature which no longer exists -->
    <plugin
          id="com.raytheon.uf.common.nc4"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
-
-   <!-- TODO: Added this as part of a build/merge fix. Make a new feature for
-        it -->
-   <plugin
-         id="org.apache.cxf"
          download-size="0"
          install-size="0"
          version="0.0.0"

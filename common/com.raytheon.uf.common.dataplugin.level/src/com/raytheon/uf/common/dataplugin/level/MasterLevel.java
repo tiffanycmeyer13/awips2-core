@@ -22,7 +22,7 @@ package com.raytheon.uf.common.dataplugin.level;
 import java.text.ParsePosition;
 
 import javax.measure.Unit;
-import javax.measure.format.ParserException;
+import javax.measure.format.MeasurementParseException;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
@@ -42,7 +42,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * MasterLevel - once a field is set it cannot be changed.
@@ -143,7 +143,7 @@ public class MasterLevel extends PersistableDataObject implements
         dirtyFlag = true;
     }
 
-    public Unit<?> getUnit() throws ParserException{
+    public Unit<?> getUnit() throws MeasurementParseException{
         if (dirtyFlag) {
             generateDependentFields();
         }
@@ -189,7 +189,7 @@ public class MasterLevel extends PersistableDataObject implements
             try{
             unit = (Unit<?>) SimpleUnitFormat.getInstance(SimpleUnitFormat.Flavor.ASCII).parseObject(
                     unitString, new ParsePosition(0));
-            }catch(ParserException e) {
+            }catch(MeasurementParseException e) {
                 statusHandler.debug("Unable to parse unit: " + unitString + ".", e);
             }
 

@@ -161,6 +161,13 @@
          unpack="false"/>
 
    <plugin
+         id="com.raytheon.uf.common.security"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
          id="com.raytheon.uf.common.serialization"
          download-size="0"
          install-size="0"
@@ -220,18 +227,6 @@
          version="0.0.0"/>
 
    <plugin
-         id="javax.vecmath"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"/>
-
-   <plugin
-         id="net.sf.cglib"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"/>
-
-   <plugin
          id="net.sf.ehcache"
          download-size="0"
          install-size="0"
@@ -251,6 +246,12 @@
 
    <plugin
          id="org.apache.commons.collections"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"/>
+
+   <plugin
+         id="org.apache.commons.collections4"
          download-size="0"
          install-size="0"
          version="0.0.0"/>
@@ -353,13 +354,6 @@
          unpack="false"/>
 
    <plugin
-         id="com.raytheon.uf.common.velocity"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
-
-   <plugin
          id="com.raytheon.uf.common.pointdata"
          download-size="0"
          install-size="0"
@@ -440,7 +434,7 @@
          id="org.apache.xerces"
          download-size="0"
          install-size="0"
-         version="0.0.0"/>
+         version="2.12.1"/>
 
    <plugin
          id="com.raytheon.uf.common.convert"
@@ -505,10 +499,10 @@
          id="com.google.guava"
          download-size="0"
          install-size="0"
-         version="30.0.0"/>
+         version="32.0.0"/>
 
    <plugin
-         id="com.raytheon.uf.common.security"
+         id="com.google.gson"
          download-size="0"
          install-size="0"
          version="0.0.0"

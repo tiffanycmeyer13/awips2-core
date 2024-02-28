@@ -42,6 +42,7 @@ import com.raytheon.uf.edex.core.EDEXUtil;
  * Oct 16, 2014  3454     bphillip  Upgrading to Hibernate 4
  * Jun 20, 2016  5679     rjpeter   Add admin database account.
  * Feb 26, 2019  6140     tgurney   Hibernate 5 upgrade
+ * Apr 21, 2021  7849     mapeters  Remove/deprecate factory methods
  *
  * </pre>
  *
@@ -61,17 +62,12 @@ public abstract class DaoConfig {
     /** The transaction manager suffix */
     private static final String TX_MANAGER = "TxManager";
 
-    private static SpringBeanLocator DEFAULT_LOCATOR = new SpringBeanLocator() {
+    private static final SpringBeanLocator DEFAULT_LOCATOR = new SpringBeanLocator() {
         @Override
         public <T> T lookupBean(Class<T> resultClass, String beanName) {
             return resultClass.cast(EDEXUtil.getESBComponent(beanName));
         }
     };
-
-    /**
-     * Used to locate Spring beans. By default, uses EDEXUtil to look them up.
-     */
-    private static SpringBeanLocator locator = DEFAULT_LOCATOR;
 
     /**
      * The default data access object configuration. This configuration
@@ -109,42 +105,13 @@ public abstract class DaoConfig {
      *            The class for which to create the DaoConfig object
      * @return A DaoConfig instance using the specified class, default session
      *         factory and default transaction manager.
+     * @deprecated Use corresponding method in a Spring-injected
+     *             {@link IDaoConfigFactory} instance, which will use the
+     *             correct Spring application context to lookup beans
      */
+    @Deprecated
     public static DaoConfig forClass(Class<?> className) {
-        return new SpringLookupDaoConfig(className);
-    }
-
-    /**
-     * Gets a DaoConfig object for the specified class using the default session
-     * factory and default transaction manager. If admin, will login as a super
-     * user, otherwise a normal user login.
-     *
-     * @param className
-     *            The class for which to create the DaoConfig object
-     * @param admin
-     *            Whether to login as a super user or not
-     * @return A DaoConfig instance using the specified class, default session
-     *         factory and default transaction manager.
-     */
-    public static DaoConfig forClass(Class<?> className, boolean admin) {
-        return new SpringLookupDaoConfig(className, admin);
-    }
-
-    /**
-     * Gets a DaoConfig object for the specified class using the default session
-     * factory and default transaction manager.
-     *
-     * @param className
-     *            The class for which to create the DaoConfig object
-     * @return A DaoConfig instance using the specified class, default session
-     *         factory and default transaction manager.
-     * @throws ClassNotFoundException
-     *             If the given class name does not exist on the class path
-     */
-    public static DaoConfig forClass(String className)
-            throws ClassNotFoundException {
-        return new SpringLookupDaoConfig(
-                DaoConfig.class.getClassLoader().loadClass(className.trim()));
+        return forClass(DEFAULT_DB_NAME, className);
     }
 
     /**
@@ -156,44 +123,14 @@ public abstract class DaoConfig {
      *            The class object
      * @return A DaoConfig instance with the specified database name and class
      *         name
+     * @deprecated Use corresponding method in a Spring-injected
+     *             {@link IDaoConfigFactory} instance, which will use the
+     *             correct Spring application context to lookup beans
      */
+    @Deprecated
     public static DaoConfig forClass(String dbName, Class<?> className) {
-        return new SpringLookupDaoConfig(dbName, className);
-    }
-
-    /**
-     * Gets a DaoConfig object for the specified class and database
-     *
-     * @param dbName
-     *            The database name
-     * @param className
-     *            The class object
-     * @param admin
-     *            Whether to login as a super user or not
-     * @return A DaoConfig instance with the specified database name and class
-     *         name
-     */
-    public static DaoConfig forClass(String dbName, Class<?> className,
-            boolean admin) {
-        return new SpringLookupDaoConfig(dbName, className, admin);
-    }
-
-    /**
-     * Gets a DaoConfig object for the specified class and database
-     *
-     * @param dbName
-     *            The database name
-     * @param className
-     *            The class name
-     * @return A DaoConfig instance with the specified database name and class
-     *         name
-     * @throws ClassNotFoundException
-     *             If the given class name does not exist on the class path
-     */
-    public static DaoConfig forClass(String dbName, String className)
-            throws ClassNotFoundException {
-        return new SpringLookupDaoConfig(dbName,
-                DaoConfig.class.getClassLoader().loadClass(className.trim()));
+        return new SpringLookupDaoConfig(dbName, className, false,
+                DEFAULT_LOCATOR);
     }
 
     /**
@@ -201,27 +138,17 @@ public abstract class DaoConfig {
      *
      * @param dbName
      *            The database name
-     * @return
+     * @return A DaoConfig instance for the specified database
+     * @deprecated Use corresponding method in a Spring-injected
+     *             {@link IDaoConfigFactory} instance, which will use the
+     *             correct Spring application context to lookup beans
      */
+    @Deprecated
     public static DaoConfig forDatabase(String dbName) {
-        return new SpringLookupDaoConfig(dbName);
+        return forClass(dbName, null);
     }
 
-    /**
-     * Gets a DaoConfig object for the specified database. If admin will login
-     * as a super user, otherwise will use a normal user login.
-     *
-     * @param dbName
-     *            The database name
-     * @param admin
-     *            Whether to login as a super user or not
-     * @return
-     */
-    public static DaoConfig forDatabase(String dbName, boolean admin) {
-        return new SpringLookupDaoConfig(dbName, admin);
-    }
-
-    private static class SpringLookupDaoConfig extends DaoConfig {
+    protected static class SpringLookupDaoConfig extends DaoConfig {
 
         /**
          * The class for which the desired data access object is to be used for
@@ -234,84 +161,14 @@ public abstract class DaoConfig {
         /** The name of the Hibernate transaction manager to use */
         private final String txManagerName;
 
-        /**
-         * Default constructor.
-         */
-        private SpringLookupDaoConfig() {
-            this((Class<?>) null);
-        }
-
-        /**
-         * Constructs a DaoConfig object using the specified class name, default
-         * session factory, and the default transaction manager. Database login
-         * will not be as a super user.
-         *
-         * @param className
-         *            The class object
-         */
-        private SpringLookupDaoConfig(Class<?> className) {
-            this(DEFAULT_DB_NAME, className, false);
-        }
-
-        /**
-         * Constructs a DaoConfig object using the specified class name, default
-         * session factory, and the default transaction manager. If admin, the
-         * database login will be as a super user, otherwise a normal user login
-         * will be used.
-         *
-         * @param className
-         *            The class object
-         * @param admin
-         *            Whether to login as a super user or not
-         */
-        private SpringLookupDaoConfig(Class<?> className, boolean admin) {
-            this(DEFAULT_DB_NAME, className, admin);
-        }
-
-        /**
-         * Constructs a DaoConfig object for the specified database.
-         *
-         * @param dbName
-         *            The database name
-         */
-        private SpringLookupDaoConfig(String dbName) {
-            this(dbName, null, false);
-        }
-
-        /**
-         * Constructs a DaoConfig object for the specified database. If admin,
-         * the database login will be as a super user, otherwise a normal user
-         * login will be used.
-         *
-         * @param dbName
-         *            The database name
-         * @param admin
-         *            Whether to login as a super user or not
-         */
-        private SpringLookupDaoConfig(String dbName, boolean admin) {
-            this(dbName, null, admin);
-        }
+        private final SpringBeanLocator locator;
 
         /**
          * Constructs a DaoConfig object for the specified database using the
          * specified class name. The appropriate session factory and transaction
-         * manager will be determined from the database name.
-         *
-         * @param dbName
-         *            The database name
-         * @param daoClass
-         *            The class object
-         */
-        private SpringLookupDaoConfig(String dbName, Class<?> daoClass) {
-            this(dbName, daoClass, false);
-        }
-
-        /**
-         * Constructs a DaoConfig object for the specified database using the
-         * specified class name. The appropriate session factory and transaction
-         * manager will be determined from the database name. If admin, the
-         * database login will be as a super user, otherwise a normal user login
-         * will be used.
+         * manager will be determined from the database name and accessed via
+         * the Spring bean locator. If admin, the database login will be as a
+         * super user, otherwise a normal user login will be used.
          *
          * @param dbName
          *            The database name
@@ -319,9 +176,11 @@ public abstract class DaoConfig {
          *            The class object
          * @param admin
          *            Whether to login as a super user or not
+         * @param locator
+         *            The Spring bean locator
          */
-        private SpringLookupDaoConfig(String dbName, Class<?> daoClass,
-                boolean admin) {
+        protected SpringLookupDaoConfig(String dbName, Class<?> daoClass,
+                boolean admin, SpringBeanLocator locator) {
             this.daoClass = daoClass;
             String prefix = "";
             if (admin) {
@@ -329,28 +188,20 @@ public abstract class DaoConfig {
             }
             this.sessionFactoryName = prefix + dbName + SESSION_FACTORY;
             this.txManagerName = prefix + dbName + TX_MANAGER;
+            this.locator = locator;
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public HibernateTransactionManager getTxManager() {
             return locator.lookupBean(HibernateTransactionManager.class,
                     txManagerName);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public SessionFactory getSessionFactory() {
             return locator.lookupBean(SessionFactory.class, sessionFactoryName);
         }
 
-        /**
-         * {@inheritDoc}
-         */
         @Override
         public Class<?> getDaoClass() {
             return daoClass;

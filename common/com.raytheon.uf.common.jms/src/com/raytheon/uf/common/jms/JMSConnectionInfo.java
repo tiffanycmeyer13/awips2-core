@@ -44,8 +44,8 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  *                                     the connection factory. Add serialization
  *                                     annotations
  * May 27, 2021 8469       dgilling    Add servicePort field.
+ * Aug 06, 2021 22528      smoorthy    Added proxyAddress field
  * Aug 16, 2022 8916       njensen     Added copy constructor
- *
  * </pre>
  *
  * @author mrichardson
@@ -71,6 +71,9 @@ public class JMSConnectionInfo {
     @DynamicSerializeElement
     @XmlElement(name = "servicePort", required = true)
     private String servicePort;
+
+    /** Optional proxy address of the form "https://host:port"*/
+    private String proxyAddress;
 
     @DynamicSerializeElement
     @XmlElement(name = "parameters")
@@ -136,6 +139,29 @@ public class JMSConnectionInfo {
     public void setServicePort(String servicePort) {
         this.servicePort = servicePort;
     }
+
+
+    /**
+     * Return the proxy address
+     * 
+     * @return Return the proxy address in the form "https://host:port". 
+     *         This field is optional.
+     */
+    public String getProxyAddress() {
+        return proxyAddress;
+    }
+
+    /**
+     * Set the proxy address
+     * 
+     * @param proxyAddress
+     *              The address of the proxy, where the expected form is "https://host:port". 
+     *              This field is optional.
+     */
+    public void setProxyAddress(String proxyAddress) {
+        this.proxyAddress = proxyAddress;
+    }
+
 
     @Override
     public int hashCode() {

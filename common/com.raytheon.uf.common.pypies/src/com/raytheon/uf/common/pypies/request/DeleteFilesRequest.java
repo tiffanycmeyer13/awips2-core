@@ -19,6 +19,8 @@
  **/
 package com.raytheon.uf.common.pypies.request;
 
+import java.util.Arrays;
+
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -32,6 +34,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Sep 27, 2010            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
  * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
@@ -81,6 +84,15 @@ public class DeleteFilesRequest extends AbstractRequest {
      */
     public void setDatesToDelete(String[] datesToDelete) {
         this.datesToDelete = datesToDelete;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", datesToDelete");
+        rval.append(Arrays.toString(datesToDelete));
+        return rval.toString();
+
     }
 
     @Override

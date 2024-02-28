@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -52,7 +53,7 @@ import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.edex.core.EDEXUtil;
 import com.raytheon.uf.edex.database.dao.CoreDao;
-import com.raytheon.uf.edex.database.dao.DaoConfig;
+import com.raytheon.uf.edex.database.dao.IDaoConfigFactory;
 
 /**
  * Postgres implemetation of Database Bloat checking.
@@ -69,11 +70,12 @@ import com.raytheon.uf.edex.database.dao.DaoConfig;
  * Jun 29, 2018 20505      ryu         Attempt to obtain access exclusive locks before altering tables.
  * Aug 06, 2018 20505      edebebe     Re-factored the 'reindex()' method to speed up the table re-indexing
  *                                     logic and added three inner classes: 'ReindexJob', 'Action', 'WorkerThread'.
+ * Apr 21, 2021 7849       mapeters    Add {@link IDaoConfigFactory} constructor arg
+ * Nov 03, 2021 8689       jsebahar    Altered TABLE_BLOAT_SQL query to remove deprecated column relhasoid
  * </pre>
  *
  * @author rjpeter
  */
-
 public class PostgresBloatDao extends CoreDao implements BloatDao {
 
     /**
@@ -82,10 +84,10 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
      *
      * https://github.com/ioguix/pgsql-bloat-estimation
      *
-     * This query is compatible with PostgreSQL 9.0 and more
+     * This query is compatible with PostgreSQL 12.0 and more
      *
      * <pre>
-     * SELECT schemaname, tblname, bs*tblpages AS real_size, (tblpages-est_tblpages_ff)*bs AS bloat_size,
+     * SELECT schemaname, tblname, bs*(tblpages)::bigint AS real_size, (tblpages-est_tblpages_ff)*bs AS bloat_size,
      *   CASE WHEN tblpages - est_tblpages_ff > 0
      *     THEN 100 * (tblpages - est_tblpages_ff)/tblpages::float
      *     ELSE 0
@@ -108,30 +110,29 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
      *         coalesce(toast.reltuples, 0) AS toasttuples,
      *         coalesce(substring(
      *           array_to_string(tbl.reloptions, ' ')
-     *           FROM '%fillfactor=#"__#"%' FOR '#')::smallint, 100) AS fillfactor,
+     *           FROM '%fillfactor=#\"__#\"%' FOR '#')::smallint, 100) AS fillfactor,
      *         current_setting('block_size')::numeric AS bs,
      *         CASE WHEN version()~'mingw32' OR version()~'64-bit|x86_64|ppc64|ia64|amd64' THEN 8 ELSE 4 END AS ma,
      *         24 AS page_hdr,
-     *         23 + CASE WHEN MAX(coalesce(null_frac,0)) > 0 THEN ( 7 + count(*) ) / 8 ELSE 0::int END
-     *           + CASE WHEN tbl.relhasoids THEN 4 ELSE 0 END AS tpl_hdr_size,
-     *         sum( (1-coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 1024) ) AS tpl_data_size,
-     *         bool_or(att.atttypid = 'pg_catalog.name'::regtype) AS is_na
+     *         23 + CASE WHEN MAX(coalesce(s.null_frac,0)) > 0 THEN ( 7 + count(s.attname) ) / 8 ELSE 0::int END
+     *           + CASE WHEN bool_or(att.attname = 'oid' and att.attnum < 0) THEN 4 ELSE 0 END AS tpl_hdr_size,
+     *         sum( (1-coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 0) ) AS tpl_data_size,
+     *         bool_or(att.atttypid = 'pg_catalog.name'::regtype) OR sum(CASE WHEN att.attnum > 0 THEN 1 ELSE 0 END) <> count(s.attname) AS is_na
      *       FROM pg_attribute AS att
      *         JOIN pg_class AS tbl ON att.attrelid = tbl.oid
      *         JOIN pg_namespace AS ns ON ns.oid = tbl.relnamespace
      *         JOIN pg_stats AS s ON s.schemaname=ns.nspname
      *           AND s.tablename = tbl.relname AND s.inherited=false AND s.attname=att.attname
      *         LEFT JOIN pg_class AS toast ON tbl.reltoastrelid = toast.oid
-     *       WHERE att.attnum > 0 AND NOT att.attisdropped
+     *       WHERE NOT att.attisdropped
      *         AND tbl.relkind = 'r'
      *         AND ns.nspname NOT IN ('pg_catalog', 'information_schema')
-     *       GROUP BY 1,2,3,4,5,6,7,8,9,10, tbl.relhasoids
+     *       GROUP BY 1,2,3,4,5,6,7,8,9,10
      *       ORDER BY 2,3
      *     ) AS s
      *   ) AS s2
      * ) AS s3
-     * WHERE NOT is_na
-     * order by 1, 2;
+     *ORDER BY schemaname, tblname;
      * </pre>
      */
     private static final String TABLE_BLOAT_SQL = "SELECT schemaname, tblname, bs*(tblpages)::bigint AS real_size, (tblpages-est_tblpages_ff)*bs AS bloat_size, "
@@ -150,17 +151,18 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
             + "coalesce(toast.reltuples, 0) AS toasttuples, coalesce(substring(array_to_string(tbl.reloptions, ' ') "
             + "FROM '%fillfactor=#\"__#\"%' FOR '#')::smallint, 100) AS fillfactor, current_setting('block_size')::numeric AS bs, "
             + "CASE WHEN version()~'mingw32' OR version()~'64-bit|x86_64|ppc64|ia64|amd64' THEN 8 ELSE 4 END AS ma, "
-            + "24 AS page_hdr, 23 + CASE WHEN MAX(coalesce(null_frac,0)) > 0 THEN ( 7 + count(*) ) / 8 ELSE 0::int END "
-            + "+ CASE WHEN tbl.relhasoids THEN 4 ELSE 0 END AS tpl_hdr_size, "
-            + "sum( (1-coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 1024) ) AS tpl_data_size, "
-            + "bool_or(att.atttypid = 'pg_catalog.name'::regtype) AS is_na "
+            + "24 AS page_hdr, 23 + CASE WHEN MAX(coalesce(s.null_frac,0)) > 0 THEN ( 7 + count(s.attname) ) / 8 ELSE 0::int END "
+            + "+ CASE WHEN bool_or(att.attname = 'oid' and att.attnum < 0) THEN 4 ELSE 0 END AS tpl_hdr_size, "
+            + "sum( (1-coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 0) ) AS tpl_data_size, "
+            + "bool_or(att.atttypid = 'pg_catalog.name'::regtype) OR sum(CASE WHEN att.attnum > 0 THEN 1 ELSE 0 END) <> count(s.attname) AS is_na "
             + "FROM pg_attribute AS att JOIN pg_class AS tbl ON att.attrelid = tbl.oid "
             + "JOIN pg_namespace AS ns ON ns.oid = tbl.relnamespace "
             + "JOIN pg_stats AS s ON s.schemaname=ns.nspname "
             + "AND s.tablename = tbl.relname AND s.inherited=false AND s.attname=att.attname "
             + "LEFT JOIN pg_class AS toast ON tbl.reltoastrelid = toast.oid "
-            + "WHERE att.attnum > 0 AND NOT att.attisdropped  AND tbl.relkind = 'r' AND ns.nspname NOT IN ('pg_catalog', 'information_schema') "
-            + "GROUP BY 1,2,3,4,5,6,7,8,9,10, tbl.relhasoids ORDER BY 2,3) AS s) AS s2) AS s3 WHERE NOT is_na order by 1, 2";
+            + "WHERE NOT att.attisdropped AND tbl.relkind = 'r' AND ns.nspname NOT IN ('pg_catalog', 'information_schema') "
+            + "GROUP BY 1,2,3,4,5,6,7,8,9,10 ORDER BY 2,3) AS s) AS s2) AS s3 "
+            + "ORDER BY schemaname, tblname;";
 
     /**
      * Pulled from github. Modified to only retrieve schema, table, index, real
@@ -313,8 +315,8 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
 
     private final ReindexThread workerThread;
 
-    public PostgresBloatDao(String database) {
-        super(DaoConfig.forDatabase(database, true));
+    public PostgresBloatDao(IDaoConfigFactory configFactory, String database) {
+        super(configFactory.forDatabase(database, true));
         this.database = database;
 
         this.delay = Long.getLong(REINDEXING_DELAY_PROPERTY, 60000);
@@ -435,7 +437,7 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
                 /* update index name to a tmp name */
                 String tmpName = TMP_INDEX_PREFIX + indexName;
                 if (tmpName.length() > 64) {
-                    tmpName.substring(0, 64);
+                    tmpName = tmpName.substring(0, 64);
                 }
                 String fqnTmpName = "\"" + schema + "\".\"" + tmpName + "\"";
 
@@ -689,8 +691,11 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
                                 .getLocks();
                         if (!tableLocks.isEmpty()) {
                             actionStatus.setLockFailure(true);
-                            for (LockLevel lockLevel : tableLocks.keySet()) {
-                                for (String table : tableLocks.get(lockLevel)) {
+                            for (Entry<LockLevel, Set<String>> tableLocksEntry : tableLocks
+                                    .entrySet()) {
+                                LockLevel lockLevel = tableLocksEntry.getKey();
+                                for (String table : tableLocksEntry
+                                        .getValue()) {
                                     String lockStatement = "LOCK TABLE " + table
                                             + " IN " + lockLevel.level
                                             + " MODE NOWAIT;";
@@ -879,7 +884,7 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
     private static class ReindexThread extends Thread {
 
         /** Singleton instance of this class */
-        private static ReindexThread instance = null;
+        private static final ReindexThread instance = new ReindexThread();
 
         private final BlockingQueue<ReindexJob> delayQueue;
 
@@ -895,9 +900,6 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
         }
 
         public static ReindexThread getInstance() {
-            if (instance == null) {
-                instance = new ReindexThread();
-            }
             return instance;
         }
 
@@ -939,8 +941,8 @@ public class PostgresBloatDao extends CoreDao implements BloatDao {
                         delayQueue.put(reindexJob);
                     } else if (status == 2) {
                         queuedJobs.remove(indexName);
-                        loggerForWorker
-                                .error("Error occured in processing ReindexJob: "
+                        loggerForWorker.error(
+                                "Error occured in processing ReindexJob: "
                                         + reindexJob);
                     } else {
                         queuedJobs.remove(indexName);

@@ -35,6 +35,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * May 27, 2010            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString Method
  * Sep 23, 2021 8608       mapeters    Add {@link #getType()}, handle metadata ids
  *
  * </pre>
@@ -65,6 +66,18 @@ public class StoreRequest extends AbstractRequest {
     public void setRecordsAndMetadata(
             List<RecordAndMetadata> recordsAndMetadata) {
         this.recordsAndMetadata = recordsAndMetadata;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", op[");
+        rval.append(op);
+        rval.append("], recordsAndMetadata[");
+        rval.append(recordsAndMetadata);
+        rval.append("]");
+        return rval.toString();
+
     }
 
     @Override

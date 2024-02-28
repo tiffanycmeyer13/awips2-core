@@ -15,7 +15,8 @@ Require-Bundle: javax.jms,
  com.raytheon.uf.common.json,
  com.raytheon.uf.common.time,
  org.slf4j,
- org.springframework
+ org.springframework,
+ com.raytheon.uf.common.security
 Export-Package: com.raytheon.uf.common.jms,
  com.raytheon.uf.common.jms.notification,
  com.raytheon.uf.common.jms.qpid

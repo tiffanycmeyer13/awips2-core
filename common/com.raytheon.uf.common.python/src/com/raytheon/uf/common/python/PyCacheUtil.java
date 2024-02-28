@@ -41,6 +41,7 @@ import com.raytheon.uf.common.status.UFStatus;
 
 import jep.Jep;
 import jep.JepException;
+import jep.SubInterpreter;
 
 /**
  * Methods for working with the pycache and compiled Python files
@@ -52,6 +53,7 @@ import jep.JepException;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Sep 12, 2019 7917       tgurney     Initial creation
+ * Jun 07, 2023 2034261    tgurney     Fixes for Jep 4 upgrade
  *
  * </pre>
  *
@@ -77,7 +79,7 @@ public class PyCacheUtil {
     private static Pattern compiledFilePattern;
 
     static {
-        try (Jep jep = new Jep()) {
+        try (Jep jep = new SubInterpreter()) {
             jep.eval("import sys");
             cacheTag = Objects
                     .toString(jep.getValue("sys.implementation.cache_tag"));

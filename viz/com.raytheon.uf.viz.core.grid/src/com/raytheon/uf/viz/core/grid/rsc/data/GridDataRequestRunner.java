@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -22,23 +22,27 @@ package com.raytheon.uf.viz.core.grid.rsc.data;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 import com.raytheon.uf.common.dataplugin.PluginDataObject;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
 import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.common.time.DataTime;
 import com.raytheon.uf.viz.core.exception.VizException;
 import com.raytheon.uf.viz.core.grid.rsc.AbstractGridResource;
+import com.raytheon.uf.viz.core.rsc.AbstractVizResource.ResourceStatus;
 
 /**
- * 
+ *
  * Manages asynchronously requesting data for {@link AbstractGridResource}s.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Mar 16, 2011            bsteffen    Initial creation
@@ -49,17 +53,23 @@ import com.raytheon.uf.viz.core.grid.rsc.AbstractGridResource;
  *                                      renamed to GridDataRequestRunner
  * Oct 29, 2014 3668       bsteffen    replace executor with custom job pool.
  * May 14, 2015 4079       bsteffen    Move to core.grid
- * 
+ * Aug 31, 2021 8651       njensen     Added method isScheduled(DataTime)
+ * Jan 26, 2022 8741       njensen     Added performance logging
+ * Dec 20, 2023 2036519    mapeters    Prevent requesting data for disposed resources,
+ *                                     add fromCacheOnly arg to requestData()
+ *
  * </pre>
- * 
+ *
  * @author bsteffen
- * @version 1.0
  * @see GridDataRequestJobPool
  */
 public class GridDataRequestRunner {
 
-    private static final transient IUFStatusHandler statusHandler = UFStatus
+    private static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(GridDataRequestRunner.class);
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("GridDataRequestRunner");
 
     private static class GridDataRequest {
 
@@ -82,21 +92,20 @@ public class GridDataRequestRunner {
             if (pdos == null) {
                 this.pdos = null;
             } else {
-                this.pdos = new ArrayList<PluginDataObject>(pdos);
+                this.pdos = new ArrayList<>(pdos);
             }
 
         }
 
         public boolean shouldRequest() {
-            return (gridData == null) && (exception == null)
-                    && (isRunning == false);
+            return (gridData == null) && (exception == null) && (!isRunning);
         }
 
     }
 
-    private AbstractGridResource<?> resource;
+    private final AbstractGridResource<?> resource;
 
-    private List<GridDataRequest> requests = new ArrayList<GridDataRequest>();
+    private final List<GridDataRequest> requests = new ArrayList<>();
 
     public GridDataRequestRunner(AbstractGridResource<?> resource) {
         this.resource = resource;
@@ -104,7 +113,7 @@ public class GridDataRequestRunner {
 
     /**
      * Attempt to process a request if there are any that need to be processed
-     * 
+     *
      * @return true if a request was processed or false if no requests need to
      *         be processed.
      */
@@ -114,9 +123,17 @@ public class GridDataRequestRunner {
             return false;
         }
         try {
+            long t0 = System.currentTimeMillis();
             request.gridData = resource.getData(request.time, request.pdos);
+            long t1 = System.currentTimeMillis();
+            if (request.pdos != null || request.gridData != null) {
+                perfLog.logDuration("Getting grid data for " + request.pdos,
+                        t1 - t0);
+            }
             if (request.gridData == null) {
-                /* need to remove unfulfillable requests to avoid infinite loop. */
+                /*
+                 * need to remove unfulfillable requests to avoid infinite loop.
+                 */
                 synchronized (requests) {
                     requests.remove(request);
                 }
@@ -134,7 +151,7 @@ public class GridDataRequestRunner {
 
     /**
      * Get the next request that should be processed
-     * 
+     *
      * @return null if no request should be processed
      */
     protected GridDataRequest getNext() {
@@ -149,35 +166,55 @@ public class GridDataRequestRunner {
         return null;
     }
 
+    public List<GeneralGridData> requestData(DataTime time,
+            List<PluginDataObject> pdos) {
+        return requestData(time, pdos, false);
+    }
+
     /**
+     * Request data for the given time and PDOs.
+     *
      * @param time
      * @param pdos
+     * @param fromCacheOnly
+     *            true to only get the data if it's already cached and to do
+     *            nothing otherwise, false to trigger a request for the data if
+     *            it's not yet cached
      * @return null if no requests matching time have been fulfilled
      */
     public List<GeneralGridData> requestData(DataTime time,
-            List<PluginDataObject> pdos) {
-        GridDataRequest request = new GridDataRequest(time, pdos);
+            List<PluginDataObject> pdos, boolean fromCacheOnly) {
+        GridDataRequest request = null;
         synchronized (requests) {
+            if (resource.getStatus() == ResourceStatus.DISPOSED) {
+                return null;
+            }
             Iterator<GridDataRequest> itr = requests.iterator();
             while (itr.hasNext()) {
                 GridDataRequest r = itr.next();
                 if (r.time.equals(time)) {
-                    itr.remove();
                     if (r.gridData != null) {
+                        itr.remove();
                         return r.gridData;
-                    } else if ((r.pdos == null) && (pdos == null)) {
-                        request = r;
-                    } else if ((r.pdos != null) && r.pdos.equals(pdos)) {
-                        request = r;
+                    } else if (!fromCacheOnly) {
+                        itr.remove();
+                        if (Objects.equals(r.pdos, pdos)) {
+                            request = r;
+                        }
                     }
                 }
             }
-            requests.add(0, request);
-            if ((request.exception != null) && !request.exceptionHandled) {
-                handleExceptions();
-            }
-            if (request.shouldRequest()) {
-                GridDataRequestJobPool.schedule(this);
+            if (!fromCacheOnly) {
+                if (request == null) {
+                    request = new GridDataRequest(time, pdos);
+                }
+                requests.add(0, request);
+                if ((request.exception != null) && !request.exceptionHandled) {
+                    handleExceptions();
+                }
+                if (request.shouldRequest()) {
+                    GridDataRequestJobPool.schedule(this);
+                }
             }
         }
         return null;
@@ -185,8 +222,7 @@ public class GridDataRequestRunner {
 
     private void handleExceptions() {
 
-        List<GridDataRequest> failedRequests = new ArrayList<GridDataRequest>(
-                requests.size());
+        List<GridDataRequest> failedRequests = new ArrayList<>(requests.size());
         synchronized (requests) {
             for (GridDataRequest request : requests) {
                 if ((request.exception != null) && !request.exceptionHandled) {
@@ -221,7 +257,7 @@ public class GridDataRequestRunner {
 
     /**
      * Attempt to generate a pretty message to display to the user.
-     * 
+     *
      * @param resourceName
      *            the name of the resource
      * @param request
@@ -259,10 +295,21 @@ public class GridDataRequestRunner {
         }
     }
 
-    public void stopAndClear() {
+    public void clearRequests() {
         synchronized (requests) {
             requests.clear();
         }
+    }
+
+    public boolean isScheduled(DataTime time) {
+        synchronized (requests) {
+            for (GridDataRequest r : requests) {
+                if (r.time.equals(time) && r.shouldRequest()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
 }

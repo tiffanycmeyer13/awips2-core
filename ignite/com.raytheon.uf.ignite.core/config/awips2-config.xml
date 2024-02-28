@@ -25,11 +25,7 @@
 
     <bean id="igniteKeyStorePath" factory-bean="sslConfig" factory-method="getJavaKeyStorePath" />
     <bean id="igniteTrustStorePath" factory-bean="sslConfig" factory-method="getJavaTrustStorePath" />
-
-    <bean id="igniteKeyStorePassword" class="com.raytheon.uf.common.datastore.ignite.IgnitePasswordUtils"
-        factory-method="getIgniteKeyStorePassword" />
-    <bean id="igniteTrustStorePassword" class="com.raytheon.uf.common.datastore.ignite.IgnitePasswordUtils"
-        factory-method="getIgniteTrustStorePassword" />
+    <bean id="igniteStorePassword" factory-bean="sslConfig" factory-method="getStorePassword" />
 
     <!-- Determine cluster-specific ignite config values -->
 
@@ -159,9 +155,9 @@
         <property name="sslContextFactory">
             <bean class="org.apache.ignite.ssl.SslContextFactory">
                 <property name="keyStoreFilePath" ref="igniteKeyStorePath"/>
-                <property name="keyStorePassword" ref="igniteKeyStorePassword" />
+                <property name="keyStorePassword" ref="igniteStorePassword" />
                 <property name="trustStoreFilePath" ref="igniteTrustStorePath"/>
-                <property name="trustStorePassword" ref="igniteTrustStorePassword"/>
+                <property name="trustStorePassword" ref="igniteStorePassword"/>
                 <property name="protocol" value="TLSv1.3"/>
             </bean>
         </property>
@@ -236,11 +232,16 @@
        <property name="sessionCacheSize" value="50"/>
     </bean>
 
-    <bean id="dataStorageAuditerContainer" class="com.raytheon.uf.common.datastorage.audit.DataStorageAuditerContainer" factory-method="getInstance">
-        <property name="auditer">
-            <bean class="com.raytheon.uf.ignite.core.IgniteDataStorageAuditerProxy">
-                <constructor-arg ref="jmsConnectionFactory"/>
-            </bean>
-        </property>
+    <bean id="igniteAuditerProxy" class="com.raytheon.uf.ignite.core.IgniteDataStorageAuditerProxy">
+         <constructor-arg ref="jmsConnectionFactory"/>
     </bean>
+
+    <bean id="dataStorageAuditerContainer" class="com.raytheon.uf.common.datastorage.audit.DataStorageAuditerContainer" factory-method="getInstance">
+       <property name="auditer" ref="igniteAuditerProxy"/>
+    </bean>
+
+    <bean id="batchSender" class="com.raytheon.uf.common.datastorage.audit.AuditorBatchSender">
+       <constructor-arg ref="igniteAuditerProxy"/>
+    </bean>
+
 </beans>

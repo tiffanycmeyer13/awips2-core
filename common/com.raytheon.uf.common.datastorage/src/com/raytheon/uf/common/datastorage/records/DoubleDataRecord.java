@@ -22,21 +22,26 @@ package com.raytheon.uf.common.datastorage.records;
 
 import java.util.Arrays;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * Provides an interface to datasets of type double
+ * IDataRecord implementation for 128-bit floating point data
  *
  * <pre>
  *
  * SOFTWARE HISTORY
  *
  * Date          Ticket#  Engineer  Description
- * ------------- -------- --------- ---------------------
+ * ------------- -------- --------- --------------------------------------------
  * Sep 08, 2014           kustert   Initial Creation.
  * Apr 24, 2015  4425     nabowle   Bring in.
+ * Mar 29, 2021  8374     randerso  Removed toString() in favor of method in
+ *                                  AbstractStoreageRecord. Code cleanup.
  * Jun 10, 2021  8450     mapeters  Add serialVersionUID
+ * Nov 03, 2022  8931     smoorthy  Add group name normalization
+ * Mar 23, 2023  2031674  mapeters  Support shallow cloning
  *
  * </pre>
  *
@@ -50,6 +55,9 @@ public class DoubleDataRecord extends AbstractStorageRecord {
     @DynamicSerializeElement
     protected double[] doubleData;
 
+    /**
+     * Nullary constructor for Dynamic Serialization
+     */
     public DoubleDataRecord() {
         super();
     }
@@ -70,11 +78,9 @@ public class DoubleDataRecord extends AbstractStorageRecord {
      */
     public DoubleDataRecord(String name, String group, double[] doubleData,
             int dimension, long[] sizes) {
+        super(name, DataStoreFactory.normalizeAttributeName(group), dimension,
+                sizes);
         this.doubleData = doubleData;
-        this.group = group;
-        this.dimension = dimension;
-        this.sizes = sizes;
-        this.name = name;
     }
 
     /**
@@ -127,15 +133,6 @@ public class DoubleDataRecord extends AbstractStorageRecord {
         }
     }
 
-    /**
-     * Override toString method to print dimensions
-     */
-    @Override
-    public String toString() {
-        return "[dims,data size]=[" + Arrays.toString(sizes) + ","
-                + this.doubleData.length + "]";
-    }
-
     @Override
     public void reduce(int[] indices) {
         double[] reducedData = new double[indices.length];
@@ -152,10 +149,15 @@ public class DoubleDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected AbstractStorageRecord cloneInternal() {
+    protected AbstractStorageRecord cloneInternal(boolean deep) {
         DoubleDataRecord record = new DoubleDataRecord();
         if (doubleData != null) {
-            record.doubleData = Arrays.copyOf(doubleData, doubleData.length);
+            if (deep) {
+                record.doubleData = Arrays.copyOf(doubleData,
+                        doubleData.length);
+            } else {
+                record.doubleData = doubleData;
+            }
         }
         return record;
     }

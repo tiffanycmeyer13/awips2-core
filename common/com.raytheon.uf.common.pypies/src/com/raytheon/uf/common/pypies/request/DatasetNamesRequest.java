@@ -23,7 +23,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * PyPies dataset names request
  *
  * <pre>
  *
@@ -31,6 +31,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Jul 20, 2010            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
  * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
@@ -49,6 +50,16 @@ public class DatasetNamesRequest extends AbstractRequest {
 
     public void setGroup(String group) {
         this.group = group;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", group[");
+        rval.append(group);
+        rval.append("]");
+        return rval.toString();
+
     }
 
     @Override

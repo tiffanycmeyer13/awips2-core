@@ -1,0 +1,31 @@
+<!--
+    This file defines the multi-panel layouts that are available in the context
+    menu of D2D editors.
+
+    The order of the entries is the order that they will appear in the menu.
+
+    This is an absolute override file, indicating that a higher priority
+    version of the file will completely replace a lower priority version of the
+    file.
+-->
+<multiPanelLayouts>
+    <layout count="2"/>
+    <layout count="2" horizontal="true"/>
+    <layout count="3"/>
+    <layout count="3" horizontal="true"/>
+    <layout count="4"/>
+    <layout count="6"/>
+    <layout count="6" horizontal="true"/>
+    <layout count="8"/>
+    <layout count="8" horizontal="true"/>
+    <layout count="9"/>
+    <layout count="12"/>
+    <layout count="12" horizontal="true"/>
+    <layout count="15"/>
+    <layout count="15" horizontal="true"/>
+    <layout count="16"/>
+    <layout count="20"/>
+    <layout count="20" horizontal="true"/>
+    <layout count="24"/>
+    <layout count="24" horizontal="true"/>
+</multiPanelLayouts>

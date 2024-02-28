@@ -33,7 +33,9 @@ import org.eclipse.core.runtime.jobs.Job;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import com.raytheon.uf.common.geospatial.ReferencedCoordinate;
+import com.raytheon.uf.common.status.IPerformanceStatusHandler;
 import com.raytheon.uf.common.status.IUFStatusHandler;
+import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.common.status.UFStatus;
 import com.raytheon.uf.common.status.UFStatus.Priority;
 import com.raytheon.uf.common.time.DataTime;
@@ -81,6 +83,11 @@ import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
  *                                   exceptions.
  * Nov 28, 2017  5863     bsteffen   Change dataTimes to a NavigableSet
  * Jan 31, 2018  5863     mapeters   Add time-agnostic check in remove(DataTime)
+ * Feb 18, 2021  8343     mchan      Added performance logging to capture how look
+ *                                   took to initialize and paint a resource
+ * Dec 06, 2021  8341     randerso   Added getResourceId for contour logging
+ * Feb 21, 2023  23465    dhaines    Paint logging should only happen when it takes 
+ *                                   > 500ms                                   
  *
  * </pre>
  *
@@ -88,8 +95,11 @@ import com.raytheon.uf.viz.core.rsc.capabilities.Capabilities;
  */
 public abstract class AbstractVizResource<T extends AbstractResourceData, D extends IDescriptor> {
 
-    protected static final transient IUFStatusHandler statusHandler = UFStatus
+    protected static final IUFStatusHandler statusHandler = UFStatus
             .getHandler(AbstractVizResource.class);
+
+    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
+            .getHandler("Resource");
 
     public enum ResourceStatus {
         NEW, LOADING, INITIALIZED, DISPOSED
@@ -104,7 +114,7 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      *             resource is time agnostic.
      */
     @Deprecated
-    public static final NavigableSet<DataTime> TIME_AGNOSTIC = Collections
+    protected static final NavigableSet<DataTime> TIME_AGNOSTIC = Collections
             .emptyNavigableSet();
 
     /**
@@ -159,17 +169,13 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      */
     private Set<IDisposeListener> disposeListeners;
 
-    private IResourceDataChanged changeListener = new IResourceDataChanged() {
-        @Override
-        public void resourceChanged(ChangeType type, Object object) {
-            if ((type == ChangeType.DATA_REMOVE)
-                    && (object instanceof DataTime)) {
-                remove((DataTime) object);
-            } else {
-                AbstractVizResource.this.resourceDataChanged(type, object);
-            }
-            issueRefresh();
+    private IResourceDataChanged changeListener = (type, object) -> {
+        if ((type == ChangeType.DATA_REMOVE) && (object instanceof DataTime)) {
+            remove((DataTime) object);
+        } else {
+            AbstractVizResource.this.resourceDataChanged(type, object);
         }
+        issueRefresh();
     };
 
     /**
@@ -372,7 +378,6 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      * @throws VizException
      */
     public void project(CoordinateReferenceSystem crs) throws VizException {
-        return;
     }
 
     /**
@@ -385,7 +390,6 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      * @param updateObject
      */
     protected void resourceDataChanged(ChangeType type, Object updateObject) {
-        return;
     }
 
     /**
@@ -403,7 +407,11 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
      */
     public final void init(IGraphicsTarget target) throws VizException {
         status = ResourceStatus.LOADING;
+        long startTime = System.currentTimeMillis();
         initInternal(target);
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        perfLog.logDuration("initialization: " + this.getClass().getSimpleName()
+                + " " + this.getSafeName(), elapsedTime);
         status = ResourceStatus.INITIALIZED;
 
         for (IInitListener listener : initListeners) {
@@ -539,7 +547,15 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
             // We have initialized successfully, now time to paint
             try {
                 updatePaintStatus(PaintStatus.PAINTING);
+                long startTime = System.currentTimeMillis();
                 paintInternal(target, paintProps);
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                if (elapsedTime >= 500) {
+	                perfLog.logDuration(
+	                        "painting: " + this.getClass().getSimpleName() + " "
+	                                + this.getSafeName(),
+	                        elapsedTime);
+                }
             } catch (VizException e) {
                 updatePaintStatus(PaintStatus.ERROR);
                 throw e;
@@ -901,5 +917,18 @@ public abstract class AbstractVizResource<T extends AbstractResourceData, D exte
             statusHandler.handle(Priority.DEBUG, e.getLocalizedMessage(), e);
         }
         return safeResourceName;
+    }
+
+    /**
+     * Get a resource ID to be used for log labeling
+     *
+     * @param time
+     * @return resource ID consisting of the resource name and data time if
+     *         known
+     */
+    public final String getResourceId(DataTime time) {
+        String resourceId = getSafeName().replaceAll(" +", " ")
+                + (time == null ? "" : time);
+        return resourceId;
     }
 }

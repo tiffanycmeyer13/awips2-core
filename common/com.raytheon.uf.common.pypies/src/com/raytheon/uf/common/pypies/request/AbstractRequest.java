@@ -16,15 +16,15 @@
  *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
+ *
  **/
 package com.raytheon.uf.common.pypies.request;
 
-import com.raytheon.uf.common.serialization.ISerializableObject;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * Abstract Base Class for PyPies requests
  *
  * <pre>
  *
@@ -32,14 +32,17 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Jul 20, 2010            njensen     Initial creation
- * Sep 23, 2021 8608      mapeters     Add {@link RequestType}
+ * Mar 24  2021 8374       srahimi     Added toString for Logging
+ * Sep 23, 2021 8608       mapeters    Add {@link RequestType}
+ *
+ *
  *
  * </pre>
  *
  * @author njensen
  */
 @DynamicSerialize
-public abstract class AbstractRequest implements ISerializableObject {
+public abstract class AbstractRequest {
 
     @DynamicSerializeElement
     protected String filename;
@@ -52,6 +55,15 @@ public abstract class AbstractRequest implements ISerializableObject {
         this.filename = filename;
     }
 
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(getClass().getSimpleName());
+        rval.append(" filename[");
+        rval.append(filename);
+        rval.append("]");
+        return rval.toString();
+    }
+
     /**
      * @return the general type of request this is (e.g. store, retrieve, etc.)
      */
@@ -60,4 +72,5 @@ public abstract class AbstractRequest implements ISerializableObject {
     public enum RequestType {
         STORE, RETRIEVE, DELETE, COPY, REPACK
     }
+
 }

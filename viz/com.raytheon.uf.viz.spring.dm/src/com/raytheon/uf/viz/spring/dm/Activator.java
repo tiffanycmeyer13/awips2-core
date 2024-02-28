@@ -10,7 +10,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import org.eclipse.core.runtime.FileLocator;
 import org.eclipse.core.runtime.IPath;
@@ -20,44 +19,41 @@ import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 
 /**
- * 
+ *
  * Custom version of Spring OSGi ContextLoaderListener to turn off xml
  * validation
- * 
- * 
+ *
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Oct 12, 2010            mschenke     Initial creation
- * Jan 24, 2013 1522       bkowal       Halt initialization if a p2 installation 
- *                                      has been started
- * Mar 05, 2013 1754       djohnson     Catch exceptions and allow as much of the Spring container to boot as possible.
- * May 23, 2013 2005       njensen      Added springSuccess flag
- * Nov 12, 2013 2361       njensen      Print out time spent on each spring context
- * Jun 27, 2017 6316       njensen      Track bundle start time
- * Dec 11, 2017            mjames      Less logging (re-implemented 3/15/23)
- * 
- * 
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Oct 12, 2010           mschenke  Initial creation
+ * Jan 24, 2013  1522     bkowal    Halt initialization if a p2 installation has
+ *                                  been started
+ * Mar 05, 2013  1754     djohnson  Catch exceptions and allow as much of the
+ *                                  Spring container to boot as possible.
+ * May 23, 2013  2005     njensen   Added springSuccess flag
+ * Nov 12, 2013  2361     njensen   Print out time spent on each spring context
+ * Jun 27, 2017  6316     njensen   Track bundle start time
+ * Dec 11, 2017            mjames   Less logging (re-implemented 3/15/23)
+ * Jan 11, 2022  8341     randerso  Code cleanup
+ *
  * </pre>
- * 
+ *
  * @author mschenke
  */
 public class Activator implements BundleActivator {
 
-    // The plug-in ID
+    /** The plug-in ID */
     public static final String PLUGIN_ID = "com.raytheon.uf.viz.spring.dm";
 
     private static final String SPRING_PATH = "res" + IPath.SEPARATOR
             + "spring";
 
     private static final String SPRING_FILE_EXT = "*.xml";
-
-    private static final Pattern COMMA_SPLIT = Pattern.compile("[,]");
-
-    private static final Pattern SEMICOLON_SPLIT = Pattern.compile("[;]");
 
     // The shared instance
     private static Activator plugin;
@@ -78,12 +74,15 @@ public class Activator implements BundleActivator {
     }
 
     @Override
+    @SuppressWarnings("squid:S106")
     public void start(BundleContext context) throws Exception {
         startTime = System.currentTimeMillis();
         if (this.isInstallOperation()) {
             return;
         }
-        plugin = this;
+        synchronized (this.getClass()) {
+            plugin = this;
+        }
 
         Map<String, OSGIXmlApplicationContext> contextMap = new HashMap<>();
         Set<String> processing = new HashSet<>();
@@ -95,12 +94,15 @@ public class Activator implements BundleActivator {
         for (Bundle b : bundles) {
             createContext(bundleMap, contextMap, b, processing);
         }
+        /*
+         * Using System.out since logging is not yet initialized
+         */
         System.out.println("Spring initialization took: "
                 + (System.currentTimeMillis() - startTime) + " ms");
     }
 
-    private OSGIXmlApplicationContext createContext(
-            Map<String, Bundle> bundles,
+    @SuppressWarnings("squid:S106")
+    private OSGIXmlApplicationContext createContext(Map<String, Bundle> bundles,
             Map<String, OSGIXmlApplicationContext> contextMap, Bundle bundle,
             Set<String> processing) {
         BundleResolver bundleResolver = new BundleResolver();
@@ -139,7 +141,8 @@ public class Activator implements BundleActivator {
                     for (Bundle requiredBundle : requiredBundles) {
                         // Found bundle, process context for bundle
                         OSGIXmlApplicationContext parent = createContext(
-                                bundles, contextMap, requiredBundle, processing);
+                                bundles, contextMap, requiredBundle,
+                                processing);
                         if (parent != null) {
                             // Context found, add to list
                             parentContexts.add(parent);
@@ -159,13 +162,16 @@ public class Activator implements BundleActivator {
                             appCtx = new OSGIXmlApplicationContext(
                                     files.toArray(new String[0]), bundle);
                         }
-                    } catch (Throwable t) {
-                        // No access to the statusHandler yet, so print the
-                        // stack trace to the console. By catching this, we also
-                        // allow as many beans as possible to continue to be
-                        // created
-                        System.err
-                                .println("Errors booting the Spring container.  CAVE will not be fully functional.");
+                    } catch (@SuppressWarnings("squid:S1166")
+                    Throwable t) {
+                        /*
+                         * No access to the statusHandler yet, so print the
+                         * stack trace to the console. By catching this, we also
+                         * allow as many beans as possible to continue to be
+                         * created
+                         */
+                        System.err.println(
+                                "Errors booting the Spring container.  CAVE will not be fully functional.");
                         t.printStackTrace();
                         springSuccess = false;
                     }
@@ -179,12 +185,14 @@ public class Activator implements BundleActivator {
 
     @Override
     public void stop(BundleContext context) throws Exception {
-        plugin = null;
+        synchronized (this.getClass()) {
+            plugin = null;
+        }
     }
 
     /**
      * Returns the shared instance
-     * 
+     *
      * @return the shared instance
      */
     public static Activator getDefault() {
@@ -194,7 +202,7 @@ public class Activator implements BundleActivator {
     /**
      * Based on the command line arguments, determine whether or not an Eclipse
      * p2 repository will be installed
-     * 
+     *
      * @return true if an Eclipse p2 repository is going to be installed, false
      *         otherwise
      */
@@ -210,17 +218,25 @@ public class Activator implements BundleActivator {
          */
         for (String argument : Platform.getCommandLineArgs()) {
             if (P2_DIRECTOR.equals(argument)) {
-                return Boolean.TRUE;
+                return true;
             }
         }
 
-        return Boolean.FALSE;
+        return false;
     }
 
+    /**
+     *
+     * @return true if spring initialization is successful
+     */
     public boolean isSpringInitSuccessful() {
         return springSuccess;
     }
 
+    /**
+     *
+     * @return time the bundle was started in ms since epoch
+     */
     public long getApplicationStartTime() {
         return startTime;
     }

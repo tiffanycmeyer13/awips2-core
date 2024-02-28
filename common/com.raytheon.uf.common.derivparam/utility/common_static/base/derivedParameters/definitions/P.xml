@@ -23,6 +23,11 @@
         at different localization levels will be combined. 
     -->
 <DerivedParameter unit="hPa" name="Pressure" abbreviation="P">
+    <!-- RCP is Radar Computed Pressure, see RadarGridExtension.resolvePluginStaticData(...)
+         RCP is a performance optimization for calculating pressures at tilt heights -->
+    <Method models="radar-.*" name="Alias" levels="S,TILT">
+        <Field abbreviation="RCP" />
+    </Method>
     <Method levels="PV5" name="Slice">
         <Field level="3D" abbreviation="pV" />
         <ConstantField value="0.000005" />
@@ -72,7 +77,7 @@
     <Method levels="TILT" name="Hgt2Pres">
         <Field abbreviation="GH" />
     </Method>
-    <Method levels="S,FHAG" name="Hgt2Pres" models="radar">
+    <Method levels="S,FHAG" name="Hgt2Pres" models="radar-.*">
         <Field abbreviation="GH" />
     </Method>
     <Method levels="Surface" name="Alias">
@@ -114,22 +119,22 @@
         <ConstantField value="273.15" />
         <ConstantField value="-1.0" />
     </Method>
-    <Method models="radar" levels="S,TEMP" name="Import">
+    <Method models="radar-.*" levels="S,TEMP" name="Import">
         <Field model="ETA218" abbreviation="P" />
     </Method>
-    <Method models="radar" levels="S,TEMP" name="Import">
+    <Method models="radar-.*" levels="S,TEMP" name="Import">
         <Field model="ETA207" abbreviation="P" />
     </Method>
-    <Method models="radar" levels="S,TEMP" name="Import">
+    <Method models="radar-.*" levels="S,TEMP" name="Import">
         <Field model="GFS213" abbreviation="P" />
     </Method>
-    <Method models="radar" levels="WetBulb0" name="Import">
+    <Method models="radar-.*" levels="WetBulb0" name="Import">
         <Field model="ETA218" abbreviation="P" />
     </Method>
-    <Method models="radar" levels="WetBulb0" name="Import">
+    <Method models="radar-.*" levels="WetBulb0" name="Import">
         <Field model="ETA207" abbreviation="P" />
     </Method>
-    <Method models="radar" levels="WetBulb0" name="Import">
+    <Method models="radar-.*" levels="WetBulb0" name="Import">
         <Field model="GFS213" abbreviation="P" />
     </Method>
     <Method levels="TROP" name="Slice">

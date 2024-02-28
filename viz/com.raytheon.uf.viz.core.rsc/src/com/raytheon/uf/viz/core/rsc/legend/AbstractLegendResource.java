@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.jface.action.IMenuManager;
+import org.eclipse.swt.graphics.Rectangle;
 
 import com.raytheon.uf.viz.core.DrawableString;
 import com.raytheon.uf.viz.core.IDisplayPane;
@@ -47,26 +48,27 @@ import com.raytheon.viz.ui.input.InputAdapter;
 
 /**
  * Base legend resource class, does majority of work for drawing legends.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Dec 17, 2010            mschenke     Initial creation
  * Aug 04, 2014 3489       mapeters     Updated deprecated getStringBounds() calls.
- * 
+ * Feb 09, 2023 9011       mapeters     Updated checkYLabelSpace to work with canvas
+ *                                      coords instead of world coords to work across
+ *                                      different pane types in a combo editor
+ *
  * </pre>
- * 
+ *
  * @author mschenke
- * @version 1.0
  * @param <T>
  */
-
 public abstract class AbstractLegendResource<T extends AbstractResourceData>
-        extends AbstractVizResource<T, IDescriptor> implements
-        ILegendDecorator, IContextMenuProvider {
+        extends AbstractVizResource<T, IDescriptor>
+        implements ILegendDecorator, IContextMenuProvider {
 
     private static final int BOTTOM_OFFSET_IN_PIXELS = 7;
 
@@ -87,8 +89,8 @@ public abstract class AbstractLegendResource<T extends AbstractResourceData>
                 mouseDownRsc = checkLabelSpace(getDescriptor(),
                         active.getTarget(), x, y);
                 if (mouseDownRsc != null) {
-                    handle = AbstractLegendResource.this.checkResourceClick(
-                            mouseDownRsc, mouseButton);
+                    handle = AbstractLegendResource.this
+                            .checkResourceClick(mouseDownRsc, mouseButton);
                     if (!handle) {
                         mouseDownRsc = null;
                     }
@@ -131,11 +133,6 @@ public abstract class AbstractLegendResource<T extends AbstractResourceData>
         super(resourceData, loadProperties);
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.raytheon.uf.viz.core.rsc.AbstractVizResource#disposeInternal()
-     */
     @Override
     protected void disposeInternal() {
         IDisplayPaneContainer container = getResourceContainer();
@@ -144,30 +141,22 @@ public abstract class AbstractLegendResource<T extends AbstractResourceData>
         }
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * com.raytheon.uf.viz.core.rsc.AbstractVizResource#paintInternal(com.raytheon
-     * .uf.viz.core.IGraphicsTarget,
-     * com.raytheon.uf.viz.core.drawables.PaintProperties)
-     */
     @Override
     protected void paintInternal(IGraphicsTarget target,
             PaintProperties paintProps) throws VizException {
         // Get the legend data to draw
         LegendEntry[] legendData = getLegendData(descriptor);
-        List<DrawableString> legendStrings = new ArrayList<DrawableString>();
+        List<DrawableString> legendStrings = new ArrayList<>();
 
         double yStart = paintProps.getCanvasBounds().height
                 - (BOTTOM_OFFSET_IN_PIXELS);
         for (LegendEntry le : legendData) {
-            String allText = "";
+            StringBuilder allText = new StringBuilder();
             for (LegendData ld : le.legendParts) {
-                allText += ld.label;
+                allText.append(ld.label);
             }
 
-            DrawableString text = new DrawableString(allText);
+            DrawableString text = new DrawableString(allText.toString());
             text.font = le.font;
             Rectangle2D allTextBounds = target.getStringsBounds(text);
 
@@ -196,13 +185,6 @@ public abstract class AbstractLegendResource<T extends AbstractResourceData>
                 paintProps, legendStrings.toArray(new DrawableString[0]));
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see
-     * com.raytheon.uf.viz.core.rsc.AbstractVizResource#initInternal(com.raytheon
-     * .uf.viz.core.IGraphicsTarget)
-     */
     @Override
     protected void initInternal(IGraphicsTarget target) throws VizException {
         IDisplayPaneContainer container = getResourceContainer();
@@ -237,12 +219,12 @@ public abstract class AbstractLegendResource<T extends AbstractResourceData>
         }
 
         for (LegendEntry le : legendData) {
-            String allText = "";
+            StringBuilder allText = new StringBuilder();
             for (LegendData ld : le.legendParts) {
-                allText += ld.label;
+                allText.append(ld.label);
             }
 
-            DrawableString string = new DrawableString(allText);
+            DrawableString string = new DrawableString(allText.toString());
             string.font = le.font;
             Rectangle2D allTextBounds = target.getStringsBounds(string);
 
@@ -277,44 +259,41 @@ public abstract class AbstractLegendResource<T extends AbstractResourceData>
 
     /**
      * Get the resources pairs in the legend that are along point y
-     * 
+     *
      * @param descriptor
      * @param target
      * @param y
-     *            location world grid where to look
-     * @param ratio
-     *            canvas to world ratio to use
-     * @return
+     *            y canvas location to look along
+     * @return the legend resource pairs along point y
      */
     protected ResourcePair[] checkYLabelSpace(IDescriptor descriptor,
-            IGraphicsTarget target, double y, double ratio) {
+            IGraphicsTarget target, double y) {
         LegendEntry[] legendData = getLegendData(descriptor);
         if (legendData == null || legendData.length == 0) {
             return new ResourcePair[0];
         }
 
-        List<ResourcePair> rps = new ArrayList<ResourcePair>();
+        List<ResourcePair> rps = new ArrayList<>();
 
-        IExtent extent = descriptor.getRenderableDisplay().getView()
-                .getExtent();
-
-        double yStart = extent.getMaxY() - (BOTTOM_OFFSET_IN_PIXELS * ratio);
+        Rectangle canvasBounds = descriptor.getRenderableDisplay().getBounds();
+        double yStart = canvasBounds.y + canvasBounds.height
+                - BOTTOM_OFFSET_IN_PIXELS;
 
         if (y > yStart) {
             return new ResourcePair[0];
         }
 
         for (LegendEntry le : legendData) {
-            String allText = "";
+            StringBuilder allText = new StringBuilder();
             for (LegendData ld : le.legendParts) {
-                allText += ld.label;
+                allText.append(ld.label);
             }
 
-            DrawableString string = new DrawableString(allText);
+            DrawableString string = new DrawableString(allText.toString());
             string.font = le.font;
             Rectangle2D allTextBounds = target.getStringsBounds(string);
 
-            double yEnd = yStart - (allTextBounds.getHeight() * ratio);
+            double yEnd = yStart - allTextBounds.getHeight();
             if (y <= yStart && y > yEnd) {
                 // Found the entry
                 for (LegendData ld : le.legendParts) {
@@ -333,7 +312,8 @@ public abstract class AbstractLegendResource<T extends AbstractResourceData>
     }
 
     @Override
-    public void provideContextMenuItems(IMenuManager menuManager, int x, int y) {
+    public void provideContextMenuItems(IMenuManager menuManager, int x,
+            int y) {
         IGraphicsTarget target = null;
         for (IDisplayPane pane : getResourceContainer().getDisplayPanes()) {
             if (pane.getDescriptor() == descriptor) {

@@ -24,6 +24,7 @@
 # Date          Ticket  Engineer  Description
 # ------------- ------- --------- -----------------
 # Nov 09, 2018  7531    bsteffen  Initial Creation
+# Jul 12, 2023  7531    dgilling  Update for python 3.11.
 #
 
 from numpy import empty, shape
@@ -48,7 +49,7 @@ def HandleWorldWrapX(f):
         along the "seam". All the column manipulation is performed in the 
         decorator, allowing the original function to remain unchanged.
     """
-    nargs = len(inspect.getargspec(f).args)
+    nargs = len(inspect.getfullargspec(f).args)
     def wrapper(*args):
         worldWrapX = False
         if len(args) == nargs + 1:

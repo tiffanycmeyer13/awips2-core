@@ -38,6 +38,8 @@ import com.raytheon.uf.common.numeric.source.FilteredDataSource;
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
  * Mar 07, 2014  2791     bsteffen    Initial creation
+ * Oct 12, 2022  8905     lsingh      Check for NaN when converting units.
+ * Nov 02, 2023  2036360  lsingh      Updated check for NaN when converting units.
  * 
  * </pre>
  * 
@@ -54,7 +56,15 @@ public class UnitConvertingDataFilter implements DataFilter {
 
     @Override
     public double filter(double value) {
-        return unitConverter.convert(value);
+        try {
+            if(Double.isNaN(value)) {
+                return Double.NaN;
+            } else {
+                 return unitConverter.convert(value);
+            }
+        } catch(NumberFormatException e ) {
+            return Double.NaN;
+        }
     }
 
     public static DataSource apply(DataSource source, UnitConverter converter) {

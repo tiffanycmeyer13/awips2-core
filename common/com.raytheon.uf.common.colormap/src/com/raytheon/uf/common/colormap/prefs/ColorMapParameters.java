@@ -65,6 +65,7 @@ import com.raytheon.uf.common.colormap.prefs.DataMappingPreferences.DataMappingE
  *                                  clear (image->colormap)
  * Jul 28, 2014  3451     bclement  made listeners set concurrent
  * Jun 11, 2018  7316     bsteffen  Save alphaMask in xml.
+ * Nov 10, 2022  8905     lsingh    Check for NaN before converting units.
  * </pre>
  * 
  * @author chammack
@@ -315,7 +316,11 @@ public class ColorMapParameters {
         float colorMapValue = dispValue;
         UnitConverter displayToColorMap = getDisplayToColorMapConverter();
         if (displayToColorMap != null) {
-            colorMapValue = (float) displayToColorMap.convert(dispValue);
+            try {
+                colorMapValue = (float) displayToColorMap.convert(dispValue);
+            } catch (NumberFormatException e) {
+                colorMapValue = Float.NaN;
+            }
         }
         addColorMapValueLabel(colorMapValue, s);
     }

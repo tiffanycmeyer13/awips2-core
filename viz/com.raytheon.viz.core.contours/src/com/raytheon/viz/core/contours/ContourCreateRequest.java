@@ -1,23 +1,25 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
 package com.raytheon.viz.core.contours;
+
+import java.util.Objects;
 
 import org.geotools.coverage.grid.GeneralGridGeometry;
 
@@ -30,34 +32,65 @@ import com.raytheon.viz.core.contours.ContourSupport.ContourGroup;
 
 /**
  * ContourCreateRequest
- * 
+ *
  * A request containing all the data needed for a ContourManagerJob to create
  * contours. The created contours are placed back into this object so keep a
  * reference around to check for finished contours.
- * 
+ *
  * <pre>
- * 
+ *
  *    SOFTWARE HISTORY
- *   
+ *
  * Date          Ticket#  Engineer    Description
- * ------------- -------- ----------- --------------------------
+ * ------------- -------- ----------- ------------------------------------------
  * Feb 25, 2011           ekladstrup  Initial creation
  * Feb 27, 2014  2791     bsteffen    Switch from IDataRecord to DataSource
- * 
- * 
+ * Dec 06, 2021  8341     randerso    Added use of getResourceId for contour
+ *                                    logging
+ *
  * </pre>
- * 
+ *
  * @author ekladstrup
- * @version 1
  */
 public class ContourCreateRequest {
 
-    public ContourCreateRequest(String identifier, DataSource[] source,
-            float level, IExtent pixelExtent, double currentDensity,
-            double currentMagnification, GeneralGridGeometry imageGridGeometry,
-            IGraphicsTarget target, IMapDescriptor descriptor,
-            ContourPreferences prefs, float zoom) {
+    private String resourceId;
+
+    private String identifier;
+
+    private DataSource[] source;
+
+    private float level;
+
+    private IExtent pixelExtent;
+
+    private double currentDensity;
+
+    private double currentMagnification;
+
+    private GeneralGridGeometry imageGridGeometry;
+
+    private IGraphicsTarget target;
+
+    private IMapDescriptor descriptor;
+
+    private ContourPreferences prefs;
+
+    private float zoom;
+
+    private boolean canceled;
+
+    private ContourGroup contourGroup;
+
+    private boolean disposed = false;
+
+    public ContourCreateRequest(String resourceId, String identifier,
+            DataSource[] source, float level, IExtent pixelExtent,
+            double currentDensity, double currentMagnification,
+            GeneralGridGeometry imageGridGeometry, IGraphicsTarget target,
+            IMapDescriptor descriptor, ContourPreferences prefs, float zoom) {
         super();
+        this.resourceId = resourceId;
         this.identifier = identifier;
         this.source = source;
         this.level = level;
@@ -71,6 +104,21 @@ public class ContourCreateRequest {
         this.zoom = zoom;
         this.canceled = false;
         this.contourGroup = null;
+    }
+
+    /**
+     * @return the resourceId
+     */
+    public String getResourceId() {
+        return resourceId;
+    }
+
+    /**
+     * @param resourceId
+     *            the resourceId to be used for logging performance info
+     */
+    public void setResourceId(String resourceId) {
+        this.resourceId = resourceId;
     }
 
     public String getIdentifier() {
@@ -183,88 +231,44 @@ public class ContourCreateRequest {
         }
     }
 
-    private String identifier;
+    @Override
+    public int hashCode() {
+        return Objects.hash(currentDensity, currentMagnification, identifier,
+                imageGridGeometry, level, pixelExtent, prefs, zoom);
+    }
 
-    private DataSource[] source;
-
-    private float level;
-
-    private IExtent pixelExtent;
-
-    private double currentDensity;
-
-    private double currentMagnification;
-
-    private GeneralGridGeometry imageGridGeometry;
-
-    private IGraphicsTarget target;
-
-    private IMapDescriptor descriptor;
-
-    private ContourPreferences prefs;
-
-    private float zoom;
-
-    private boolean canceled;
-
-    private ContourGroup contourGroup;
-
-    private boolean disposed = false;
-
-    public boolean equals(Object arg) {
-        boolean rval = true;
-
-        if (!(arg instanceof ContourCreateRequest)) {
-            return false;
-        }
-
-        ContourCreateRequest rhs = (ContourCreateRequest) arg;
-
+    @Override
+    public boolean equals(Object obj) {
         // right now comparing:
         // identifier, level, pixelExtent, currentDensity, currentMagnification,
         // prefs, zoom, imageGridGeometry, mapGridGeometry
+        //
         // NOT COMPARING:
         // record, worldGridToCRSTransform, target, descriptor
+        //
         // Should never use canceled or contourGroup to check equality
-        if (identifier != null && !identifier.equals(rhs.getIdentifier())) {
-            rval = false;
-        } else if (!(level == rhs.getLevel())) {
-            rval = false;
-        } else if (pixelExtent != null
-                && !(pixelExtent.equals(rhs.getPixelExtent()))) {
-            rval = false;
-        } else if (!(currentDensity == rhs.getCurrentDensity())) {
-            rval = false;
-        } else if (!(currentMagnification == rhs.getCurrentMagnification())) {
-            rval = false;
-        } else if (prefs != null && !(this.prefs.equals(rhs.getPrefs()))) {
-            rval = false;
-        } else if (!(zoom == rhs.getZoom())) {
-            rval = false;
-        } else if (imageGridGeometry != null
-                && !(this.imageGridGeometry.equals(rhs.getImageGridGeometry()))) {
-            rval = false;
+        if (this == obj) {
+            return true;
         }
-
-        // if nothing set rval to false (not equal)
-        // check that references to null are the same
-        // if this instances references are not null then
-        // rhs with null references should be caught above
-        // so only worry about this.* == null and rhs.* != null
-        if (rval == true) {
-            if (identifier == null && rhs.getIdentifier() != null) {
-                rval = false;
-            } else if (pixelExtent == null && rhs.getPixelExtent() != null) {
-                rval = false;
-            } else if (prefs == null && rhs.getPrefs() != null) {
-                rval = false;
-            } else if (imageGridGeometry == null
-                    && rhs.getImageGridGeometry() != null) {
-                rval = false;
-            }
+        if (obj == null) {
+            return false;
         }
-
-        return rval;
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        ContourCreateRequest other = (ContourCreateRequest) obj;
+        return Double.doubleToLongBits(currentDensity) == Double
+                .doubleToLongBits(other.currentDensity)
+                && Double.doubleToLongBits(currentMagnification) == Double
+                        .doubleToLongBits(other.currentMagnification)
+                && Objects.equals(identifier, other.identifier)
+                && Objects.equals(imageGridGeometry, other.imageGridGeometry)
+                && Float.floatToIntBits(level) == Float
+                        .floatToIntBits(other.level)
+                && Objects.equals(pixelExtent, other.pixelExtent)
+                && Objects.equals(prefs, other.prefs)
+                && Float.floatToIntBits(zoom) == Float
+                        .floatToIntBits(other.zoom);
     }
 
     public synchronized void dispose() {
@@ -276,4 +280,5 @@ public class ContourCreateRequest {
             this.contourGroup = null;
         }
     }
+
 }

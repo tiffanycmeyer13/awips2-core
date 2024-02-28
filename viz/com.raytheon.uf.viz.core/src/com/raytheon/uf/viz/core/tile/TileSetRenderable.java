@@ -62,7 +62,7 @@ import com.raytheon.uf.viz.core.localization.HierarchicalPreferenceStore;
 import com.raytheon.uf.viz.core.preferences.PreferenceConstants;
 import com.raytheon.uf.viz.core.rsc.capabilities.ImagingCapability;
 
-import tec.uom.se.format.SimpleUnitFormat;
+import tech.units.indriya.format.SimpleUnitFormat;
 
 /**
  * Renderable tile set class that creates a {@link TileSet} and renders images
@@ -86,6 +86,7 @@ import tec.uom.se.format.SimpleUnitFormat;
  *                                  enabled.
  * Aug 03, 2016  5786     bsteffen  Add method for scheduling tile loading
  * Mar 29, 2017  6202     bsteffen  Add pixel density preference.
+ * Nov 03, 2022  8905     lsingh    Check for NaN when converting units.
  * 
  * </pre>
  * 
@@ -641,9 +642,12 @@ public class TileSetRenderable implements IRenderable {
                 if (resultUnit != null && dataUnit != null
                         && !dataUnit.equals(resultUnit)) {
                     if (resultUnit.isCompatible(dataUnit)) {
-                        dataValue = UnitConv
-                                .getConverterToUnchecked(dataUnit, resultUnit)
-                                    .convert(dataValue);
+                        try {
+                            dataValue = UnitConv.getConverterToUnchecked(
+                                    dataUnit, resultUnit).convert(dataValue);
+                        } catch (NumberFormatException e) {
+                            dataValue = Double.NaN;
+                        }
                     } else {
                         UnitFormat uf = SimpleUnitFormat
                                 .getInstance(SimpleUnitFormat.Flavor.ASCII);

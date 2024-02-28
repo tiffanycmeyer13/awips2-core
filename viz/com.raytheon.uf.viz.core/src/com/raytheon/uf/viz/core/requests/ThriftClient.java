@@ -1,15 +1,17 @@
 package com.raytheon.uf.viz.core.requests;
 
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 import javax.jws.WebService;
 
 import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.raytheon.uf.common.auth.req.AbstractPrivilegedRequest;
 import com.raytheon.uf.common.auth.resp.SuccessfulExecution;
@@ -21,10 +23,9 @@ import com.raytheon.uf.common.serialization.ExceptionWrapper;
 import com.raytheon.uf.common.serialization.comm.IServerRequest;
 import com.raytheon.uf.common.serialization.comm.RemoteServiceRequest;
 import com.raytheon.uf.common.serialization.comm.RequestWrapper;
+import com.raytheon.uf.common.serialization.comm.ResponseWrapper;
 import com.raytheon.uf.common.serialization.comm.ServiceException;
 import com.raytheon.uf.common.serialization.comm.response.ServerErrorResponse;
-import com.raytheon.uf.common.status.IPerformanceStatusHandler;
-import com.raytheon.uf.common.status.PerformanceStatus;
 import com.raytheon.uf.viz.core.VizApp;
 import com.raytheon.uf.viz.core.auth.UserController;
 import com.raytheon.uf.viz.core.exception.VizCommunicationException;
@@ -34,19 +35,19 @@ import com.raytheon.uf.viz.core.localization.LocalizationManager;
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -55,30 +56,40 @@ import com.raytheon.uf.viz.core.localization.LocalizationManager;
  * The thrift client. used to send requests to the RemoteRequestServer. Make
  * sure request type has registered a handler to handle the request on the
  * server.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Aug 3, 2009             mschenke    Initial creation
- * Jul 24, 2012            njensen     Enhanced logging
- * Nov 15, 2012  1322      djohnson    Publicize ability to specify specific httpAddress.
- * Jan 24, 2013  1526      njensen     Switch from using postBinary() to postDynamicSerialize()
- * Jan 27, 2016  5170      tjensen     Added logging of stats to sendRequest
- * Oct 19, 2017  6316      njensen     Get uniqueId from RequestWrapper
- * May 09, 2019  7766      kbisanz     Log long request messages instead of printing to STDOUT
- * 
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Aug 03, 2009           mschenke  Initial creation
+ * Jul 24, 2012           njensen   Enhanced logging
+ * Nov 15, 2012  1322     djohnson  Publicize ability to specify specific
+ *                                  httpAddress.
+ * Jan 24, 2013  1526     njensen   Switch from using postBinary() to
+ *                                  postDynamicSerialize()
+ * Jan 27, 2016  5170     tjensen   Added logging of stats to sendRequest
+ * Oct 19, 2017  6316     njensen   Get uniqueId from RequestWrapper
+ * May 09, 2019  7766     kbisanz   Log long request messages instead of
+ *                                  printing to STDOUT
+ * Feb 16, 2021  8337     mchan     Added performance log to capture the request
+ *                                  and how long it took to complete
+ * Mar 25, 2021  8396     randerso  Temporarily remove logging of processing
+ *                                  host until DR #8399 is worked.
+ * Apr 13, 2021  8337     randerso  Minor tweaks to log message formats for
+ *                                  consistency with PyPies request logging.
+ * Nov 18, 2021  8399     randerso  Restore use of ResponseWrapper
+ *
  * </pre>
- * 
+ *
  * @author mschenke
  */
 
 public class ThriftClient {
 
     private abstract static class ThriftServiceHandler
-            implements
-            InvocationHandler {
+            implements InvocationHandler {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args)
@@ -123,23 +134,20 @@ public class ThriftClient {
         }
     };
 
-    private static final long SIMPLE_LOG_TIME = Integer
-            .getInteger("thriftclient.log.simple.ms", 1000);
-
     private static final long BAD_LOG_TIME = Integer
             .getInteger("thriftclient.log.bad.ms", 5000);
 
     private static INotAuthHandler defaultHandler = UserController
             .getNotAuthHandler();
-    
-    private static final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("ThriftClient:");
+
+    private static final Logger logger = LoggerFactory
+            .getLogger("CaveRequestLogger");
 
     /**
      * Construct a thrift web service object that sends method calls to the http
      * server to be executed. EVERY FUNCTION CALL MADE TO INTERFACE MAY THROW A
      * VizException, be safe and catch them!
-     * 
+     *
      * @param interfaze
      * @return Implementation of interface passed in
      */
@@ -152,7 +160,7 @@ public class ThriftClient {
      * Construct a thrift web service object that sends method calls to the
      * localization server to be executed. EVERY FUNCTION CALL MADE TO INTERFACE
      * MAY THROW A VizException, be safe and catch them!
-     * 
+     *
      * @param interfaze
      * @return Implementation of interface passed in
      */
@@ -163,7 +171,7 @@ public class ThriftClient {
 
     /**
      * Send a request to the localization server
-     * 
+     *
      * @param request
      * @return
      * @throws VizException
@@ -171,15 +179,16 @@ public class ThriftClient {
     public static Object sendLocalizationRequest(IServerRequest request)
             throws VizException {
         if (request instanceof AbstractPrivilegedRequest) {
-            return sendPrivilegedLocalizationRequest((AbstractPrivilegedRequest) request);
+            return sendPrivilegedLocalizationRequest(
+                    (AbstractPrivilegedRequest) request);
         }
-        return sendRequest(request, LocalizationManager.getInstance()
-                .getLocalizationServer());
+        return sendRequest(request,
+                LocalizationManager.getInstance().getLocalizationServer());
     }
 
     /**
      * Send a request to the http server
-     * 
+     *
      * @param request
      * @return
      * @throws VizException
@@ -195,20 +204,20 @@ public class ThriftClient {
     /**
      * Send the privileged request to the http server using the controller's
      * handler
-     * 
+     *
      * @param request
      * @return
      * @throws VizException
      */
-    public static Object sendPrivilegedRequest(AbstractPrivilegedRequest request)
-            throws VizException {
+    public static Object sendPrivilegedRequest(
+            AbstractPrivilegedRequest request) throws VizException {
         return sendPrivilegedRequest(request, defaultHandler);
     }
 
     /**
      * Send the privileged request to the localization server using the
      * controller's handler
-     * 
+     *
      * @param request
      * @return
      * @throws VizException
@@ -221,7 +230,7 @@ public class ThriftClient {
     /**
      * Send the privileged request to the localization server using a custom
      * INotAuthHandler
-     * 
+     *
      * @param request
      * @param handler
      * @return
@@ -230,14 +239,14 @@ public class ThriftClient {
     public static Object sendPrivilegedLocalizationRequest(
             AbstractPrivilegedRequest request, INotAuthHandler handler)
             throws VizException {
-        return sendPrivilegedRequest(request, handler, LocalizationManager
-                .getInstance().getLocalizationServer());
+        return sendPrivilegedRequest(request, handler,
+                LocalizationManager.getInstance().getLocalizationServer());
     }
 
     /**
      * Send the privileged request to the http server using a custom
      * INotAuthHandler
-     * 
+     *
      * @param request
      * @param handler
      * @return
@@ -252,7 +261,7 @@ public class ThriftClient {
     /**
      * Send a privileged request to the given server, wraps expected privileged
      * response types
-     * 
+     *
      * @param request
      * @param handler
      * @param server
@@ -282,7 +291,7 @@ public class ThriftClient {
 
     /**
      * Sends an IServerRequest to the server at the specified URI.
-     * 
+     *
      * @param request
      *            the request to send
      * @param httpAddress
@@ -294,43 +303,42 @@ public class ThriftClient {
      */
     private static Object sendRequest(IServerRequest request,
             String httpAddress, String uri) throws VizException {
-        httpAddress += uri;
+        String url = httpAddress + uri;
         RequestWrapper wrapper = new RequestWrapper(request, VizApp.getWsId());
+        String requestId = wrapper.getUniqueId();
+        String requestStr = request.toString();
+        logger.info("Sending request to URL {} id[{}] {}", url, requestId,
+                requestStr);
 
-        Object rval = null;
+        Object response = null;
         try {
             long t0 = System.currentTimeMillis();
-            rval = HttpClient.getInstance().postDynamicSerialize(httpAddress,
+            response = HttpClient.getInstance().postDynamicSerialize(url,
                     wrapper, true);
-            long time = System.currentTimeMillis() - t0;
+            long durationInMillis = System.currentTimeMillis() - t0;
 
-            if (time >= SIMPLE_LOG_TIME) {
-                String msg = "Took " + time + "ms to run request id["
-                        + wrapper.getUniqueId() + "] " + request.toString();
-                perfLog.log(msg);
+            String processingServerHost = "unknown";
+            if (response instanceof ResponseWrapper) {
+                ResponseWrapper responseWrapper = ((ResponseWrapper) response);
+                processingServerHost = responseWrapper.getHost();
+                response = responseWrapper.getResponse();
             }
-            /**
-             * Log that we have a message. Size information in NOT logged here.
-             * Sending a '1' for sent to trigger request increment.
-             */
-            HttpClient.getInstance().getStats()
-                    .log(request.getClass().getSimpleName(), 1, 0);
 
-            if (time >= BAD_LOG_TIME) {
-                try (StringWriter sw = new StringWriter();
-                        PrintWriter pw = new PrintWriter(sw)) {
-                    new Exception() {
-                        private static final long serialVersionUID = 1L;
+            logger.info("Request id[{}] processed by host {}, took {}ms",
+                    requestId, processingServerHost, durationInMillis);
 
-                        @Override
-                        public String toString() {
-                            return "(NOT AN ERROR) ThriftClient Diagnostic Stack For Long Requests:";
-                        }
-
-                    }.printStackTrace(pw);
-                    perfLog.log(sw.toString());
+            if (durationInMillis >= BAD_LOG_TIME && logger.isDebugEnabled()) {
+                StackTraceElement[] stackTrace = Thread.currentThread()
+                        .getStackTrace();
+                StringBuilder stackTraceBuilder = new StringBuilder(
+                        "(NOT AN ERROR) ThriftClient Diagnostic Stack For Long Requests:\n");
+                for (StackTraceElement traceElement : stackTrace) {
+                    stackTraceBuilder.append("\tat " + traceElement + "\n");
                 }
+
+                logger.debug(stackTraceBuilder.toString());
             }
+
         } catch (IOException | CommunicationException e) {
             throw new VizCommunicationException(
                     "unable to post request to server", e);
@@ -338,14 +346,26 @@ public class ThriftClient {
             throw new VizException("unable to post request to server", e);
         }
 
-        if (rval instanceof ServerErrorResponse) {
-            ServerErrorResponse resp = (ServerErrorResponse) rval;
-            Throwable serverException = ExceptionWrapper.unwrapThrowable(resp
-                    .getException());
+        if (response instanceof ServerErrorResponse) {
+            ServerErrorResponse resp = (ServerErrorResponse) response;
+            Throwable serverException = ExceptionWrapper
+                    .unwrapThrowable(resp.getException());
             throw new ServerRequestException(serverException.getMessage(),
                     serverException);
         }
-        return rval;
+        return response;
+    }
+
+    private static String getHost(String httpAddress) {
+        String host;
+        try {
+            host = new URL(httpAddress).getHost();
+        } catch (MalformedURLException e) {
+            // if the given httpAddress is malformed then just return the given
+            // httpAddress as the host
+            host = httpAddress;
+        }
+        return host;
     }
 
     @SuppressWarnings("unchecked")

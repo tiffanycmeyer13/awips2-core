@@ -61,7 +61,7 @@ public class TimeMatchingJob extends Job {
             .getHandler(TimeMatchingJob.class);
 
     private final IPerformanceStatusHandler perfLog = PerformanceStatus
-            .getHandler("Core:");
+            .getHandler("Core");
 
     static {
         Activator.getDefault().registerDisposable(new IDisposable() {

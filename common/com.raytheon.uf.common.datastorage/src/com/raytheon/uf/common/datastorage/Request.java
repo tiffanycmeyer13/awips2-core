@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -21,34 +21,42 @@ package com.raytheon.uf.common.datastorage;
 
 import java.awt.Point;
 import java.util.Arrays;
-import java.util.LinkedHashSet;
+import java.util.Objects;
 
-
-import com.raytheon.uf.common.serialization.ISerializableObject;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
  * Represents the style of request to perform (whole dataset, line, slab,
  * points, etc.)
- * 
+ *
  * To retrieve a whole dataset, use Request.ALL.
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * Date         Ticket#    Engineer    Description
- * ------------ ---------- ----------- --------------------------
- * Jul 27, 2009            chammack     Initial creation
- * Jun 18, 2013 DR 15662   dhuffman     Cross section terrain disappears if baseline is too short.
- * 
+ *
+ * Date          Ticket#  Engineer  Description
+ * ------------- -------- --------- --------------------------------------------
+ * Jul 27, 2009           chammack  Initial creation
+ * Jun 18, 2013  15662    dhuffman  Cross section terrain disappears if baseline
+ *                                  is too short.
+ * Mar 24, 2021  8374     srahimi   Code cleanup
+ * Mar 29, 2021  8374     randerso  Re-implemented copyFrom as shallowCopy.
+ *                                  Additional code cleanup.
+ * Jan 14, 2021  8741     njensen   Fixed toString() slab case and generated new
+ *                                  implementations of hashCode() and equals()
+ * Jul 11, 2023  2035883  mapeters  Update hashCode/equals to only check relevant
+ *                                  fields for each type, update getPoints to not
+ *                                  modify points value
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1.0
+ *
  */
 @DynamicSerialize
-public class Request implements ISerializableObject {
+public class Request {
 
     @DynamicSerializeElement
     private Point[] points;
@@ -65,16 +73,14 @@ public class Request implements ISerializableObject {
     @DynamicSerializeElement
     private Type type;
 
-    public static enum Type {
+    public enum Type {
         POINT, XLINE, YLINE, SLAB, ALL
-    };
-
-    public static final Request ALL;
-
-    static {
-        ALL = new Request();
-        ALL.type = Type.ALL;
     }
+
+    /**
+     * Request for full dataset
+     */
+    public static final Request ALL = new Request(Type.ALL);
 
     /**
      * Do NOT use this, only added for dynamic serialization
@@ -83,50 +89,52 @@ public class Request implements ISerializableObject {
 
     }
 
+    protected Request(Type type) {
+        this.type = type;
+    }
+
     /**
      * Build a request that asks for specific points to be returned
-     * 
+     *
      * @param points
-     * @return
+     * @return the point request
      */
     public static Request buildPointRequest(Point... points) {
-        Request request = new Request();
-        request.type = Type.POINT;
-        request.points = new LinkedHashSet<Point>(Arrays.asList(points))
-                .toArray(new Point[points.length]);	
+        Request request = new Request(Type.POINT);
+        request.points = points == null ? new Point[0] : points;
 
         return request;
     }
-    
+
     /**
-     * Build a request that asks for specific cross points to be returned
-     * 
+     * Build a request that asks for specific cross section points to be
+     * returned
+     *
      * @param points
-     * @return
+     * @return the cross section points request
      */
     public static Request buildXsectPointRequest(Point... points) {
-    	Request request = new Request();
-    	request.type = Type.POINT;
-    	request.points = new Point[points.length];
-    	for(int x=0; x<points.length; x++)
-    		request.points[x] = new Point(points[x]);
-    
-    	return request;
+        Request request = new Request(Type.POINT);
+        request.points = new Point[points.length];
+        for (int x = 0; x < points.length; x++) {
+            request.points[x] = new Point(points[x]);
+        }
+
+        return request;
     }
 
     /**
      * Build a request that asks for all x values at a provided set of y values.
-     * 
+     *
      * IMPORTANT NOTE: The results are not guaranteed to be in the same order as
      * the indices. The results will be returned in monotonically increasing
      * order of the index.
-     * 
+     *
      * @param yIndices
-     * @return
+     * @return the X line request
      */
     public static Request buildXLineRequest(int[] yIndices) {
-        Request request = new Request();
-        request.type = Type.XLINE;
+        Request request = new Request(Type.XLINE);
         request.indices = yIndices;
         Arrays.sort(yIndices);
         return request;
@@ -134,17 +142,16 @@ public class Request implements ISerializableObject {
 
     /**
      * Build a request that asks for all y values at a provided set of x values.
-     * 
+     *
      * IMPORTANT NOTE: The results are not guaranteed to be in the same order as
      * the indices. The results will be returned in monotonically increasing
      * order of the index.
-     * 
+     *
      * @param xIndices
-     * @return
+     * @return the Y line request
      */
     public static Request buildYLineRequest(int[] xIndices) {
-        Request request = new Request();
-        request.type = Type.YLINE;
+        Request request = new Request(Type.YLINE);
         request.indices = xIndices;
         Arrays.sort(request.indices);
         return request;
@@ -152,14 +159,13 @@ public class Request implements ISerializableObject {
 
     /**
      * Perform a hyperslab request (effectively a rectangle in 2d space)
-     * 
+     *
      * @param minIndex
      * @param maxIndex
-     * @return
+     * @return the slab request
      */
     public static Request buildSlab(int[] minIndex, int[] maxIndex) {
-        Request request = new Request();
-        request.type = Type.SLAB;
+        Request request = new Request(Type.SLAB);
         request.minIndexForSlab = minIndex;
         request.maxIndexForSlab = maxIndex;
         return request;
@@ -169,10 +175,6 @@ public class Request implements ISerializableObject {
      * @return the points
      */
     public Point[] getPoints() {
-        if (points == null) {
-            points = new Point[0];
-        }
-
         return points;
     }
 
@@ -205,8 +207,7 @@ public class Request implements ISerializableObject {
     }
 
     public void setPoints(Point[] points) {
-        this.points = new LinkedHashSet<Point>(Arrays.asList(points))
-                .toArray(new Point[points.length]);
+        this.points = points;
     }
 
     public void setIndices(int[] indices) {
@@ -226,76 +227,94 @@ public class Request implements ISerializableObject {
     }
 
     /**
-     * Perform a shallow copy into this object
-     * 
-     * @param request
+     * @return a shallow copy of this object
      */
-    public void copyFrom(Request request) {
-        this.indices = request.indices;
-        this.maxIndexForSlab = request.maxIndexForSlab;
-        this.minIndexForSlab = request.minIndexForSlab;
-        this.points = request.points;
-        this.type = request.type;
+    public Request shallowCopy() {
+        Request copy = new Request(this.type);
+        copy.indices = this.indices;
+        copy.maxIndexForSlab = this.maxIndexForSlab;
+        copy.minIndexForSlab = this.minIndexForSlab;
+        copy.points = this.points;
+        copy.type = this.type;
+
+        return copy;
     }
 
     @Override
     public String toString() {
-        String str = getType().toString() + ":";
+        StringBuilder str = new StringBuilder();
+        str.append(getType());
+        str.append(": ");
+
         switch (getType()) {
         case POINT: {
-            for (Point p : points) {
-                str += p.toString() + ":";
-            }
+            str.append(points.length);
+            str.append(" points");
             break;
         }
         case SLAB: {
-            str += "[[";
-            for (int i = 0; i < minIndexForSlab.length; ++i) {
-                if (i > 0) {
-                    str += ",";
-                }
-                str += minIndexForSlab[i];
-            }
-            str += "],[";
-            for (int i = 0; i < maxIndexForSlab.length; ++i) {
-                if (i > 0) {
-                    str += ",";
-                }
-                str += maxIndexForSlab[i];
-            }
-            str += "]]";
+            str.append(Arrays
+                    .toString(new String[] { Arrays.toString(minIndexForSlab),
+                            Arrays.toString(maxIndexForSlab) }));
             break;
         }
         case XLINE:
         case YLINE: {
-            str += "[";
-            for (int i = 0; i < indices.length; ++i) {
-                if (i > 0) {
-                    str += ",";
-                }
-                str += indices[i];
-            }
-            str += "]";
+            str.append(indices.length);
+            str.append(" indices");
             break;
         }
+        default:
+            break;
         }
-        return str;
+        return str.toString();
     }
 
     @Override
     public int hashCode() {
-        return toString().hashCode();
+        switch (type) {
+        case POINT:
+            return Objects.hash(type, Arrays.hashCode(points));
+        case SLAB:
+            return Objects.hash(type, Arrays.hashCode(minIndexForSlab),
+                    Arrays.hashCode(maxIndexForSlab));
+        case XLINE:
+        case YLINE:
+            return Objects.hash(type, Arrays.hashCode(indices));
+        case ALL:
+        default:
+            return Objects.hash(type);
+        }
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
+        if (this == obj) {
             return true;
-        if (obj == null)
+        }
+        if (obj == null) {
             return false;
-        if (getClass() != obj.getClass())
+        }
+        if (getClass() != obj.getClass()) {
             return false;
-        return toString().equals(obj.toString());
+        }
+        Request other = (Request) obj;
+        if (type != other.type) {
+            return false;
+        }
+        switch (type) {
+        case POINT:
+            return Arrays.equals(points, other.points);
+        case SLAB:
+            return Arrays.equals(minIndexForSlab, other.minIndexForSlab)
+                    && Arrays.equals(maxIndexForSlab, other.maxIndexForSlab);
+        case XLINE:
+        case YLINE:
+            return Arrays.equals(indices, other.indices);
+        case ALL:
+        default:
+            return true;
+        }
     }
 
 }

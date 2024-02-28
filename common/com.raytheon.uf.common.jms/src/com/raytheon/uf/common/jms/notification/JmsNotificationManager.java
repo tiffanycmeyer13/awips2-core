@@ -84,6 +84,7 @@ import com.raytheon.uf.common.status.UFStatus.Priority;
  * Oct 16, 2019  7724     tgurney     Move queue creation to the session
  * Oct 22, 2019  7724     tgurney     Fix topic creation
  * Jan 16, 2020  8008     randerso    Move topic prefix to QpidUFSession
+ * Mar 25, 2021  8380     mapeters    Support connection observers
  * Apr 07, 2022  8836     tgurney     Replace synchronize on "this" with a
  *                                    dedicated lock accessible to subclasses
  *
@@ -162,6 +163,8 @@ public class JmsNotificationManager
     /** The observer map of topic to listeners */
     protected final Map<ListenerKey, NotificationListener> listeners;
 
+    protected final List<IConnectionObserver> connectionObservers;
+
     protected Connection connection;
 
     protected volatile boolean connected = false;
@@ -205,6 +208,7 @@ public class JmsNotificationManager
             String notificationThreadNamePrefix) {
         this.connectionFactory = connectionFactory;
         this.listeners = new HashMap<>();
+        this.connectionObservers = new ArrayList<>();
         executorService = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 0,
                 TimeUnit.SECONDS, new SynchronousQueue<Runnable>(),
                 new NamedThreadFactory(notificationThreadNamePrefix));
@@ -232,6 +236,23 @@ public class JmsNotificationManager
                 /* Enable thread caching. */
                 executorService.setKeepAliveTime(60, TimeUnit.SECONDS);
                 connected = true;
+            synchronized (connectionObservers) {
+                for (IConnectionObserver obs : connectionObservers) {
+                    executorService.submit(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            try {
+                                obs.onConnect();
+                            } catch (Throwable t) {
+                                statusHandler.error(
+                                        "Error executing observer for new connection",
+                                        t);
+                            }
+                        }
+                    });
+                }
+            }
             } catch (JMSException e) {
                 if (notifyError) {
                     statusHandler.handle(Priority.SIGNIFICANT,
@@ -347,6 +368,36 @@ public class JmsNotificationManager
         if (e != null) {
             statusHandler.handle(Priority.SIGNIFICANT,
                     "Error in JMS connectivity: " + e.getLocalizedMessage(), e);
+
+            synchronized (connectionObservers) {
+                for (IConnectionObserver obs : connectionObservers) {
+                    executorService.submit(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            try {
+                                obs.onException();
+                            } catch (Throwable t) {
+                                statusHandler.error(
+                                        "Error executing observer for disconnection",
+                                        t);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    /**
+     * Register an observer to be notified upon connection changes.
+     *
+     * @param observer
+     *            the observer
+     */
+    public void addConnectionObserver(IConnectionObserver obs) {
+        synchronized (connectionObservers) {
+            connectionObservers.add(obs);
         }
     }
 
@@ -451,6 +502,18 @@ public class JmsNotificationManager
                                 + topic + "].",
                         e);
             }
+        }
+    }
+
+    /**
+     * Remove an observer that was added via {@link #addConnectionObserver}.
+     *
+     * @param observer
+     *            the observer to remove
+     */
+    public void removeConnectionObserver(IConnectionObserver observer) {
+        synchronized (connectionObservers) {
+            connectionObservers.remove(observer);
         }
     }
 

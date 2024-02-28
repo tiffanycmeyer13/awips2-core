@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -49,14 +49,15 @@ import com.raytheon.viz.ui.EditorUtil;
 import com.raytheon.viz.ui.UiPlugin;
 import com.raytheon.viz.ui.UiUtil;
 import com.raytheon.viz.ui.editor.AbstractEditor;
+import com.raytheon.viz.ui.editor.IMultiPaneEditor;
 
 /**
  * Save a bundle to disk
- * 
+ *
  * <pre>
- * 
+ *
  *  SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
  * Jan 29, 2007           chammack    Initial Creation.
@@ -65,11 +66,11 @@ import com.raytheon.viz.ui.editor.AbstractEditor;
  * Mar 02, 2015  4204     njensen     Extract part name as bundle name
  * Sep 15, 2016           mjames@ucar Save as perspective / multi-display rather
  *                                    single map editor.
- * 
+ * May 11, 2023  2029803  mapeters    Support horizontal panel layouts
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1
  */
 public class SaveBundle extends AbstractHandler {
 
@@ -123,6 +124,8 @@ public class SaveBundle extends AbstractHandler {
         			"Failed to write perspective file: " + fileName + ".", e);
         	ErrorDialog.openError(Display.getCurrent().getActiveShell(),
                     "ERROR", "Error occurred during bundle save.", status);
+            throw new ExecutionException("Error occurred during bundle save",
+                    e);
         }
         return null;
     }
@@ -133,7 +136,7 @@ public class SaveBundle extends AbstractHandler {
             AbstractEditor editor = (AbstractEditor) part;
             IRenderableDisplay[] displays = UiUtil
                     .getDisplaysFromContainer(editor);
-            List<AbstractRenderableDisplay> absdisplays = new ArrayList<AbstractRenderableDisplay>();
+            List<AbstractRenderableDisplay> absdisplays = new ArrayList<>();
             for (IRenderableDisplay display : displays) {
                 if ((display instanceof AbstractRenderableDisplay)) {
                     absdisplays.add((AbstractRenderableDisplay) display);
@@ -142,10 +145,14 @@ public class SaveBundle extends AbstractHandler {
 
             Bundle bundle = new Bundle();
             bundle.setName(editor.getPartName());
-            bundle.setDisplays(absdisplays
-                    .toArray(new AbstractRenderableDisplay[absdisplays.size()]));
-            bundle.setLoopProperties(EditorUtil.getActiveVizContainer()
-                    .getLoopProperties());
+            bundle.setDisplays(absdisplays.toArray(
+                    new AbstractRenderableDisplay[absdisplays.size()]));
+            bundle.setLoopProperties(
+                    EditorUtil.getActiveVizContainer().getLoopProperties());
+            if (editor instanceof IMultiPaneEditor) {
+                bundle.setHorizontalLayout(
+                        ((IMultiPaneEditor) editor).isHorizontalLayout());
+            }
             return bundle;
         } else {
             String msg = null;

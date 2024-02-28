@@ -33,6 +33,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * ------------ ---------- ----------- --------------------------
  * Jul 8, 2010             njensen     Initial creation
  * Nov 14, 2013 2393       bclement    removed get all interpolated
+ * Mar 24, 2021 8374       srahimi     Added toString to standardize Pypies log message
  * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
@@ -73,6 +74,20 @@ public class RetrieveRequest extends AbstractRequest {
 
     public void setRequest(Request request) {
         this.request = request;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", group[");
+        rval.append(group);
+        rval.append("], dataset[");
+        rval.append(dataset);
+        rval.append("], request[");
+        rval.append(request);
+        rval.append("]");
+        return rval.toString();
+
     }
 
     @Override

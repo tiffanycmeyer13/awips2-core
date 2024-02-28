@@ -22,6 +22,7 @@ package com.raytheon.uf.common.datastorage.records;
 
 import java.util.Arrays;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
@@ -37,7 +38,11 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Feb 08, 2007           chammack     Initial Creation.
  * Nov 24, 2007  555      garmendariz  Added method to check dataset dimensions
  *                                     and override toString
+ * Mar 29, 2021  8374     randerso     Removed toString() in favor of method in
+ *                                     AbstractStoreageRecord. Code cleanup.
  * Jun 10, 2021  8450     mapeters     Add serialVersionUID
+ * Nov 03, 2022  8931     smoorthy     Add group name normalization
+ * Mar 23, 2023  2031674  mapeters     Support shallow cloning
  *
  * </pre>
  *
@@ -51,25 +56,26 @@ public class ByteDataRecord extends AbstractStorageRecord {
     @DynamicSerializeElement
     protected byte[] byteData;
 
+    /**
+     * Nullary constructor for Dynamic Serialization
+     */
     public ByteDataRecord() {
-
+        super();
     }
 
     /**
      *
      * @param name
      * @param group
-     * @param intData
+     * @param byteData
      * @param dimension
      * @param sizes
      */
     public ByteDataRecord(String name, String group, byte[] byteData,
             int dimension, long[] sizes) {
+        super(name, DataStoreFactory.normalizeAttributeName(group), dimension,
+                sizes);
         this.byteData = byteData;
-        this.group = group;
-        this.dimension = dimension;
-        this.sizes = sizes;
-        this.name = name;
     }
 
     /**
@@ -77,7 +83,7 @@ public class ByteDataRecord extends AbstractStorageRecord {
      *
      * @param name
      * @param group
-     * @param intData
+     * @param byteData
      */
     public ByteDataRecord(String name, String group, byte[] byteData) {
         this(name, group, byteData, 1, new long[] { byteData.length });
@@ -91,8 +97,8 @@ public class ByteDataRecord extends AbstractStorageRecord {
     }
 
     /**
-     * @param intData
-     *            the intData to set
+     * @param byteData
+     *            the byteData to set
      */
     public void setByteData(byte[] byteData) {
         this.byteData = byteData;
@@ -120,15 +126,6 @@ public class ByteDataRecord extends AbstractStorageRecord {
 
     }
 
-    /**
-     * Override toString method to print dimensions
-     */
-    @Override
-    public String toString() {
-        return "[dims,data size]=[" + Arrays.toString(sizes) + ","
-                + this.byteData.length + "]";
-    }
-
     @Override
     public void reduce(int[] indices) {
         byte[] reducedData = new byte[indices.length];
@@ -145,10 +142,14 @@ public class ByteDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected AbstractStorageRecord cloneInternal() {
+    protected AbstractStorageRecord cloneInternal(boolean deep) {
         ByteDataRecord record = new ByteDataRecord();
         if (byteData != null) {
-            record.byteData = Arrays.copyOf(byteData, byteData.length);
+            if (deep) {
+                record.byteData = Arrays.copyOf(byteData, byteData.length);
+            } else {
+                record.byteData = byteData;
+            }
         }
         return record;
     }

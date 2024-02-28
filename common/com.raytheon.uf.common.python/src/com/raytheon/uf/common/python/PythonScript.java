@@ -241,7 +241,7 @@ public class PythonScript extends PythonInterpreter {
      */
     protected void internalExecute(String methodName, String instanceName,
             Map<String, Object> args) throws JepException {
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         if (profile) {
             sb.append("cProfile.run('");
         }
@@ -391,7 +391,7 @@ public class PythonScript extends PythonInterpreter {
      */
     public void instantiatePythonClass(String instanceName, String className,
             Map<String, Object> initArgs) throws JepException {
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         sb.append(instanceName);
         sb.append(" = ");
         sb.append(className);

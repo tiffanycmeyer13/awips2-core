@@ -55,9 +55,12 @@ import com.raytheon.uf.common.util.PooledByteArrayOutputStream;
  * SOFTWARE HISTORY
  *
  * Date          Ticket#  Engineer  Description
- * ------------- -------- --------- ---------------------
+ * ------------- -------- --------- --------------------------------------------
  * Nov 15, 2016  5992     bsteffen  Initial creation
+ * Mar 29, 2021  8374     randerso  Renamed IDataRecord.get/setProperties to
+ *                                  get/setProps
  * Jun 10, 2021  8450     mapeters  Add serialVersionUID
+ * Mar 23, 2023  2031674  mapeters  Support shallow cloning
  *
  * </pre>
  *
@@ -95,6 +98,10 @@ public class CompressedDataRecord extends AbstractStorageRecord {
 
     @Override
     public int getSizeInBytes() {
+        if (compressedData == null) {
+            return 0;
+        }
+
         return compressedData.length;
     }
 
@@ -120,12 +127,16 @@ public class CompressedDataRecord extends AbstractStorageRecord {
     }
 
     @Override
-    protected CompressedDataRecord cloneInternal() {
+    protected CompressedDataRecord cloneInternal(boolean deep) {
         CompressedDataRecord record = new CompressedDataRecord();
         record.type = type;
         if (compressedData != null) {
-            record.compressedData = Arrays.copyOf(compressedData,
-                    compressedData.length);
+            if (deep) {
+                record.compressedData = Arrays.copyOf(compressedData,
+                        compressedData.length);
+            } else {
+                record.compressedData = compressedData;
+            }
         }
         return record;
     }
@@ -164,7 +175,7 @@ public class CompressedDataRecord extends AbstractStorageRecord {
         compressedRecord.setDimension(sourceRecord.getDimension());
         compressedRecord.setSizes(sourceRecord.getSizes());
         compressedRecord.setMaxSizes(sourceRecord.getMaxSizes());
-        compressedRecord.setProperties(sourceRecord.getProperties());
+        compressedRecord.setProps(sourceRecord.getProps());
         compressedRecord.setMinIndex(sourceRecord.getMinIndex());
         compressedRecord.setGroup(sourceRecord.getGroup());
         compressedRecord.setDataAttributes(sourceRecord.getDataAttributes());

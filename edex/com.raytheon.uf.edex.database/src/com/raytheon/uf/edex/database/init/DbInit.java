@@ -70,6 +70,9 @@ import com.raytheon.uf.edex.database.dao.SessionManagedDao;
  * Feb 13, 2017  5899     rjpeter   Don't allow regeneration of tables by
  *                                  default.
  * Feb 26, 2019  6140     tgurney   Hibernate 5 upgrade
+ * Apr 14, 2021  7849     mapeters  Use admin tx manager in {@link #initDb}
+ * Feb 08, 2022  7849     mapeters  Update {@link #initDb} to return whether
+ *                                  it created tables
  *
  * </pre>
  *
@@ -121,30 +124,38 @@ public abstract class DbInit {
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
     /** The dao for executing database commands **/
-    protected SessionManagedDao<?, ?> dao;
+    protected final SessionManagedDao<?, ?> adminDao;
 
     /**
      * Constructor.
      *
      * @param application
      *            the application component the database is used in support of
+     * @param adminDao
+     *            the admin DAO for executing DB commands
      */
-    protected DbInit(String application) {
+    protected DbInit(String application, SessionManagedDao<?, ?> adminDao) {
         this.application = application;
+        this.adminDao = adminDao;
     }
 
     /**
-     * Initializes the database. This method compares the existing tables in the
-     * database to verify that they match the tables that Hibernate is aware of.
-     * If the existing tables in the database do not match the tables Hibernate
-     * is expecting, the tables are regenerated. During the regeneration
-     * process, the minimum database objects are reloaded into the database.
+     * Initializes the database as the admin user. This method compares the
+     * existing tables in the database to verify that they match the tables that
+     * Hibernate is aware of. If the existing tables in the database do not
+     * match the tables Hibernate is expecting, the tables are regenerated.
+     * During the regeneration process, the minimum database objects are
+     * reloaded into the database.
      *
      * @throws Exception
      *             on error initializing the database
+     * @return true if database tables were newly created, false if they already
+     *         existed
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void initDb() throws Exception {
+    @Transactional(transactionManager = "admin_metadataTxManager", propagation = Propagation.REQUIRES_NEW)
+    public boolean initDb() throws Exception {
+        boolean tablesCreated;
+
         Collection<Class<?>> classes = getDbClasses();
 
         /*
@@ -154,7 +165,7 @@ public abstract class DbInit {
                 + "] against entity classes...");
 
         StandardServiceRegistryBuilder builder = new StandardServiceRegistryBuilder();
-        builder.applySetting("hibernate.dialect", dao.getDialect());
+        builder.applySetting("hibernate.dialect", adminDao.getDialect());
         try (ServiceRegistry serviceRegistry = builder.build()) {
 
             Set<String> definedTables = getDefinedTables(classes,
@@ -169,10 +180,12 @@ public abstract class DbInit {
                 // Database is valid.
                 logger.info("Database for application [" + application
                         + "] is up to date!");
+                tablesCreated = false;
             } else if (existingTables.isEmpty() && !definedTables.isEmpty()) {
                 logger.info("Database for application [" + application
                         + "] has no tables.  Generating default database tables...");
                 createTablesForApplication(classes, serviceRegistry);
+                tablesCreated = true;
             } else if (DEBUG_ALLOW_TABLE_REGENERATION) {
                 /*
                  * Database is not valid. Drop and regenerate the tables defined
@@ -183,6 +196,7 @@ public abstract class DbInit {
                 logger.info("Dropping tables...");
                 dropTables(classes, serviceRegistry);
                 createTablesForApplication(classes, serviceRegistry);
+                tablesCreated = true;
             } else {
                 StringBuilder msg = new StringBuilder(1000);
                 msg.append("Database for application [").append(application)
@@ -194,10 +208,12 @@ public abstract class DbInit {
                 throw new DataAccessLayerException(msg.toString());
             }
         }
+
+        return tablesCreated;
     }
 
     /**
-     * Creates all tables and runs any additional sql for the application.
+     * Creates all tables and runs any additional admin sql for the application.
      *
      * @param classes
      *            Metadata for all Hibernate-aware classes
@@ -209,7 +225,7 @@ public abstract class DbInit {
         logger.info("Creating tables...");
         createTables(classes, serviceRegistry);
 
-        logger.info("Executing additional SQL...");
+        logger.info("Executing additional admin SQL...");
         executeAdditionalSql();
 
         logger.info("Database tables for application [" + application
@@ -217,7 +233,8 @@ public abstract class DbInit {
     }
 
     /**
-     * Hook method to execute any additional setup required.
+     * Hook method to execute any additional admin setup required when the
+     * database tables are created.
      *
      * @throws Exception
      *             any exceptions may be thrown
@@ -238,19 +255,16 @@ public abstract class DbInit {
             ServiceRegistry serviceRegistry) {
         final List<String> createSqls = DropCreateSqlUtil.getCreateSql(classes,
                 serviceRegistry);
-        final Work work = new Work() {
-            @Override
-            public void execute(Connection connection) throws SQLException {
-                try (Statement stmt = connection.createStatement()) {
-                    for (String sql : createSqls) {
-                        stmt.execute(sql);
-                    }
-                    connection.commit();
+        final Work work = connection -> {
+            try (Statement stmt = connection.createStatement()) {
+                for (String sql : createSqls) {
+                    stmt.execute(sql);
                 }
+                connection.commit();
             }
         };
 
-        executeWork(work);
+        adminDao.executeWork(work);
     }
 
     /**
@@ -259,19 +273,16 @@ public abstract class DbInit {
      */
     protected Set<String> getExistingTables() {
         final Set<String> existingTables = new HashSet<>();
-        final Work work = new Work() {
-            @Override
-            public void execute(Connection connection) throws SQLException {
-                try (Statement stmt = connection.createStatement();
-                        ResultSet results = stmt
-                                .executeQuery(getTableCheckQuery())) {
-                    while (results.next()) {
-                        existingTables.add(results.getString(1));
-                    }
+        final Work work = connection -> {
+            try (Statement stmt = connection.createStatement();
+                    ResultSet results = stmt
+                            .executeQuery(getTableCheckQuery())) {
+                while (results.next()) {
+                    existingTables.add(results.getString(1));
                 }
             }
         };
-        executeWork(work);
+        adminDao.executeWork(work);
 
         return existingTables;
     }
@@ -329,33 +340,28 @@ public abstract class DbInit {
     protected void dropTables(final Collection<Class<?>> classes,
             ServiceRegistry serviceRegistry) {
 
-        final Work work = new Work() {
-            @Override
-            public void execute(Connection connection) throws SQLException {
-                final List<String> dropSqls = DropCreateSqlUtil
-                        .getDropSql(classes, serviceRegistry);
-                try (Statement stmt = connection.createStatement()) {
-                    for (String sql : dropSqls) {
-                        Matcher dropTableMatcher = DROP_TABLE_PATTERN
+        final Work work = connection -> {
+            final List<String> dropSqls = DropCreateSqlUtil.getDropSql(classes,
+                    serviceRegistry);
+            try (Statement stmt = connection.createStatement()) {
+                for (String sql : dropSqls) {
+                    Matcher dropTableMatcher = DROP_TABLE_PATTERN.matcher(sql);
+                    if (dropTableMatcher.find()) {
+                        executeDropSql(sql, dropTableMatcher,
+                                DROP_TABLE_IF_EXISTS, stmt, connection);
+                    } else {
+                        Matcher dropSequenceMatcher = DROP_SEQUENCE_PATTERN
                                 .matcher(sql);
-                        if (dropTableMatcher.find()) {
-                            executeDropSql(sql, dropTableMatcher,
-                                    DROP_TABLE_IF_EXISTS, stmt, connection);
-                        } else {
-                            Matcher dropSequenceMatcher = DROP_SEQUENCE_PATTERN
-                                    .matcher(sql);
-                            if (dropSequenceMatcher.find()) {
-                                executeDropSql(sql, dropSequenceMatcher,
-                                        DROP_SEQUENCE_IF_EXISTS, stmt,
-                                        connection);
-                            }
+                        if (dropSequenceMatcher.find()) {
+                            executeDropSql(sql, dropSequenceMatcher,
+                                    DROP_SEQUENCE_IF_EXISTS, stmt, connection);
                         }
                     }
                 }
             }
         };
 
-        executeWork(work);
+        adminDao.executeWork(work);
     }
 
     /**
@@ -386,26 +392,12 @@ public abstract class DbInit {
     }
 
     /**
-     * Execute the work.
-     *
-     * @param work
-     *            the work
-     */
-    protected void executeWork(final Work work) {
-        dao.executeWork(work);
-    }
-
-    /**
      * Get the dialect.
      *
      * @return
      */
     protected Dialect getDialect() {
-        return dao.getDialect();
-    }
-
-    public void setDao(SessionManagedDao<?, ?> dao) {
-        this.dao = dao;
+        return adminDao.getDialect();
     }
 
     /**

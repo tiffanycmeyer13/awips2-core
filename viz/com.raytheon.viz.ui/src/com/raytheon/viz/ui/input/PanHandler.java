@@ -1,25 +1,26 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
 package com.raytheon.viz.ui.input;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -27,6 +28,7 @@ import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Event;
+import org.locationtech.jts.geom.Coordinate;
 
 import com.raytheon.uf.common.status.IUFStatusHandler;
 import com.raytheon.uf.common.status.UFStatus;
@@ -37,26 +39,29 @@ import com.raytheon.uf.viz.core.IExtent;
 import com.raytheon.uf.viz.core.IView;
 import com.raytheon.uf.viz.core.localization.HierarchicalPreferenceStore;
 import com.raytheon.viz.ui.UiPlugin;
+import com.raytheon.viz.ui.editor.AbstractEditor;
 import com.raytheon.viz.ui.input.preferences.MouseEvent;
 import com.raytheon.viz.ui.input.preferences.MousePreferenceManager;
-import org.locationtech.jts.geom.Coordinate;
 
 /**
- * 
+ *
  * PanHandler implements the pan capability's mouse interactions
- * 
+ *
  * <pre>
- * 
+ *
  *    SOFTWARE HISTORY
- *   
+ *
  *    Date         Ticket#     Engineer    Description
  *    ------------ ----------  ----------- --------------------------
  *    Dec 28, 2007             chammack    Refactored out of PanTool
  *    Oct 27, 2009 #2354       bsteffen    Configured input handler to use mouse preferences
+ *    Nov 09, 2020  84809      smanoj      Fix Nsharp EditGraph Bug.
+ *    Sep 19, 2022 8792        mapeters    Only pan/zoom inactive canvases that are the same
+ *                                         type as the active (for new combo editor)
+ *
  * </pre>
- * 
+ *
  * @author chammack
- * @version 1
  */
 public class PanHandler extends InputAdapter {
     private static final transient IUFStatusHandler statusHandler = UFStatus
@@ -91,7 +96,7 @@ public class PanHandler extends InputAdapter {
 
     /**
      * Constructor
-     * 
+     *
      * @param container
      *            the container associated with the tool
      */
@@ -101,19 +106,13 @@ public class PanHandler extends InputAdapter {
 
     /**
      * Retarget the pan handler to a specific container
-     * 
+     *
      * @param container
      */
     public void setContainer(IDisplayPaneContainer container) {
         this.container = container;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.raytheon.viz.ui.input.IInputHandler#handleMouseDown(int, int,
-     * int)
-     */
     @Override
     public boolean handleMouseDown(int x, int y, int button) {
 
@@ -134,12 +133,11 @@ public class PanHandler extends InputAdapter {
                     @Override
                     protected IStatus run(IProgressMonitor monitor) {
                         if (zoomDir != 0) {
-                            for (IDisplayPane pane : container
-                                    .getDisplayPanes()) {
+                            for (IDisplayPane canvas : container
+                                    .getCanvasesCompatibleWithActive()) {
 
-                                pane.zoom(zoomDir, (int) theLastMouseX,
+                                canvas.zoom(zoomDir, (int) theLastMouseX,
                                         (int) theLastMouseY);
-
                             }
                             container.refresh();
                             job.schedule(50);
@@ -155,74 +153,80 @@ public class PanHandler extends InputAdapter {
         }
         if (!prefManager.handleDrag(PAN_PREF, button)
                 && !prefManager.handleClick(ZOOMIN_PREF, button)
-                && !prefManager.handleClick(ZOOMOUT_PREF, button))
+                && !prefManager.handleClick(ZOOMOUT_PREF, button)) {
             return false;
+        }
         downPosition = new int[] { x, y };
         theLastMouseX = x;
         theLastMouseY = y;
         return false;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.raytheon.viz.ui.input.IInputHandler#handleMouseDownMove(int,
-     * int, int)
-     */
     @Override
     public boolean handleMouseDownMove(int aX, int aY, int button) {
+        if (container instanceof AbstractEditor) {
+            AbstractEditor editor = (AbstractEditor) container;
+            if (editor.getPartName().contains("NsharpEditor")) {
+                return true;
+            }
+        }
+
         if (prefManager.handleLongClick(ZOOMIN_PREF, button)
                 || prefManager.handleLongClick(ZOOMOUT_PREF, button)) {
             theLastMouseX = aX;
             theLastMouseY = aY;
         }
-        if ((!prefManager.handleDrag(PAN_PREF, button)) || container == null)
+        if ((!prefManager.handleDrag(PAN_PREF, button)) || container == null) {
             return false;
-        double[] grid = container.getActiveDisplayPane()
-                .screenToGrid(aX, aY, 0);
-        double[] theLastGrid = container.getActiveDisplayPane().screenToGrid(
-                theLastMouseX, theLastMouseY, 0);
+        }
+        double[] grid = container.getActiveDisplayPane().screenToGrid(aX, aY,
+                0);
+        double[] theLastGrid = container.getActiveDisplayPane()
+                .screenToGrid(theLastMouseX, theLastMouseY, 0);
 
-        IDisplayPane[] panes = container.getDisplayPanes();
-        for (IDisplayPane p : panes) {
+        List<IDisplayPane> canvases = container
+                .getCanvasesCompatibleWithActive();
+        for (IDisplayPane canvas : canvases) {
             // translate grid coordinates to screen coordinates
-            double[] screen = p.gridToScreen(grid);
-            double[] theLastScreen = p.gridToScreen(theLastGrid);
+            double[] screen = canvas.gridToScreen(grid);
+            double[] theLastScreen = canvas.gridToScreen(theLastGrid);
 
-            IView tmpView = (IView) p.getRenderableDisplay().getView().clone();
-            tmpView.shiftExtent(screen, theLastScreen, p.getTarget());
+            IView tmpView = canvas.getRenderableDisplay().getView().clone();
+            tmpView.shiftExtent(screen, theLastScreen, canvas.getTarget());
             IExtent tmpExtent = tmpView.getExtent();
             double percentage = getPanningPercentage();
             double xMinThreshold = tmpExtent.getMinX()
                     + (tmpExtent.getMaxX() - tmpExtent.getMinX()) * percentage;
             double xMaxThreshold = tmpExtent.getMinX()
                     + (tmpExtent.getMaxX() - tmpExtent.getMinX())
-                    * (1.0 - percentage);
+                            * (1.0 - percentage);
             double yMinThreshold = tmpExtent.getMinY()
                     + (tmpExtent.getMaxY() - tmpExtent.getMinY()) * percentage;
             double yMaxThreshold = tmpExtent.getMinY()
                     + (tmpExtent.getMaxY() - tmpExtent.getMinY())
-                    * (1.0 - percentage);
+                            * (1.0 - percentage);
 
-            double height = p.getRenderableDisplay().getWorldHeight();
-            double width = p.getRenderableDisplay().getWorldWidth();
+            double height = canvas.getRenderableDisplay().getWorldHeight();
+            double width = canvas.getRenderableDisplay().getWorldWidth();
 
             double aX2 = screen[0], aY2 = screen[1];
 
-            if ((0 <= xMinThreshold && width >= xMaxThreshold) == false) {
-                if (((width < xMaxThreshold && theLastScreen[0] < aX) || (0 > xMinThreshold && theLastMouseX > aX)) == false) {
+            if (((0 > xMinThreshold) || (width < xMaxThreshold))) {
+                if ((((width >= xMaxThreshold) || (theLastScreen[0] >= aX))
+                        && ((0 <= xMinThreshold) || (theLastMouseX <= aX)))) {
                     aX2 = theLastScreen[0];
                 }
             }
 
-            if ((0 <= yMinThreshold && height >= yMaxThreshold) == false) {
-                if (((height < yMaxThreshold && theLastScreen[1] < aY) || (0 > yMinThreshold && theLastMouseY > aY)) == false) {
+            if (((0 > yMinThreshold) || (height < yMaxThreshold))) {
+                if ((((height >= yMaxThreshold) || (theLastScreen[1] >= aY))
+                        && ((0 <= yMinThreshold) || (theLastMouseY <= aY)))) {
                     aY2 = theLastScreen[1];
                 }
             }
 
             if (aX2 != theLastScreen[0] || aY2 != theLastScreen[1]) {
-                p.shiftExtent(new double[] { aX2, aY2 }, theLastScreen);
+                canvas.shiftExtent(new double[] { aX2, aY2 }, theLastScreen);
             }
         }
         theLastMouseX = aX;
@@ -231,38 +235,34 @@ public class PanHandler extends InputAdapter {
         return true;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.raytheon.viz.ui.input.IInputHandler#handleMouseUp(int, int, int)
-     */
+    @Override
     public boolean handleMouseUp(int x, int y, int button) {
         zoomDir = 0;
 
         if (prefManager.handleClick(CLEAR_PREF, button)) {
-            for (IDisplayPane pane : container.getDisplayPanes()) {
-                pane.clear();
+            for (IDisplayPane canvas : container.getDisplayPanes()) {
+                canvas.clear();
             }
             return true;
         }
 
         if (this.downPosition == null || downPosition[0] != x
-                || downPosition[1] != y)
+                || downPosition[1] != y) {
             return false;
+        }
 
         if (prefManager.handleClick(ZOOMIN_PREF, button)
                 || prefManager.handleClick(ZOOMOUT_PREF, button)) {
-            IDisplayPane[] panes = container.getDisplayPanes();
-
             Coordinate world = container.translateClick(x, y);
             if (world == null) {
                 return false;
             }
-            for (IDisplayPane pane : panes) {
+            for (IDisplayPane canvas : container
+                    .getCanvasesCompatibleWithActive()) {
                 if (prefManager.handleClick(ZOOMIN_PREF, button)) {
-                    pane.zoom(15, x, y);
+                    canvas.zoom(15, x, y);
                 } else {
-                    pane.zoom(-15, x, y);
+                    canvas.zoom(-15, x, y);
                 }
             }
             container.refresh();
@@ -284,7 +284,7 @@ public class PanHandler extends InputAdapter {
                 // bad value set, reset and store
                 panningPercentage = panningPercentage < 0.0 ? 0.0 : 1.0;
 
-                store.setValue(PAN_PERCENTAGE, panningPercentage.doubleValue());
+                store.setValue(PAN_PERCENTAGE, panningPercentage);
                 try {
                     store.save();
                 } catch (IOException e) {
@@ -293,7 +293,7 @@ public class PanHandler extends InputAdapter {
                 }
             }
         }
-        return panningPercentage.doubleValue();
+        return panningPercentage;
     }
 
     @Override
@@ -307,28 +307,29 @@ public class PanHandler extends InputAdapter {
             } else if (event.count < 0) {
                 mouseEvent = MouseEvent.SCROLL_BACK;
             }
-            IDisplayPane[] panes = container.getDisplayPanes();
             double[] grid = container.getActiveDisplayPane().screenToGrid(x, y,
                     0);
             if (prefManager.handleEvent(PanHandler.ZOOMOUT_PREF, mouseEvent)) {
-                for (IDisplayPane pane : panes) {
-                    double[] screen = pane.gridToScreen(grid);
-                    pane.zoom(-Math.abs(event.count), (int) screen[0],
+                for (IDisplayPane canvas : container
+                        .getCanvasesCompatibleWithActive()) {
+                    double[] screen = canvas.gridToScreen(grid);
+                    canvas.zoom(-Math.abs(event.count), (int) screen[0],
                             (int) screen[1]);
                 }
                 return true;
             } else if (prefManager.handleEvent(PanHandler.ZOOMIN_PREF,
                     mouseEvent)) {
-                for (IDisplayPane pane : panes) {
-                    double[] screen = pane.gridToScreen(grid);
-                    pane.zoom(Math.abs(event.count), (int) screen[0],
+                for (IDisplayPane canvas : container
+                        .getCanvasesCompatibleWithActive()) {
+                    double[] screen = canvas.gridToScreen(grid);
+                    canvas.zoom(Math.abs(event.count), (int) screen[0],
                             (int) screen[1]);
                 }
                 return true;
             } else if (prefManager.handleEvent(CLEAR_PREF, mouseEvent)) {
-                for (IDisplayPane pane : panes) {
-                    pane.clear();
-                    pane.refresh();
+                for (IDisplayPane canvas : container.getDisplayPanes()) {
+                    canvas.clear();
+                    canvas.refresh();
                 }
                 return true;
             }

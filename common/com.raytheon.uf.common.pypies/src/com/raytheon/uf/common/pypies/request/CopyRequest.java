@@ -35,7 +35,8 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * ------------ ---------- ----------- --------------------------
  * Jan 17, 2012            rjpeter     Initial creation
  * Feb 29, 2016 5420       tgurney     Remove timestampCheck field
- * Sep 23, 2021 8608        mapeters   Add {@link #getType()}
+  *Mar 24  2021 8374       srahimi     Added toString Method for Logging
+ * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
  *
@@ -137,4 +138,23 @@ public class CopyRequest extends AbstractRequest {
     public RequestType getType() {
         return RequestType.COPY;
     }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", repack[");
+        rval.append(repack);
+        rval.append("], repackCompression[");
+        rval.append(repackCompression);
+        rval.append("], outputDir[");
+        rval.append(outputDir);
+        rval.append("], minMillisSinceLastChange[");
+        rval.append(minMillisSinceLastChange);
+        rval.append("], maxMillisSinceLastChange[");
+        rval.append(maxMillisSinceLastChange);
+        rval.append("]");
+        return rval.toString();
+
+    }
+
 }

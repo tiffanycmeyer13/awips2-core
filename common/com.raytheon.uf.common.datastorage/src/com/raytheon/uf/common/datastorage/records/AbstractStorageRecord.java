@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.raytheon.uf.common.datastorage.DataStoreFactory;
 import com.raytheon.uf.common.datastorage.StorageProperties;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
@@ -36,10 +37,13 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * SOFTWARE HISTORY
  *
  * Date          Ticket#  Engineer  Description
- * ------------- -------- --------- -------------------------
+ * ------------- -------- --------- ---------------------------------------
  * Feb 08, 2007           chammack  Initial Creation.
  * Dec 31, 2008           chammack  Added correlation object
+ * Mar 29, 2021  8374     randerso  Added toString() method. Code cleanup.
  * Jun 10, 2021  8450     mapeters  Add serialVersionUID
+ * Nov 04, 2022  8931     smoorthy  Normalize group name
+ * Mar 23, 2023  2031674  mapeters  Support shallow cloning
  *
  * </pre>
  *
@@ -86,6 +90,27 @@ public abstract class AbstractStorageRecord implements IDataRecord {
      */
     protected Object correlationObject;
 
+    /**
+     * Nullary constructor for Dynamic Serialization
+     */
+    protected AbstractStorageRecord() {
+    }
+
+    /**
+     *
+     * @param name
+     * @param group
+     * @param dimension
+     * @param sizes
+     */
+    protected AbstractStorageRecord(String name, String group, int dimension,
+            long[] sizes) {
+        this.name = name;
+        this.group = group;
+        this.dimension = dimension;
+        this.sizes = sizes;
+    }
+
     @Override
     public void setIntSizes(int[] sizes) {
         long[] longSizes = new long[sizes.length];
@@ -96,8 +121,13 @@ public abstract class AbstractStorageRecord implements IDataRecord {
     }
 
     @Override
-    public StorageProperties getProperties() {
+    public StorageProperties getProps() {
         return this.props;
+    }
+
+    @Override
+    public void setProps(StorageProperties props) {
+        this.props = props;
     }
 
     @Override
@@ -111,18 +141,13 @@ public abstract class AbstractStorageRecord implements IDataRecord {
     }
 
     @Override
-    public void setProperties(StorageProperties props) {
-        this.props = props;
-    }
-
-    @Override
     public int getDimension() {
         return dimension;
     }
 
     @Override
-    public void setDimension(int dimensions) {
-        this.dimension = dimensions;
+    public void setDimension(int dimension) {
+        this.dimension = dimension;
     }
 
     @Override
@@ -162,7 +187,7 @@ public abstract class AbstractStorageRecord implements IDataRecord {
      */
     @Override
     public void setGroup(String group) {
-        this.group = group;
+        this.group = DataStoreFactory.normalizeAttributeName(group);
     }
 
     /**
@@ -251,46 +276,68 @@ public abstract class AbstractStorageRecord implements IDataRecord {
     }
 
     @Override
-    public IDataRecord clone() {
-        AbstractStorageRecord record = cloneInternal();
+    public IDataRecord clone(boolean deep) {
+        AbstractStorageRecord record = cloneInternal(deep);
         record.name = name;
         record.dimension = dimension;
-        if (sizes != null) {
-            record.sizes = Arrays.copyOf(sizes, sizes.length);
-        }
-        if (maxSizes != null) {
-            record.maxSizes = Arrays.copyOf(maxSizes, maxSizes.length);
-        }
-        if (props != null) {
-            record.props = props.clone();
-        }
-        if (minIndex != null) {
-            record.minIndex = Arrays.copyOf(minIndex, minIndex.length);
+        if (deep) {
+            if (sizes != null) {
+                record.sizes = Arrays.copyOf(sizes, sizes.length);
+            }
+            if (maxSizes != null) {
+                record.maxSizes = Arrays.copyOf(maxSizes, maxSizes.length);
+            }
+            if (props != null) {
+                record.props = props.clone();
+            }
+            if (minIndex != null) {
+                record.minIndex = Arrays.copyOf(minIndex, minIndex.length);
+            }
+            if (dataAttributes != null) {
+                record.dataAttributes = new HashMap<>(dataAttributes);
+            }
+        } else {
+            record.sizes = sizes;
+            record.maxSizes = maxSizes;
+            record.props = props;
+            record.minIndex = minIndex;
+            record.dataAttributes = dataAttributes;
         }
         record.group = group;
-        if (dataAttributes != null) {
-            record.dataAttributes = new HashMap<>(dataAttributes);
-        }
         record.fillValue = fillValue;
         record.maxChunkSize = maxChunkSize;
         record.correlationObject = correlationObject;
         return record;
     }
 
+    @Override
+    public final IDataRecord clone() {
+        // Deep clone by default
+        return clone(true);
+    }
+
     /**
-     * Create a new Record Object and clone/copy all members of the object where
-     * possibly, do not just set references
+     * Internal clone method that subclasses must implement to create a new
+     * record object and clone their internal fields.
      *
+     * @param deep
+     *            true to do a deep clone, false to do a shallow clone
      * @return cloned record
      */
-    protected abstract AbstractStorageRecord cloneInternal();
+    protected abstract AbstractStorageRecord cloneInternal(boolean deep);
 
-    public StorageProperties getProps() {
-        return props;
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(getClass().getSimpleName());
+        sb.append(", group[");
+        sb.append(group);
+        sb.append("], dataset[");
+        sb.append(name);
+        sb.append("], dims");
+        sb.append(Arrays.toString(sizes));
+        sb.append(", bytes[");
+        sb.append(getSizeInBytes());
+        sb.append("]");
+        return sb.toString();
     }
-
-    public void setProps(StorageProperties props) {
-        this.props = props;
-    }
-
 }

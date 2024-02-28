@@ -19,12 +19,14 @@
  **/
 package com.raytheon.uf.common.pypies.request;
 
+import java.util.Arrays;
+
 import com.raytheon.uf.common.datastorage.Request;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * PyPies dataset data request
  *
  * <pre>
  *
@@ -32,6 +34,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Jul 20, 2010            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
  * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
@@ -61,6 +64,18 @@ public class DatasetDataRequest extends AbstractRequest {
 
     public void setRequest(Request request) {
         this.request = request;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", datasetGroupPath");
+        rval.append(Arrays.toString(datasetGroupPath));
+        rval.append(", request[");
+        rval.append(request);
+        rval.append("]");
+        return rval.toString();
+
     }
 
     @Override

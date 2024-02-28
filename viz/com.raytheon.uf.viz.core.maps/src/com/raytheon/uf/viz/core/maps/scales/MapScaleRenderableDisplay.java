@@ -1,19 +1,19 @@
 /**
  * This software was developed and / or modified by Raytheon Company,
  * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
- * 
+ *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
  * export/transfer/disclosure is restricted by U.S. law. Dissemination
  * to non-U.S. persons whether in the United States or abroad requires
  * an export license or other authorization.
- * 
+ *
  * Contractor Name:        Raytheon Company
  * Contractor Address:     6825 Pine Street, Suite 340
  *                         Mail Stop B8
  *                         Omaha, NE 68106
  *                         402.291.0100
- * 
+ *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
  **/
@@ -45,11 +45,11 @@ import com.raytheon.uf.viz.core.rsc.ResourceProperties;
 
 /**
  * MapRenderableDisplay associated with a {@link MapScale}
- * 
+ *
  * <pre>
- * 
+ *
  * SOFTWARE HISTORY
- * 
+ *
  * Date          Ticket#  Engineer    Description
  * ------------- -------- ----------- --------------------------
  * Mar 22, 2013           mschenke    Initial creation
@@ -60,20 +60,20 @@ import com.raytheon.uf.viz.core.rsc.ResourceProperties;
  *                                    non-system resources. Also
  *                                    make clear() turn off sampling
  *                                    and lat/lon readout.
- * 
- * 
+ * Oct 03, 2022  8946     mapeters    Handle rename of scale constant
+ *
+ *
  * </pre>
- * 
+ *
  * @author mschenke
- * @version 1.0
  */
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlRootElement
 public class MapScaleRenderableDisplay extends PlainMapRenderableDisplay
         implements IMapScaleDisplay {
 
-    protected String scaleName = (String) VizGlobalsManager
-            .getCurrentInstance().getPropery(VizConstants.SCALE_ID);
+    protected String scaleName = (String) VizGlobalsManager.getCurrentInstance()
+            .getProperty(VizConstants.MAP_SCALE_ID);
 
     public MapScaleRenderableDisplay() {
         super();
@@ -104,11 +104,11 @@ public class MapScaleRenderableDisplay extends PlainMapRenderableDisplay
                 for (AbstractRenderableDisplay bundleDisplay : bundle
                         .getDisplays()) {
                     // keep system resources
-                    List<ResourcePair> markedForDeletion = new ArrayList<ResourcePair>();
+                    List<ResourcePair> markedForDeletion = new ArrayList<>();
                     ResourceList bundleRscList = bundleDisplay.getDescriptor()
                             .getResourceList();
                     for (ResourcePair rp : bundleRscList) {
-                        if (rp.getProperties().isSystemResource() == false) {
+                        if (!rp.getProperties().isSystemResource()) {
                             markedForDeletion.add(rp);
                         }
                     }
@@ -124,8 +124,8 @@ public class MapScaleRenderableDisplay extends PlainMapRenderableDisplay
 
     @Override
     public void clear() {
-        ManagedMapScale scale = MapScalesManager.getInstance().getScaleByName(
-                getScaleName());
+        ManagedMapScale scale = MapScalesManager.getInstance()
+                .getScaleByName(getScaleName());
         if (scale != null) {
             descriptor.getResourceList().clear();
             loadScale(scale);
@@ -135,8 +135,7 @@ public class MapScaleRenderableDisplay extends PlainMapRenderableDisplay
             ResourceList list = descriptor.getResourceList();
             for (ResourcePair rp : list) {
                 ResourceProperties props = rp.getProperties();
-                if (props.isMapLayer() == false
-                        && props.isSystemResource() == false) {
+                if (!props.isMapLayer() && !props.isSystemResource()) {
                     list.remove(rp);
                 } else {
                     try {
@@ -144,10 +143,12 @@ public class MapScaleRenderableDisplay extends PlainMapRenderableDisplay
                         rp.getResource().recycle();
                     } catch (Throwable e) {
                         props.setVisible(false);
-                        statusHandler.handle(Priority.PROBLEM, "Clear error: "
-                                + e.getMessage() + ":: The resource ["
-                                + rp.getResource().getSafeName()
-                                + "] has been disabled.", e);
+                        statusHandler.handle(Priority.PROBLEM,
+                                "Clear error: " + e.getMessage()
+                                        + ":: The resource ["
+                                        + rp.getResource().getSafeName()
+                                        + "] has been disabled.",
+                                e);
                     }
                 }
             }
@@ -162,10 +163,10 @@ public class MapScaleRenderableDisplay extends PlainMapRenderableDisplay
                 Bundle bundle = scale.getScaleBundle();
                 for (AbstractRenderableDisplay ard : bundle.getDisplays()) {
                     try {
-                        descriptor.setGridGeometry(ard.getDescriptor()
-                                .getGridGeometry());
-                        descriptor.getResourceList().addAll(
-                                ard.getDescriptor().getResourceList());
+                        descriptor.setGridGeometry(
+                                ard.getDescriptor().getGridGeometry());
+                        descriptor.getResourceList()
+                                .addAll(ard.getDescriptor().getResourceList());
                         ard.getDescriptor().getResourceList().clear();
                         break;
                     } catch (VizException e) {
@@ -187,7 +188,7 @@ public class MapScaleRenderableDisplay extends PlainMapRenderableDisplay
     @Override
     public Map<String, Object> getGlobalsMap() {
         Map<String, Object> globals = super.getGlobalsMap();
-        globals.put(VizConstants.SCALE_ID, getScaleName());
+        globals.put(VizConstants.MAP_SCALE_ID, getScaleName());
         return globals;
     }
 

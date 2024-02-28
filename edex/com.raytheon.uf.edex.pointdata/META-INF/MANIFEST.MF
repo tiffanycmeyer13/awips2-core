@@ -17,7 +17,8 @@ Require-Bundle: com.raytheon.uf.common.pointdata;visibility:=reexport,
  com.raytheon.edex.common,
  org.geotools,
  javax.measure,
- javax.xml.bind
+ javax.xml.bind,
+ org.slf4j
 Export-Package: com.raytheon.uf.edex.pointdata,
  com.raytheon.uf.edex.pointdata.spatial
 Import-Package: com.raytheon.uf.common.inventory.tree

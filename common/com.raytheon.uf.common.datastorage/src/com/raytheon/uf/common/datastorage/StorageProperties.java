@@ -38,6 +38,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * ------------- -------- --------- -------------------------------
  * Feb 08, 2007           chammack  Initial Creation.
  * Nov 14, 2013  2393     bclement  removed interpolation
+ * Mar 29, 2021  8335     mapeters  Removed {@link Compression}.LZF
  * Jun 10, 2021  8450     mapeters  Implement {@link Serializable}
  *
  * </pre>
@@ -54,12 +55,11 @@ public class StorageProperties implements Cloneable, Serializable {
      * <UL>
      * <LI>NONE - No compression
      * <LI>ZLIB - standard libz compression (supported by h5dump, etc.)
-     * <LI>LZF - LZF compression (much faster but less effective, not supported
-     * by h5dump)
+     * <LI>GZIP - Deflate Compression
      * </UL>
      */
     public enum Compression {
-        NONE, ZLIB, LZF
+        NONE, ZLIB, GZIP
     }
 
     /** The compression flag */

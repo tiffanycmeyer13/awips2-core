@@ -1,6 +1,6 @@
 /**
- * This software was developed and / or modified by Raytheon Company,
- * pursuant to Contract DG133W-05-CQ-1067 with the US Government.
+ * This software was developed and / or modified by  Company,
+ *  to Contract DG133W-05-CQ-1067 with the US Government.
  *
  * U.S. EXPORT CONTROLLED TECHNICAL DATA
  * This software product contains export-restricted data whose
@@ -16,15 +16,19 @@
  *
  * See the AWIPS II Master Rights File ("Master Rights File.pdf") for
  * further licensing information.
+ *
+*
  **/
 package com.raytheon.uf.common.pypies.request;
+
+import java.util.Arrays;
 
 import com.raytheon.uf.common.datastorage.Request;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerialize;
 import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
 
 /**
- * TODO Add Description
+ * PyPies groups request
  *
  * <pre>
  *
@@ -32,6 +36,7 @@ import com.raytheon.uf.common.serialization.annotations.DynamicSerializeElement;
  * Date         Ticket#    Engineer    Description
  * ------------ ---------- ----------- --------------------------
  * Aug 16, 2010            njensen     Initial creation
+ * Mar 24, 2021 8374       srahimi     Added toString Method for Logging
  * Sep 23, 2021 8608       mapeters    Add {@link #getType()}
  *
  * </pre>
@@ -61,6 +66,18 @@ public class GroupsRequest extends AbstractRequest {
 
     public void setRequest(Request request) {
         this.request = request;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder rval = new StringBuilder(super.toString());
+        rval.append(", groups");
+        rval.append(Arrays.toString(groups));
+        rval.append(", request[");
+        rval.append(request);
+        rval.append("]");
+        return rval.toString();
+
     }
 
     @Override

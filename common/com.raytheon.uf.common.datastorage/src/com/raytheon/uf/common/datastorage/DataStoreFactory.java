@@ -48,6 +48,7 @@ import com.raytheon.uf.common.datastorage.records.StringDataRecord;
  *                                       {@link #isInterpolated} from various classes.
  * Nov 18, 2014    3549     njensen     Support StringDataRecord in both createStorageRecord() methods
  * Apr 24, 2015    4425     nabowle     Add DoubleDataRecord
+ * Nov 04, 2022    8931     smoorthy    Add public static method for normalizing attributes.
  *
  *
  * </pre>
@@ -137,17 +138,17 @@ public class DataStoreFactory {
             record = new ByteDataRecord(name, group, (byte[]) data, dimension,
                     sizes);
         } else if ((short[].class) == data.getClass()) {
-            record = new ShortDataRecord(name, group, (short[]) data,
-                    dimension, sizes);
+            record = new ShortDataRecord(name, group, (short[]) data, dimension,
+                    sizes);
         } else if ((int[].class) == data.getClass()) {
-            record = new IntegerDataRecord(name, group, (int[]) data,
-                    dimension, sizes);
+            record = new IntegerDataRecord(name, group, (int[]) data, dimension,
+                    sizes);
         } else if ((long[].class) == data.getClass()) {
             record = new LongDataRecord(name, group, (long[]) data, dimension,
                     sizes);
         } else if ((float[].class) == data.getClass()) {
-            record = new FloatDataRecord(name, group, (float[]) data,
-                    dimension, sizes);
+            record = new FloatDataRecord(name, group, (float[]) data, dimension,
+                    sizes);
         } else if (String[].class == data.getClass()) {
             record = new StringDataRecord(name, group, (String[]) data,
                     dimension, sizes);
@@ -267,11 +268,11 @@ public class DataStoreFactory {
      *            The interpolation level data set numeric identifier.
      * @return The generated fully qualified dataset name.
      */
-    public static String createDataSetName(String groupName,
-            String baseDataSet, int interpolatedLevel) {
+    public static String createDataSetName(String groupName, String baseDataSet,
+            int interpolatedLevel) {
         boolean interpolated = isInterpolated(interpolatedLevel);
-        StringBuilder interpolatedGroup = new StringBuilder(createGroupName(
-                groupName, baseDataSet, interpolated));
+        StringBuilder interpolatedGroup = new StringBuilder(
+                createGroupName(groupName, baseDataSet, interpolated));
 
         interpolatedGroup.append(DEF_SEPARATOR);
         if (interpolated) {
@@ -381,5 +382,32 @@ public class DataStoreFactory {
      */
     public static boolean isInterpolated(int interpolatedLevel) {
         return (interpolatedLevel > BASE_LEVEL);
+    }
+
+    /**
+     * "Normalize" an attribute so that there is only one "/" at the beginning
+     * and no "/" at the end. Empty string remains empty. Null param is just
+     * returned as is.
+     *
+     * @param attributeName
+     *            The attribute string to normalize.
+     * @return The normalized attribute string.
+     */
+    public static String normalizeAttributeName(String attributeName) {
+        if (attributeName == null) {
+            return attributeName;
+        }
+        attributeName = attributeName.replaceAll(
+                DataStoreFactory.DEF_SEPARATOR + DataStoreFactory.DEF_SEPARATOR,
+                DataStoreFactory.DEF_SEPARATOR);
+        if (attributeName.endsWith(DataStoreFactory.DEF_SEPARATOR)) {
+            attributeName = attributeName.substring(0, attributeName.length()
+                    - DataStoreFactory.DEF_SEPARATOR.length());
+        }
+        if (attributeName.length() > 0 && (!attributeName
+                .startsWith(DataStoreFactory.DEF_SEPARATOR))) {
+            attributeName = DataStoreFactory.DEF_SEPARATOR + attributeName;
+        }
+        return attributeName;
     }
 }
