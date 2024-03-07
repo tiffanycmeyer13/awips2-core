@@ -171,6 +171,7 @@ public class MapScalesManager {
             this.displayName = displayName;
             this.partIds = new PartId[0];
             this.scaleFile = null;
+            this.areaScale = null;
             this.bundleXml = ProcedureXmlManager.getInstance()
                     .marshal(scaleBundle);
         }

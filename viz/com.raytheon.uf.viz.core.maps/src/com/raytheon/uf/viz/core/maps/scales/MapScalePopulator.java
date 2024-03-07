@@ -42,11 +42,8 @@ import com.raytheon.uf.viz.core.maps.scales.MapScalesManager.ManagedMapScale;
  * Oct 7, 2010             mschenke    Initial creation
  * Mar 21, 2013       1638 mschenke    Made map scales not tied to d2d
  * Oct 10, 2013       2104 mschenke    Switched to use MapScalesManager
- * May 17, 2015			   mjames@ucar Added functionality to add loaded 
- * 									   area definitions as bundles
- * Oct 29, 2016            mjames@ucar Added WFO submenu and cleaned up 
- * 									   imports and comments
  * Oct 03, 2022       8946 mapeters    Updated for new combo editor
+ * Mar 06, 2024          srcarter@ucar Attempt to add back WFO submenu from mjames
  *
  * </pre>
  *
@@ -58,53 +55,35 @@ public class MapScalePopulator extends CompoundContributionItem {
 	@Override
     protected IContributionItem[] getContributionItems() {
         MenuManager menuMgr = new MenuManager("Scales", "mapControls");
-        IDisplayPaneContainer cont = EditorUtil.getActiveVizContainer();
         
         MenuManager wfoSubMenu = new MenuManager("WFO", null);
-        MenuManager radarSubMenu = new MenuManager("WSR-88D", null);
         
-        if ((cont != null )
-                || EditorUtil.getActiveEditor() == null) {
-
-        	/*
-             * Contribute default scales 
-             * this method doesn't use event listeners, the commands are inserted to
-             * CommandContributionItem/CommandContributionItemParameter
-             */
-        	
-            for (ManagedMapScale scale : MapScalesManager.getInstance()
-                    .getScales()) {
-        		String[] displayName = scale.getDisplayName().split("/");
-        		if (displayName.length > 1) {
-
-	                Map<String, String> parms = new HashMap<String, String>();
-	                parms.put(MapScaleHandler.SCALE_NAME_ID, scale.getDisplayName());
-	                CommandContributionItem item = new CommandContributionItem(
-	                        new CommandContributionItemParameter(
-	                                PlatformUI.getWorkbench(), null,
-	                                MapScaleHandler.SET_SCALE_COMMAND_ID, parms,
-	                                null, null, null,  displayName[1], null,
-	                                null, CommandContributionItem.STYLE_PUSH, null,
-	                                true));
-	                wfoSubMenu.add(item);
-	                
-	                
-        		} else {
-
-	                Map<String, String> parms = new HashMap<String, String>();
-	                parms.put(MapScaleHandler.SCALE_NAME_ID, scale.getDisplayName());
-	                CommandContributionItem item = new CommandContributionItem(
-	                        new CommandContributionItemParameter(
-	                                PlatformUI.getWorkbench(), null,
-	                                MapScaleHandler.SET_SCALE_COMMAND_ID, parms,
-	                                null, null, null, scale.getDisplayName(), null,
-	                                null, CommandContributionItem.STYLE_PUSH, null,
-	                                true));
-	                menuMgr.add(item);
-        		}
-            }  
+        for (ManagedMapScale scale : MapScalesManager.getInstance()
+                .getScales()) {
+            
+            String displayName = scale.getDisplayName();
+            String[] displayNameVal = displayName.split("/");
+            
+            if(displayNameVal.length > 1) {
+                displayName = displayNameVal[1];
+            }
+            
+            Map<String, String> parms = Map.of(VizConstants.MAP_SCALE_ID,
+                    scale.getDisplayName());
+            CommandContributionItem item = new CommandContributionItem(
+                    new CommandContributionItemParameter(
+                            PlatformUI.getWorkbench(), null,
+                            MapScaleHandler.SET_SCALE_COMMAND_ID, parms, null,
+                            null, null, displayName, null, null,
+                            CommandContributionItem.STYLE_PUSH, null, true));
+            
+            if(displayNameVal.length > 1) {
+                wfoSubMenu.add(item);
+            }else {
+                menuMgr.add(item);
+            }
             menuMgr.add(wfoSubMenu);
-	    }
+        }
         
         return menuMgr.getItems();
     }
