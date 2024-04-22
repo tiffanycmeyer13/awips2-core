@@ -358,7 +358,7 @@ public class ConnectivityPreferenceDialog {
         gd.horizontalIndent = 20;
         localizationLabel.setLayoutData(gd);
         //TODO: change this back when we're finished with beta and ready for production
-        String unidataEDEXUrl = "edex-cloud.unidata.ucar.edu";
+        String unidataEDEXUrl = "edex-beta.unidata.ucar.edu";
         
         String[] pastOptions = {
                         unidataEDEXUrl,
@@ -408,7 +408,6 @@ public class ConnectivityPreferenceDialog {
             }
         });
         localizationSrv.setText(localization == null || localization.equals("") ? unidataEDEXUrl : localization);
-
         Label label = new Label(textBoxComp, SWT.RIGHT);
         label.setText("Site");
         gd = new GridData(SWT.RIGHT, SWT.CENTER, false, true);
